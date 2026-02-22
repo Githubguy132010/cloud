@@ -288,6 +288,7 @@ export async function startSecurityAnalysis(params: {
       organizationId,
       findingId,
       model,
+      analysisMode,
     });
 
     const tier1Start = performance.now();
