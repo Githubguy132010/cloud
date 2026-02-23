@@ -44,8 +44,11 @@ type ResumeConfigModalProps = {
 };
 
 export const MODES = [
-  { value: 'build', label: 'Build' },
+  { value: 'code', label: 'Code' },
   { value: 'plan', label: 'Plan' },
+  { value: 'debug', label: 'Debug' },
+  { value: 'orchestrator', label: 'Orchestrator' },
+  { value: 'ask', label: 'Ask' },
 ] as const;
 
 /** Valid mode values for validation */
@@ -88,14 +91,14 @@ export function ResumeConfigModal({
       : orgDefaultModel;
 
   // Form state
-  const [mode, setMode] = useState<ResumeConfig['mode']>(defaultMode || 'build');
+  const [mode, setMode] = useState<ResumeConfig['mode']>(defaultMode || 'code');
   const [model, setModel] = useState<string>(defaultModel || '');
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
   const [setupCommands, setSetupCommands] = useState<string[]>([]);
 
   // Sync mode when session changes (e.g., modal opens for different session)
   useEffect(() => {
-    setMode(defaultMode || 'build');
+    setMode(defaultMode || 'code');
   }, [defaultMode]);
 
   // Sync model when session changes

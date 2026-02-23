@@ -128,7 +128,7 @@ describe('needsResumeConfigModal', () => {
 
     const indexedDbSession = createIndexedDbSession({
       resumeConfig: {
-        mode: 'build',
+        mode: 'code',
         model: 'anthropic/claude-3-5-sonnet',
       },
     });
@@ -197,7 +197,7 @@ describe('getPersistedResumeConfig', () => {
     });
 
     const inMemoryConfig = {
-      mode: 'build' as const,
+      mode: 'code' as const,
       model: 'local-model',
       envVars: { API_KEY: 'secret' },
     };
@@ -239,7 +239,7 @@ describe('getPersistedResumeConfig', () => {
     const indexedDbSession = createIndexedDbSession({
       repository: 'fallback/repo',
       resumeConfig: {
-        mode: 'build',
+        mode: 'code',
         model: 'some-model',
       },
     });
@@ -250,7 +250,7 @@ describe('getPersistedResumeConfig', () => {
     });
 
     expect(result).toEqual({
-      mode: 'build',
+      mode: 'code',
       model: 'some-model',
       envVars: undefined,
       setupCommands: undefined,

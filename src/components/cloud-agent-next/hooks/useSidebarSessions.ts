@@ -25,8 +25,8 @@ function dbSessionToStoredSession(session: DbSession | DbSessionV2): StoredSessi
     sessionId: session.session_id,
     repository: '',
     prompt: title,
-    mode: 'build',
-    model: '',
+    mode: 'code', // Default mode for V2
+    model: '', // Not stored in DB session list
     status: session.cloud_agent_session_id ? 'active' : 'completed',
     createdAt: session.created_at.toISOString(),
     updatedAt: session.updated_at.toISOString(),
