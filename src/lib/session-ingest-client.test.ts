@@ -1,4 +1,7 @@
+import { captureException } from '@sentry/nextjs';
+import { generateInternalServiceToken } from '@/lib/tokens';
 import type { SessionSnapshot } from './session-ingest-client';
+import { fetchSessionSnapshot, fetchSessionMessages } from './session-ingest-client';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -19,18 +22,8 @@ jest.mock('@/lib/tokens', () => ({
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-const { captureException: mockCaptureException } = require('@sentry/nextjs') as {
-  captureException: jest.Mock;
-};
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-const { generateInternalServiceToken: mockGenerateInternalServiceToken } =
-  require('@/lib/tokens') as {
-    generateInternalServiceToken: jest.Mock;
-  };
-
-import { fetchSessionSnapshot, fetchSessionMessages } from './session-ingest-client';
+const mockCaptureException = jest.mocked(captureException);
+const mockGenerateInternalServiceToken = jest.mocked(generateInternalServiceToken);
 
 // ---------------------------------------------------------------------------
 // Helpers
