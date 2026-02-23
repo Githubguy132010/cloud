@@ -406,6 +406,7 @@ export async function startSecurityAnalysis(params: {
       githubRepo,
       githubToken,
       kilocodeOrganizationId: organizationId,
+      createdOnPlatform: 'security-agent',
       callbackTarget: {
         url: callbackUrl,
         headers: { 'X-Internal-Secret': INTERNAL_API_SECRET },

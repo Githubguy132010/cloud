@@ -11,7 +11,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { INTERNAL_API_SECRET } from '@/lib/config.server';
 import { captureException } from '@sentry/nextjs';
 import { getSecurityFindingById } from '@/lib/security-agent/db/security-findings';
@@ -49,7 +49,7 @@ export async function POST(
 ) {
   try {
     const secret = req.headers.get('X-Internal-Secret');
-    if (secret !== INTERNAL_API_SECRET) {
+    if (!INTERNAL_API_SECRET || secret !== INTERNAL_API_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -89,11 +89,20 @@ export async function POST(
       });
     }
 
-    if (payload.status === 'completed') {
-      await handleAnalysisCompleted(findingId, payload, finding);
-    } else {
-      await handleAnalysisFailed(findingId, payload, finding);
-    }
+    after(async () => {
+      try {
+        if (payload.status === 'completed') {
+          await handleAnalysisCompleted(findingId, payload, finding);
+        } else {
+          await handleAnalysisFailed(findingId, payload, finding);
+        }
+      } catch (error) {
+        logError('Error processing security analysis callback', { error });
+        captureException(error, {
+          tags: { source: 'security-analysis-callback-api' },
+        });
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
