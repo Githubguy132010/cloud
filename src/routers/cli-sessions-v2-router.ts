@@ -2,7 +2,7 @@ import 'server-only';
 import { baseProcedure, createTRPCRouter } from '@/lib/trpc/init';
 import * as z from 'zod';
 import { db } from '@/lib/drizzle';
-import { eq, and, desc, lt, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, desc, lt, isNull } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { TRPCClientError } from '@trpc/client';
 import { cli_sessions_v2 } from '@/db/schema';
