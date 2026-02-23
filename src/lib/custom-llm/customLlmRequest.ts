@@ -240,7 +240,7 @@ function convertTools(tools: OpenRouterChatCompletionRequest['tools']): ToolSet 
     if (t.type !== 'function') continue;
     result[t.function.name] = {
       description: t.function.description,
-      strict: (t.type === 'function' && t.function.strict) || undefined,
+      strict: (t.type === 'function' && t.function.strict) ?? undefined,
       inputSchema: jsonSchema(t.function.parameters ?? { type: 'object' }),
     };
   }
