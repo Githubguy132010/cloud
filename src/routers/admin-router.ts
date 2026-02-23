@@ -40,7 +40,6 @@ import { revalidatePath } from 'next/cache';
 import { recomputeUserBalances } from '@/lib/recomputeUserBalances';
 import { getStripeInvoices } from '@/lib/stripe';
 import { client as stripeClient } from '@/lib/stripe-client';
-import type Stripe from 'stripe';
 import { releaseScheduledChangeForSubscription } from '@/lib/kilo-pass/scheduled-change-release';
 import { kilo_pass_scheduled_changes } from '@/db/schema';
 import {
@@ -532,89 +531,104 @@ export const adminRouter = createTRPCRouter({
 
         await stripeClient.subscriptions.cancel(subscription.stripeSubscriptionId);
 
-        await db
-          .update(kilo_pass_subscriptions)
-          .set({
-            status: 'canceled',
-            cancel_at_period_end: false,
-            ended_at: new Date().toISOString(),
-          })
-          .where(
-            eq(kilo_pass_subscriptions.stripe_subscription_id, subscription.stripeSubscriptionId)
-          );
-
         let refundedAmountCents: number | null = null;
-        const latestInvoices = await stripeClient.invoices.list({
+        const paidInvoices = await stripeClient.invoices.list({
           subscription: subscription.stripeSubscriptionId,
-          limit: 1,
           status: 'paid',
-          expand: ['data.payment_intent'],
+          limit: 1,
         });
-        type InvoiceWithPaymentIntent = (typeof latestInvoices.data)[number] & {
-          payment_intent?: Stripe.PaymentIntent | string | null;
-        };
-        const latestInvoice = latestInvoices.data[0] as InvoiceWithPaymentIntent | undefined;
-        if (latestInvoice?.payment_intent) {
-          const paymentIntentId =
-            typeof latestInvoice.payment_intent === 'string'
-              ? latestInvoice.payment_intent
-              : latestInvoice.payment_intent.id;
-          const refund = await stripeClient.refunds.create({
-            payment_intent: paymentIntentId,
+        const paidInvoice = paidInvoices.data[0];
+        if (paidInvoice) {
+          const payments = await stripeClient.invoicePayments.list({
+            invoice: paidInvoice.id,
+            status: 'paid',
+            limit: 1,
           });
-          refundedAmountCents = refund.amount;
-        }
-
-        if (!user.blocked_reason) {
-          await db
-            .update(kilocode_users)
-            .set({ blocked_reason: input.reason })
-            .where(eq(kilocode_users.id, input.userId));
+          const paymentIntentId = payments.data[0]?.payment.payment_intent;
+          if (paymentIntentId && typeof paymentIntentId === 'string') {
+            try {
+              const refund = await stripeClient.refunds.create({
+                payment_intent: paymentIntentId,
+              });
+              refundedAmountCents = refund.amount;
+            } catch (err) {
+              if (
+                !(err instanceof stripeClient.errors.StripeInvalidRequestError) ||
+                err.code !== 'charge_already_refunded'
+              ) {
+                throw err;
+              }
+            }
+          }
         }
 
         const currentBalanceMicrodollars =
           user.total_microdollars_acquired - user.microdollars_used;
-        let balanceResetAmount: number | null = null;
-        if (currentBalanceMicrodollars > 0) {
-          await db.insert(credit_transactions).values({
-            kilo_user_id: input.userId,
-            organization_id: null,
-            is_free: true,
-            amount_microdollars: -currentBalanceMicrodollars,
-            credit_category: 'admin-cancel-refund-kilo-pass',
-            description: `Balance zeroed by admin: ${input.reason}`,
-            original_baseline_microdollars_used: user.microdollars_used,
-          });
-          await db
-            .update(kilocode_users)
-            .set({
-              total_microdollars_acquired: sql`${kilocode_users.total_microdollars_acquired} - ${currentBalanceMicrodollars}`,
-            })
-            .where(eq(kilocode_users.id, input.userId));
-          balanceResetAmount = fromMicrodollars(currentBalanceMicrodollars);
-        }
 
-        const noteParts = [
-          `Kilo Pass cancelled and refunded by admin.`,
-          `Reason: ${input.reason}`,
-          refundedAmountCents != null
-            ? `Refunded: $${(refundedAmountCents / 100).toFixed(2)}`
-            : 'No invoice to refund.',
-          balanceResetAmount != null
-            ? `Balance reset: $${balanceResetAmount.toFixed(2)} zeroed.`
-            : 'Balance was already $0.',
-          !user.blocked_reason ? 'Account blocked.' : 'Account was already blocked.',
-        ];
-        await db.insert(user_admin_notes).values({
-          kilo_user_id: input.userId,
-          note_content: noteParts.join(' '),
-          admin_kilo_user_id: ctx.user.id,
+        const balanceResetAmountUsd = await db.transaction(async tx => {
+          await tx
+            .update(kilo_pass_subscriptions)
+            .set({
+              status: 'canceled',
+              cancel_at_period_end: false,
+              ended_at: new Date().toISOString(),
+              current_streak_months: 0,
+            })
+            .where(
+              eq(kilo_pass_subscriptions.stripe_subscription_id, subscription.stripeSubscriptionId)
+            );
+
+          if (!user.blocked_reason) {
+            await tx
+              .update(kilocode_users)
+              .set({ blocked_reason: input.reason })
+              .where(eq(kilocode_users.id, input.userId));
+          }
+
+          let balanceReset: number | null = null;
+          if (currentBalanceMicrodollars > 0) {
+            await tx.insert(credit_transactions).values({
+              kilo_user_id: input.userId,
+              organization_id: null,
+              is_free: true,
+              amount_microdollars: -currentBalanceMicrodollars,
+              credit_category: 'admin-cancel-refund-kilo-pass',
+              description: `Balance zeroed by admin: ${input.reason}`,
+              original_baseline_microdollars_used: user.microdollars_used,
+            });
+            await tx
+              .update(kilocode_users)
+              .set({
+                total_microdollars_acquired: sql`${kilocode_users.total_microdollars_acquired} - ${currentBalanceMicrodollars}`,
+              })
+              .where(eq(kilocode_users.id, input.userId));
+            balanceReset = fromMicrodollars(currentBalanceMicrodollars);
+          }
+
+          const noteParts = [
+            `Kilo Pass cancelled and refunded by admin.`,
+            `Reason: ${input.reason}`,
+            refundedAmountCents != null
+              ? `Refunded: $${(refundedAmountCents / 100).toFixed(2)}`
+              : 'No invoice to refund.',
+            balanceReset != null
+              ? `Balance reset: $${balanceReset.toFixed(2)} zeroed.`
+              : 'Balance was already $0.',
+            !user.blocked_reason ? 'Account blocked.' : 'Account was already blocked.',
+          ];
+          await tx.insert(user_admin_notes).values({
+            kilo_user_id: input.userId,
+            note_content: noteParts.join(' '),
+            admin_kilo_user_id: ctx.user.id,
+          });
+
+          return balanceReset;
         });
 
         return {
           success: true,
           refundedAmountCents,
-          balanceResetAmountUsd: balanceResetAmount,
+          balanceResetAmountUsd,
           alreadyBlocked: !!user.blocked_reason,
         };
       }),
