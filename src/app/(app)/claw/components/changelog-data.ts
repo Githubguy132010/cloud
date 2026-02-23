@@ -12,6 +12,12 @@ export type ChangelogEntry = {
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     date: '2026-02-23',
+    description: 'Version bump',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
+    date: '2026-02-23',
     description:
       'OpenClaw now binds only to the loopback interface and is managed by a Kilo controller.',
     category: 'feature',

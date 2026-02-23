@@ -131,7 +131,8 @@ if [ ! -f "$CONFIG_FILE" ]; then
 
     echo "Onboard completed"
 else
-    echo "Using existing config"
+    echo "Using existing config, running doctor..."
+    openclaw doctor --fix --non-interactive
 fi
 
 # ============================================================

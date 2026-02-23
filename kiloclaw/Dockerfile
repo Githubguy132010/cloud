@@ -25,7 +25,7 @@ RUN npm install -g pnpm
 
 # Install OpenClaw
 # Pin to specific version for reproducible builds
-RUN npm install -g openclaw@2026.2.9 \
+RUN npm install -g openclaw@2026.2.22 \
     && openclaw --version
 
 # Install pinned Bun (build-time only) and compile the controller bundle.
