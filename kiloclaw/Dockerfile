@@ -46,10 +46,11 @@ RUN mkdir -p /root/.openclaw \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-02-23-v48-ws-proxy-host-header
+# Build cache bust: 2026-02-23-v49-device-pairing
 RUN echo "4"
 COPY start-openclaw.sh /usr/local/bin/start-openclaw.sh
 COPY openclaw-pairing-list.js /usr/local/bin/openclaw-pairing-list.js
+COPY openclaw-device-pairing-list.js /usr/local/bin/openclaw-device-pairing-list.js
 RUN chmod +x /usr/local/bin/start-openclaw.sh
 RUN ls -l /usr/local/bin/start-openclaw.sh \
     && head -n 1 /usr/local/bin/start-openclaw.sh | cat -v \
