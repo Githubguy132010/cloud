@@ -90,105 +90,32 @@ The export returns a `SharedSessionSnapshot` with `{ info, messages: [{ info: { 
 
 ---
 
-## Phase 1: Add session-ingest export helper and result extraction
+## Phase 1: Unify session-ingest client around `fetchSessionSnapshot`
 
-No changes to the cloud-agent-next worker or session-ingest worker are needed. This phase adds a small helper in the Next.js app to call the ingest service's existing export API.
+No changes to the cloud-agent-next worker or session-ingest worker are needed. This phase refactors the existing `src/lib/session-ingest-client.ts` (already on main) to standardize on a single core fetch function.
 
-### 1.1 Add session-ingest export client
+### 1.1 Unify fetch functions around `fetchSessionSnapshot`
 
-**File:** `src/lib/session-ingest/client.ts` (new)
+**File:** `src/lib/session-ingest-client.ts` (existing)
 
-A helper module that:
+The existing file had `fetchSessionMessages(sessionId, user: User)` using a long-lived API token. We replace the internals with a single core function and a thin wrapper:
 
-- Takes a `kiloSessionId` and `userId`
-- Generates a JWT using `NEXTAUTH_SECRET` + `JWT_TOKEN_VERSION` (same pattern as `generateGdprDeletionToken` in `external-services.ts`)
-- Calls `GET ${SESSION_INGEST_WORKER_URL}/api/session/${kiloSessionId}/export`
-- Returns the parsed `SharedSessionSnapshot` or `null` if not found
-- Handles errors with Sentry capture
+- `fetchSessionSnapshot(sessionId, userId)` — core function, uses `generateInternalServiceToken` (short-lived, 1h), returns the full `SessionSnapshot` (info + messages), reports errors to Sentry
+- `fetchSessionMessages(sessionId, user: User)` — thin wrapper, calls `fetchSessionSnapshot(sessionId, user.id)` and returns `.messages`
 
-```ts
-import { SESSION_INGEST_WORKER_URL, NEXTAUTH_SECRET } from '@/lib/config.server';
-import jwt from 'jsonwebtoken';
-import { JWT_TOKEN_VERSION } from '@/lib/tokens';
-import { captureException } from '@sentry/nextjs';
+### 1.2 Write tests
 
-type SharedSessionSnapshot = {
-  info: Record<string, unknown>;
-  messages: Array<{
-    info: { id: string; role?: string; [key: string]: unknown };
-    parts: Array<{ id: string; type?: string; text?: string; [key: string]: unknown }>;
-  }>;
-};
-
-function generateIngestToken(userId: string): string {
-  return jwt.sign({ kiloUserId: userId, version: JWT_TOKEN_VERSION }, NEXTAUTH_SECRET, {
-    algorithm: 'HS256',
-    expiresIn: '1h',
-  });
-}
-
-async function fetchSessionExport(
-  kiloSessionId: string,
-  userId: string
-): Promise<SharedSessionSnapshot | null> {
-  if (!SESSION_INGEST_WORKER_URL) {
-    throw new Error('SESSION_INGEST_WORKER_URL not configured');
-  }
-
-  const token = generateIngestToken(userId);
-  const response = await fetch(
-    `${SESSION_INGEST_WORKER_URL}/api/session/${encodeURIComponent(kiloSessionId)}/export`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  if (response.status === 404) return null;
-  if (!response.ok) {
-    throw new Error(`Ingest export failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json();
-}
-```
-
-### 1.2 Add result extraction helper
-
-**File:** Same module
-
-```ts
-function extractLastAssistantMessage(snapshot: SharedSessionSnapshot): string | null {
-  for (let i = snapshot.messages.length - 1; i >= 0; i--) {
-    const msg = snapshot.messages[i];
-    if (msg.info.role === 'assistant') {
-      const text = msg.parts
-        .filter(p => p.type === 'text' && typeof p.text === 'string')
-        .map(p => p.text)
-        .join('');
-      if (text.length > 0) return text;
-    }
-  }
-  return null;
-}
-```
-
-This replaces the current `fetchLastAssistantMessage` (~95 lines querying R2 blobs) with ~15 lines.
-
-### 1.3 Write tests
-
-Test `fetchSessionExport`:
+Test `fetchSessionSnapshot`:
 
 - Mock fetch, verify JWT is generated with correct `kiloUserId` and `version`
 - 200 response → returns parsed snapshot
 - 404 response → returns `null`
-- 500 response → throws error
+- 500 response → throws error, reports to Sentry
 
-Test `extractLastAssistantMessage`:
+Test `fetchSessionMessages`:
 
-- Snapshot with no messages → `null`
-- Snapshot with no assistant messages → `null`
-- Snapshot with one assistant message with text parts → returns concatenated text
-- Snapshot with multiple assistant messages → returns last one
-- Snapshot with assistant message having mixed part types (text + tool) → returns only text
-- Snapshot with assistant message having empty text → skips to next
+- Returns `.messages` from the snapshot
+- Returns `null` on 404
 
 ---
 
@@ -245,8 +172,8 @@ When status is `'completed'`:
 
 1. Look up the finding from DB to get metadata (model, owner, userId, correlationId, organizationId) — stored in `finding.analysis` when analysis starts (see Phase 3)
 2. Extract `kiloSessionId` from the callback payload (confirmed present for prepared sessions)
-3. Call `fetchSessionExport(kiloSessionId, userId)` to get the session snapshot from the ingest service
-4. Call `extractLastAssistantMessage(snapshot)` to get the raw markdown result
+3. Call `fetchSessionSnapshot(kiloSessionId, userId)` to get the session snapshot from the ingest service
+4. Call `extractLastAssistantMessage(snapshot)` (added to `analysis-service.ts`) to get the raw markdown result
    - a. **Write the raw markdown to the `analysis` field** in the `security_findings` table. This is critical — the `analysis` field is what the UI displays when a user clicks on an auto-dismissed finding to see the summary. The old flow populated this via `processAnalysisStream()`; the callback handler must do the equivalent. Use `updateAnalysisStatus(findingId, 'running', { analysis: rawMarkdown })` or a direct DB update to persist the raw content before proceeding to Tier 3.
 5. If no result found, retry up to 3 times with 5s delay (handles timing race where ingest hasn't finished processing yet)
 6. Run Tier 3: `extractSandboxAnalysis()` on the raw markdown — unchanged from current code
@@ -418,7 +345,7 @@ The `cli_session_id` field in `security_findings` currently stores the old cli s
 
 | File                                                                   | Change                                                                                                                         |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `src/lib/session-ingest/client.ts`                                     | **New** — helper to fetch session export from ingest service + extract assistant message                                       |
+| `src/lib/session-ingest-client.ts`                                     | **Enhanced** — unified around `fetchSessionSnapshot`, `fetchSessionMessages` becomes thin wrapper                              |
 | `src/app/api/internal/security-analysis-callback/[findingId]/route.ts` | **New** — callback endpoint for cloud-agent-next execution completion                                                          |
 | `src/lib/security-agent/services/analysis-service.ts`                  | Major rewrite: replace old client + SSE stream with cloud-agent-next prepare+initiate+callback; delete ~400 lines of dead code |
 | `src/components/security-agent/FindingDetailDialog.tsx`                | Verify only — links should work as-is with `ses_` prefixed session IDs                                                         |
@@ -460,16 +387,18 @@ The `cli_session_id` field in `security_findings` currently stores the old cli s
 
 This migration only requires changes to the Next.js app. No worker deployments needed.
 
-### PR 1: Add session-ingest export helper + result extraction
+### PR 1: Enhance session-ingest client with export + result extraction
 
-**Scope:** Phase 1 (helper module + tests)
+**Scope:** Phase 1 (enhancements to existing client + tests)
 
 **Files changed:**
 
-- `src/lib/session-ingest/client.ts` (new)
-- Tests
+- `src/lib/session-ingest-client.ts` (unified around `fetchSessionSnapshot`)
+- `src/lib/session-ingest-client.test.ts` (new tests)
+- `src/lib/tokens.ts` (extracted `generateInternalServiceToken`)
+- `src/lib/external-services.ts` (uses shared `generateInternalServiceToken`)
 
-**Deploy:** Merges to the Next.js app. Purely additive — adds a helper nobody calls yet. Zero risk.
+**Deploy:** Merges to the Next.js app. Purely additive — adds helpers nobody calls yet. Zero risk.
 
 ### PR 2: Security agent migration (main PR)
 
@@ -497,7 +426,7 @@ This is the critical PR. It switches the security agent from old cloud-agent to 
 ### Deployment order
 
 ```
-PR 1 (helper) ──merge──→ ingest client helper available
+PR 1 (enhance client) ──merge──→ ingest client helpers available
                             │
                             ▼
 PR 2 (migration) ──merge + deploy──→ Security agent uses cloud-agent-next
