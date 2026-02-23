@@ -58,6 +58,7 @@ import type {
 import * as fly from '../fly/client';
 import { appNameFromUserId } from '../fly/apps';
 import { ENCRYPTED_ENV_PREFIX, encryptEnvValue } from '../utils/env-encryption';
+import { z, type ZodType } from 'zod';
 
 type InstanceStatus = PersistedState['status'];
 
@@ -72,6 +73,26 @@ type GatewayProcessStatus = {
     at: string;
   } | null;
 };
+
+const GatewayProcessStatusSchema: ZodType<GatewayProcessStatus> = z.object({
+  state: z.enum(['stopped', 'starting', 'running', 'stopping', 'crashed', 'shutting_down']),
+  pid: z.number().int().nullable(),
+  uptime: z.number(),
+  restarts: z.number().int(),
+  lastExit: z
+    .object({
+      code: z.number().int().nullable(),
+      signal: z
+        .custom<NodeJS.Signals>((value): value is NodeJS.Signals => typeof value === 'string')
+        .nullable(),
+      at: z.string(),
+    })
+    .nullable(),
+});
+
+const GatewayCommandResponseSchema = z.object({
+  ok: z.boolean(),
+});
 
 class GatewayControllerError extends Error {
   readonly status: number;
@@ -1064,7 +1085,11 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     };
   }
 
-  private async callGatewayController<T>(path: string, method: 'GET' | 'POST'): Promise<T> {
+  private async callGatewayController<T>(
+    path: string,
+    method: 'GET' | 'POST',
+    responseSchema: ZodType<T>
+  ): Promise<T> {
     const { appName, machineId, sandboxId } = this.requireGatewayControllerContext();
 
     if (!this.env.GATEWAY_TOKEN_SECRET) {
@@ -1110,27 +1135,51 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       throw new GatewayControllerError(response.status, errorMessage);
     }
 
-    return (body ?? {}) as T;
+    const parsed = responseSchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      console.warn(
+        '[DO] Gateway controller returned invalid response payload',
+        JSON.stringify({
+          path,
+          status: response.status,
+          issues: parsed.error.issues.map(issue => ({
+            path: issue.path.join('.'),
+            code: issue.code,
+            message: issue.message,
+          })),
+        })
+      );
+      throw new GatewayControllerError(
+        502,
+        `Gateway controller returned invalid response for ${path}`
+      );
+    }
+
+    return parsed.data;
   }
 
   async getGatewayProcessStatus(): Promise<GatewayProcessStatus> {
     await this.loadState();
-    return this.callGatewayController<GatewayProcessStatus>('/_kilo/gateway/status', 'GET');
+    return this.callGatewayController('/_kilo/gateway/status', 'GET', GatewayProcessStatusSchema);
   }
 
   async startGatewayProcess(): Promise<{ ok: boolean }> {
     await this.loadState();
-    return this.callGatewayController<{ ok: boolean }>('/_kilo/gateway/start', 'POST');
+    return this.callGatewayController('/_kilo/gateway/start', 'POST', GatewayCommandResponseSchema);
   }
 
   async stopGatewayProcess(): Promise<{ ok: boolean }> {
     await this.loadState();
-    return this.callGatewayController<{ ok: boolean }>('/_kilo/gateway/stop', 'POST');
+    return this.callGatewayController('/_kilo/gateway/stop', 'POST', GatewayCommandResponseSchema);
   }
 
   async restartGatewayProcess(): Promise<{ ok: boolean }> {
     await this.loadState();
-    return this.callGatewayController<{ ok: boolean }>('/_kilo/gateway/restart', 'POST');
+    return this.callGatewayController(
+      '/_kilo/gateway/restart',
+      'POST',
+      GatewayCommandResponseSchema
+    );
   }
 
   // ========================================================================

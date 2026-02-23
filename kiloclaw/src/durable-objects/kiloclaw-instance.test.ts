@@ -797,6 +797,30 @@ describe('gateway process control via controller', () => {
 
     fetchSpy.mockRestore();
   });
+
+  it('rejects invalid controller success payload shape', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyMachineId: 'machine-1', flyAppName: 'acct-test' });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: 'yes' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(instance.startGatewayProcess()).rejects.toSatisfy((err: unknown) => {
+      if (typeof err !== 'object' || err === null) return false;
+      return (
+        'status' in err &&
+        (err as { status: number }).status === 502 &&
+        'message' in err &&
+        (err as { message: string }).message.includes('invalid response')
+      );
+    });
+
+    fetchSpy.mockRestore();
+  });
 });
 
 // ============================================================================
