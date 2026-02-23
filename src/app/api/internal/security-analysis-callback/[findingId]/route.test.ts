@@ -35,6 +35,24 @@ const mockDbSelect = jest.fn<any>();
 
 // --- Module mocks ---
 
+// Capture promises scheduled via next/server `after` so tests can await them.
+let afterPromises: Promise<void>[] = [];
+
+jest.mock('next/server', () => {
+  return {
+    ...(jest.requireActual('next/server') as Record<string, unknown>),
+    after: (fn: () => Promise<void>) => {
+      afterPromises.push(fn());
+    },
+  };
+});
+
+/** Flush all pending `after` callbacks and reset the queue. */
+async function flushAfterCallbacks() {
+  await Promise.all(afterPromises);
+  afterPromises = [];
+}
+
 jest.mock('@/lib/config.server', () => ({
   INTERNAL_API_SECRET: 'test-internal-secret',
 }));
@@ -207,6 +225,7 @@ let POST: typeof POSTType;
 beforeEach(async () => {
   jest.clearAllMocks();
   jest.useFakeTimers();
+  afterPromises = [];
   mockUpdateAnalysisStatus.mockResolvedValue(undefined);
   mockFinalizeAnalysis.mockResolvedValue(undefined);
   ({ POST } = await import('./route'));
@@ -314,6 +333,7 @@ describe('POST /api/internal/security-analysis-callback/[findingId]', () => {
 
       const req = makeRequest(FINDING_ID, completedPayload);
       const response = await POST(req, makeParams(FINDING_ID));
+      await flushAfterCallbacks();
 
       expect(response.status).toBe(200);
 
@@ -367,6 +387,7 @@ describe('POST /api/internal/security-analysis-callback/[findingId]', () => {
 
       const req = makeRequest(FINDING_ID, completedPayload);
       await POST(req, makeParams(FINDING_ID));
+      await flushAfterCallbacks();
 
       expect(mockFinalizeAnalysis).toHaveBeenCalledWith(
         FINDING_ID,
@@ -517,6 +538,7 @@ describe('POST /api/internal/security-analysis-callback/[findingId]', () => {
 
       const req = makeRequest(FINDING_ID, completedPayload);
       const response = await POST(req, makeParams(FINDING_ID));
+      await flushAfterCallbacks();
 
       expect(response.status).toBe(200);
       expect(mockUpdateAnalysisStatus).toHaveBeenCalledWith(FINDING_ID, 'failed', {
@@ -586,6 +608,7 @@ describe('POST /api/internal/security-analysis-callback/[findingId]', () => {
 
       const req = makeRequest(FINDING_ID, completedPayload);
       await POST(req, makeParams(FINDING_ID));
+      await flushAfterCallbacks();
 
       // Should use default model
       expect(mockFinalizeAnalysis).toHaveBeenCalledWith(
