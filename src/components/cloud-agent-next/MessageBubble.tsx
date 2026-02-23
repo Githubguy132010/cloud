@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { User, Bot, Scissors, Image, FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { StoredMessage, Part, CompactionPart } from './types';
@@ -13,6 +14,7 @@ import {
 } from './types';
 import type { FilePart } from './types';
 import { PartRenderer } from './PartRenderer';
+import { CopyMessageButton } from '@/components/shared/CopyMessageButton';
 
 /**
  * Compaction separator component - shown when context is compacted
@@ -83,6 +85,18 @@ function getUserTextContent(parts: Part[]): string {
   return textParts.map(p => p.text).join('');
 }
 
+/**
+ * Get copyable text content from message parts.
+ * Extracts text from TextParts (the main prose the assistant writes).
+ */
+function getAssistantTextContent(parts: Part[]): string {
+  return parts
+    .filter(isTextPart)
+    .map(p => p.text)
+    .join('\n\n')
+    .trim();
+}
+
 type MessageBubbleProps = {
   message: StoredMessage;
   isStreaming?: boolean;
@@ -136,6 +150,8 @@ export function MessageBubble({
   const isStreaming = isStreamingProp ?? isMessageStreaming(message);
   const timestamp = message.info.time.created;
   const timeAgo = formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+
+  const getTextForCopy = useCallback(() => getAssistantTextContent(message.parts), [message.parts]);
 
   // User message
   if (isUserMessage(message.info)) {
@@ -195,7 +211,7 @@ export function MessageBubble({
     const { cost, tokens } = message.info;
 
     return (
-      <div className="flex items-start gap-2 py-4 md:gap-3">
+      <div className="group/msg flex items-start gap-2 py-4 md:gap-3">
         <AvatarWithDebugInfo messageId={message.info.id} sessionId={message.info.sessionID}>
           <div className="bg-muted flex h-7 w-7 shrink-0 items-center justify-center rounded-full md:h-8 md:w-8">
             <Bot className="h-4 w-4" />
@@ -222,6 +238,12 @@ export function MessageBubble({
                 {tokens !== undefined && cost !== undefined && ' · '}
                 {cost !== undefined && `$${cost.toFixed(4)}`}
               </span>
+            )}
+            {!isStreaming && (
+              <CopyMessageButton
+                getText={getTextForCopy}
+                className="opacity-0 transition-opacity group-hover/msg:opacity-100"
+              />
             )}
           </div>
           {/* Render all parts via PartRenderer */}
