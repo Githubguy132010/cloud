@@ -23,7 +23,6 @@ import type { AgentMode, SessionConfig, StoredSession, StoredMessage } from './t
 import { isMessageStreaming } from './types';
 import type { DbSessionDetails, IndexedDbSessionData } from './store/db-session-atoms';
 import type { ModelOption } from '@/components/shared/ModelCombobox';
-import type { RepositoryOption } from '@/components/shared/RepositoryCombobox';
 import type { SlashCommand } from '@/lib/cloud-agent/slash-commands';
 
 // V2: No conversion needed - StoredMessage format is used directly by MessageBubble
@@ -115,10 +114,8 @@ export type CloudChatPresentationProps = {
   showResumeModal: boolean;
   pendingSessionForOrgContext: IndexedDbSessionData | null;
   pendingResumeSession: DbSessionDetails | null;
-  /** Available repositories for resume config modal */
-  repositories: RepositoryOption[];
-  /** Whether repositories are loading */
-  isLoadingRepos: boolean;
+  /** Whether the current session is non-resumable (CLI session without git_url/git_branch) */
+  isNonResumableSession: boolean;
 
   // Config state
   needsResumeConfig: boolean;
@@ -199,8 +196,7 @@ export const CloudChatPresentation = memo(function CloudChatPresentation({
   showResumeModal,
   pendingSessionForOrgContext,
   pendingResumeSession,
-  repositories,
-  isLoadingRepos,
+  isNonResumableSession,
   needsResumeConfig,
   resumeConfigPersisting,
   resumeConfigFailed,
@@ -259,8 +255,6 @@ export const CloudChatPresentation = memo(function CloudChatPresentation({
           onClose={onResumeClose}
           onConfirm={onResumeConfirm}
           session={pendingResumeSession}
-          repositories={repositories}
-          isLoadingRepos={isLoadingRepos}
           modelOptions={modelOptions}
           isLoadingModels={isLoadingModels}
           orgDefaultModel={defaultModel}
@@ -308,7 +302,7 @@ export const CloudChatPresentation = memo(function CloudChatPresentation({
             <ChatHeader
               cloudAgentSessionId={currentSessionId || 'Starting session...'}
               kiloSessionId={currentDbSessionId || undefined}
-              repository={sessionConfig?.repository || 'Loading...'}
+              repository={sessionConfig?.repository ?? ''}
               branch={currentSessionId || undefined}
               model={sessionConfig?.model}
               isStreaming={isStreaming}
@@ -352,6 +346,13 @@ export const CloudChatPresentation = memo(function CloudChatPresentation({
             {isOldSession && (
               <div className="p-4">
                 <OldSessionBanner onStartNewSession={onNewSession} />
+              </div>
+            )}
+
+            {/* Non-resumable session banner */}
+            {isNonResumableSession && (
+              <div className="flex items-center justify-center gap-2 border-b border-gray-500/50 bg-gray-800/50 p-3 text-center text-sm text-gray-300">
+                <span>This session cannot be resumed (no repository information).</span>
               </div>
             )}
 
@@ -414,6 +415,7 @@ export const CloudChatPresentation = memo(function CloudChatPresentation({
                 isStreaming ||
                 needsResumeConfig ||
                 isOldSession ||
+                isNonResumableSession ||
                 // Disable while a prepared session is auto-initiating (prevents dropped messages)
                 (cloudAgentSessionId && !isSessionInitiated) ||
                 // Allow sending if:
@@ -426,13 +428,15 @@ export const CloudChatPresentation = memo(function CloudChatPresentation({
               placeholder={
                 isOldSession
                   ? 'This session uses a legacy format. Please start a new session.'
-                  : cloudAgentSessionId && !isSessionInitiated
-                    ? 'Initializing session...'
-                    : needsResumeConfig
-                      ? 'Configure session to continue...'
-                      : isStreaming
-                        ? 'Streaming...'
-                        : 'Type your message... (/ for commands)'
+                  : isNonResumableSession
+                    ? 'This session cannot be resumed (no repository information).'
+                    : cloudAgentSessionId && !isSessionInitiated
+                      ? 'Initializing session...'
+                      : needsResumeConfig
+                        ? 'Configure session to continue...'
+                        : isStreaming
+                          ? 'Streaming...'
+                          : 'Type your message... (/ for commands)'
               }
               slashCommands={availableCommands}
               mode={inputMode}

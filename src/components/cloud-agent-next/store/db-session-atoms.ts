@@ -25,6 +25,7 @@ import { MiniDb } from 'jotai-minidb';
 import type { StoredMessage, Part, ResumeConfig } from '../types';
 import {
   clearMessagesAtom,
+  messagesMapAtom,
   sessionConfigAtom,
   currentSessionIdAtom as currentLocalSessionIdAtom,
 } from './atoms';
@@ -538,7 +539,6 @@ export const createNewSessionInIndexedDbAtom = atom(
         ? {
             mode,
             model,
-            githubRepo: repository,
           }
         : null;
 
@@ -764,11 +764,18 @@ export const loadSessionToIndexedDbAtom = atom(
     set(cloudAgentSessionIdAtom, session.cloud_agent_session_id);
 
     // Populate in-memory atoms for UI rendering
-    // Clear existing messages first
+    // Clear existing messages first, then populate from loaded DB messages so they
+    // render immediately. For sessions with a cloud_agent_session_id, the WebSocket
+    // will overlay live updates on top of these.
     set(clearMessagesAtom);
 
-    // Messages are stored in IndexedDB and rendered from currentIndexedDbSessionAtom.
-    // The in-memory messagesMapAtom is populated by the streaming hook as events arrive.
+    if (messages.length > 0) {
+      const loadedMessagesMap = new Map<string, StoredMessage>();
+      for (const msg of messages) {
+        loadedMessagesMap.set(msg.info.id, msg);
+      }
+      set(messagesMapAtom, loadedMessagesMap);
+    }
 
     // Set session config for the UI using centralized helper
     // Note: sessionId in config is for display only - actual routing is determined by

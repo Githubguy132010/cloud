@@ -287,8 +287,6 @@ export type StreamEventType =
 export type ResumeConfig = {
   mode: AgentMode;
   model: string;
-  githubRepo: string;
-  branch?: string;
   envVars?: Record<string, string>;
   setupCommands?: string[];
 };

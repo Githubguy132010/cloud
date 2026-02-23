@@ -49,11 +49,10 @@ import { useResumeConfigModal } from './hooks/useResumeConfigModal';
 import { useSessionConfigCommand } from './hooks/useSessionConfigCommand';
 import { useOrgContextCommand } from './hooks/useOrgContextCommand';
 import { usePreparedSession } from './hooks/usePreparedSession';
-import { buildPrepareSessionRepoParams } from './utils/git-utils';
+import { buildPrepareSessionRepoParams, extractRepoFromGitUrl } from './utils/git-utils';
 import { useSlashCommandSets } from '@/hooks/useSlashCommandSets';
 import { CloudChatPresentation } from './CloudChatPresentation';
 import type { ResumeConfig } from './ResumeConfigModal';
-import type { RepositoryOption } from '@/components/shared/RepositoryCombobox';
 import type { AgentMode, SessionStartConfig } from './types';
 
 type CloudChatContainerProps = {
@@ -113,6 +112,13 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
 
   // Track the session loaded from DB
   const [loadedDbSession, setLoadedDbSession] = useState<DbSessionDetails | null>(null);
+
+  // Derive non-resumable state: CLI session without git_url or git_branch
+  const isNonResumableSession = useMemo(() => {
+    if (!loadedDbSession) return false;
+    const isCliSession = !loadedDbSession.cloud_agent_session_id;
+    return isCliSession && (!loadedDbSession.git_url || !loadedDbSession.git_branch);
+  }, [loadedDbSession]);
 
   // Track whether org context modal was dismissed
   const [orgContextDismissedForSession, setOrgContextDismissedForSession] = useState<string | null>(
@@ -187,49 +193,6 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
 
   // Fetch organization models
   const { modelOptions, isLoadingModels, defaultModel } = useOrganizationModels(organizationId);
-
-  // Fetch GitHub repositories for resume config modal
-  const { data: githubRepoData, isLoading: isLoadingGitHubRepos } = useQuery(
-    organizationId
-      ? trpc.organizations.cloudAgentNext.listGitHubRepositories.queryOptions({
-          organizationId,
-          forceRefresh: false,
-        })
-      : trpc.cloudAgentNext.listGitHubRepositories.queryOptions({
-          forceRefresh: false,
-        })
-  );
-
-  // Fetch GitLab repositories for resume config modal
-  const { data: gitlabRepoData, isLoading: isLoadingGitLabRepos } = useQuery(
-    organizationId
-      ? trpc.organizations.cloudAgentNext.listGitLabRepositories.queryOptions({
-          organizationId,
-          forceRefresh: false,
-        })
-      : trpc.cloudAgentNext.listGitLabRepositories.queryOptions({
-          forceRefresh: false,
-        })
-  );
-
-  const isLoadingRepos = isLoadingGitHubRepos && isLoadingGitLabRepos;
-
-  // Combine repositories with platform tags for the resume config modal
-  const repositories = useMemo<RepositoryOption[]>(() => {
-    const github = (githubRepoData?.repositories ?? []).map(repo => ({
-      id: repo.id,
-      fullName: repo.fullName,
-      private: repo.private,
-      platform: 'github' as const,
-    }));
-    const gitlab = (gitlabRepoData?.repositories ?? []).map(repo => ({
-      id: repo.id,
-      fullName: repo.fullName,
-      private: repo.private,
-      platform: 'gitlab' as const,
-    }));
-    return [...github, ...gitlab];
-  }, [githubRepoData, gitlabRepoData]);
 
   // Mobile sheet state
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -777,7 +740,8 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
       // the case where we have a valid sessionConfig (already-initiated or CLI sessions)
       if (sessionConfig) {
         if (needsLegacyPrepare && effectiveSessionId && currentDbSessionId) {
-          const resumeRepo = persistedResumeConfig?.githubRepo || sessionConfig.repository;
+          const resumeRepo =
+            extractRepoFromGitUrl(loadedDbSession?.git_url) || sessionConfig.repository;
           const gitUrl = currentIndexedDbSession?.gitUrl || loadedDbSession?.git_url || null;
           const repoParams = buildPrepareSessionRepoParams({
             repo: resumeRepo,
@@ -802,7 +766,7 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
                 ...repoParams,
                 envVars: persistedResumeConfig?.envVars,
                 setupCommands: persistedResumeConfig?.setupCommands,
-                upstreamBranch: persistedResumeConfig?.branch,
+                upstreamBranch: loadedDbSession?.git_branch ?? undefined,
               });
             } else {
               result = await trpcClient.cloudAgentNext.prepareSession.mutate({
@@ -812,7 +776,7 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
                 ...repoParams,
                 envVars: persistedResumeConfig?.envVars,
                 setupCommands: persistedResumeConfig?.setupCommands,
-                upstreamBranch: persistedResumeConfig?.branch,
+                upstreamBranch: loadedDbSession?.git_branch ?? undefined,
               });
             }
 
@@ -828,7 +792,8 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
         }
 
         if (!effectiveSessionId) {
-          const resumeRepo = persistedResumeConfig?.githubRepo || sessionConfig.repository;
+          const resumeRepo =
+            extractRepoFromGitUrl(loadedDbSession?.git_url) || sessionConfig.repository;
           const gitUrl = currentIndexedDbSession?.gitUrl || loadedDbSession?.git_url || null;
           const repoParams = buildPrepareSessionRepoParams({
             repo: resumeRepo,
@@ -848,7 +813,7 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
               ...repoParams,
               envVars: persistedResumeConfig?.envVars,
               setupCommands: persistedResumeConfig?.setupCommands,
-              upstreamBranch: persistedResumeConfig?.branch,
+              upstreamBranch: loadedDbSession?.git_branch ?? undefined,
             });
             await initiateFromPreparedSession(effectiveSessionId);
             return;
@@ -954,8 +919,7 @@ export function CloudChatContainer({ organizationId }: CloudChatContainerProps) 
       showResumeModal={showResumeModal}
       pendingSessionForOrgContext={pendingSessionForOrgContext}
       pendingResumeSession={pendingResumeSession}
-      repositories={repositories}
-      isLoadingRepos={isLoadingRepos}
+      isNonResumableSession={isNonResumableSession}
       needsResumeConfig={needsResumeConfig}
       resumeConfigPersisting={resumeConfigPersisting}
       resumeConfigFailed={resumeConfigError !== null}

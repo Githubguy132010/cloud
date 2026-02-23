@@ -77,6 +77,8 @@ describe('needsResumeConfigModal', () => {
     // CLI sessions have no cloud_agent_session_id
     const dbSession = createDbSession({
       cloud_agent_session_id: null,
+      git_url: 'https://github.com/owner/repo',
+      git_branch: 'main',
     });
 
     const result = needsResumeConfigModal({
@@ -87,16 +89,47 @@ describe('needsResumeConfigModal', () => {
     expect(result).toBe(true);
   });
 
+  it('returns false for CLI session without git_url (non-resumable)', () => {
+    const dbSession = createDbSession({
+      cloud_agent_session_id: null,
+      git_url: null,
+      git_branch: 'main',
+    });
+
+    const result = needsResumeConfigModal({
+      loadedDbSession: dbSession,
+      currentIndexedDbSession: null,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it('returns false for CLI session without git_branch (non-resumable)', () => {
+    const dbSession = createDbSession({
+      cloud_agent_session_id: null,
+      git_url: 'https://github.com/owner/repo',
+      git_branch: null,
+    });
+
+    const result = needsResumeConfigModal({
+      loadedDbSession: dbSession,
+      currentIndexedDbSession: null,
+    });
+
+    expect(result).toBe(false);
+  });
+
   it('returns false for CLI session WITH stored resume config in IndexedDB', () => {
     const dbSession = createDbSession({
       cloud_agent_session_id: null,
+      git_url: 'https://github.com/owner/repo',
+      git_branch: 'main',
     });
 
     const indexedDbSession = createIndexedDbSession({
       resumeConfig: {
         mode: 'build',
         model: 'anthropic/claude-3-5-sonnet',
-        githubRepo: 'owner/repo',
       },
     });
 
@@ -160,15 +193,12 @@ describe('getPersistedResumeConfig', () => {
       resumeConfig: {
         mode: 'plan',
         model: 'stored-model',
-        githubRepo: 'indexed/db-repo',
       },
     });
 
     const inMemoryConfig = {
       mode: 'build' as const,
       model: 'local-model',
-      githubRepo: 'local/repo',
-      branch: 'feature-branch',
       envVars: { API_KEY: 'secret' },
     };
 
@@ -187,10 +217,8 @@ describe('getPersistedResumeConfig', () => {
       resumeConfig: {
         mode: 'plan',
         model: 'stored-model',
-        githubRepo: 'stored/repo',
         envVars: { DB_KEY: 'value' },
         setupCommands: ['npm install'],
-        branch: 'develop',
       },
     });
 
@@ -204,18 +232,15 @@ describe('getPersistedResumeConfig', () => {
       model: 'stored-model',
       envVars: { DB_KEY: 'value' },
       setupCommands: ['npm install'],
-      githubRepo: 'stored/repo',
-      branch: 'develop',
     });
   });
 
-  it('uses repository from IndexedDB session when resumeConfig.githubRepo is missing', () => {
+  it('returns config without repo fields from IndexedDB', () => {
     const indexedDbSession = createIndexedDbSession({
       repository: 'fallback/repo',
       resumeConfig: {
         mode: 'build',
         model: 'some-model',
-        githubRepo: '',
       },
     });
 
@@ -227,8 +252,6 @@ describe('getPersistedResumeConfig', () => {
     expect(result).toEqual({
       mode: 'build',
       model: 'some-model',
-      githubRepo: 'fallback/repo',
-      branch: undefined,
       envVars: undefined,
       setupCommands: undefined,
     });

@@ -41,7 +41,7 @@ export function useSessionConfigCommand() {
       const { config, sessionId, loadedDbSession } = params;
 
       try {
-        // 1. Persist full ResumeConfig to IndexedDB (including githubRepo and branch)
+        // 1. Persist ResumeConfig to IndexedDB
         await updateResumeConfig({
           sessionId,
           resumeConfig: config,

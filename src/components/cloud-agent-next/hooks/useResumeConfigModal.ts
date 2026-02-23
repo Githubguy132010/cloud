@@ -25,8 +25,6 @@ export function getPersistedResumeConfig(params: {
     return {
       mode: stored.mode,
       model: stored.model,
-      githubRepo: stored.githubRepo || currentIndexedDbSession.repository || '',
-      branch: stored.branch,
       envVars: stored.envVars,
       setupCommands: stored.setupCommands,
     };
@@ -55,6 +53,12 @@ export function needsResumeConfigModal(params: {
   if (!loadedDbSession) return false;
 
   const isCliSession = !loadedDbSession.cloud_agent_session_id;
+
+  // CLI sessions are only resumable if they have both git_url and git_branch.
+  // Without repo info, the session cannot be resumed — it's shown as read-only history.
+  if (isCliSession && (!loadedDbSession.git_url || !loadedDbSession.git_branch)) {
+    return false;
+  }
 
   // Sessions from cli_sessions_v2 table store mode/model in the cloud-agent DO,
   // so they don't need the resume config modal.
