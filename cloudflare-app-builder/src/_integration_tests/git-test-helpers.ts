@@ -103,6 +103,22 @@ export function buildGitUrlWithToken(gitUrl: string, token: string): string {
   return url.toString();
 }
 
+function stringProp(obj: unknown, key: string): string | undefined {
+  if (obj != null && typeof obj === 'object' && key in obj) {
+    const val = (obj as Record<string, unknown>)[key];
+    return typeof val === 'string' ? val : undefined;
+  }
+  return undefined;
+}
+
+function numberProp(obj: unknown, key: string): number | undefined {
+  if (obj != null && typeof obj === 'object' && key in obj) {
+    const val = (obj as Record<string, unknown>)[key];
+    return typeof val === 'number' ? val : undefined;
+  }
+  return undefined;
+}
+
 export function runGitCommand(dir: string, command: string, expectFailure = false): string {
   const fullCommand = `cd "${dir}" && ${command}`;
   log(`Running: ${command}`);
@@ -118,12 +134,14 @@ export function runGitCommand(dir: string, command: string, expectFailure = fals
     return output;
   } catch (error: unknown) {
     if (expectFailure) {
-      const execError = error as { stderr?: string; stdout?: string; message?: string };
+      const stderr = stringProp(error, 'stderr');
+      const stdout = stringProp(error, 'stdout');
+      const message = stringProp(error, 'message');
       log('Command failed as expected', {
-        stderr: execError.stderr?.slice(0, 500),
-        stdout: execError.stdout?.slice(0, 500),
+        stderr: stderr?.slice(0, 500),
+        stdout: stdout?.slice(0, 500),
       });
-      return execError.stderr || execError.message || 'Command failed';
+      return stderr || message || 'Command failed';
     }
     throw error;
   }
@@ -146,15 +164,10 @@ export function runGitCommandSafe(
     });
     return { stdout: stdout.trim(), stderr: '', exitCode: 0 };
   } catch (error: unknown) {
-    const execError = error as {
-      stderr?: string;
-      stdout?: string;
-      status?: number;
-    };
     return {
-      stdout: (execError.stdout || '').trim(),
-      stderr: (execError.stderr || '').trim(),
-      exitCode: execError.status ?? 1,
+      stdout: (stringProp(error, 'stdout') || '').trim(),
+      stderr: (stringProp(error, 'stderr') || '').trim(),
+      exitCode: numberProp(error, 'status') ?? 1,
     };
   }
 }
@@ -249,8 +262,6 @@ export function assertFileContent(
 }
 
 export function assertFileExists(dir: string, relativePath: string, label: string) {
-  const files = readdirSync(dir, { recursive: true }) as string[];
-  // readdirSync with recursive returns relative paths; just check the file exists by reading it
   try {
     readFileSync(join(dir, relativePath));
   } catch {
