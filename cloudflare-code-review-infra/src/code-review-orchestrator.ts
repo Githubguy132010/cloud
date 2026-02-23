@@ -977,9 +977,9 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
                   message = payload.content;
                 } else if (payload.say === 'api_req_started') {
                   const provider = payload.metadata?.inferenceProvider || 'API';
-                  const tokensIn = payload.metadata?.tokensIn || 0;
-                  const tokensOut = payload.metadata?.tokensOut || 0;
-                  const cost = payload.metadata?.cost || 0;
+                  const tokensIn = payload.metadata?.tokensIn ?? 0;
+                  const tokensOut = payload.metadata?.tokensOut ?? 0;
+                  const cost = payload.metadata?.cost ?? 0;
                   message = `${provider} request: ${tokensIn.toLocaleString()} tokens in, ${tokensOut.toLocaleString()} tokens out`;
                   if (cost > 0) {
                     content = `Cost: $${cost.toFixed(4)}`;
