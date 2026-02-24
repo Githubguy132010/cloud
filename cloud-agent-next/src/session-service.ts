@@ -257,81 +257,6 @@ export async function runSetupCommands(
   logger.info('Setup commands completed');
 }
 
-/**
- * Sanitize a name for use in MCP tool permission keys.
- * Matches the CLI's sanitization: replace non-alphanumeric/underscore/hyphen chars with underscore.
- */
-function sanitizeMcpName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-/**
- * Convert worker-format MCP server configs to CLI-native format for KILO_CONFIG_CONTENT.
- *
- * Worker format uses "stdio"/"sse"/"streamable-http" transport types.
- * CLI format uses "local"/"remote" discriminated union.
- *
- * Returns { mcp, permission } where:
- * - mcp: Record<string, CliMcpConfig> for the "mcp" key in config content
- * - permission: Record<string, "allow"> for alwaysAllow → permission rule conversion
- */
-export function convertMcpServersForCli(mcpServers: Record<string, MCPServerConfig>): {
-  mcp: Record<string, Record<string, unknown>>;
-  permission: Record<string, string>;
-} {
-  const mcp: Record<string, Record<string, unknown>> = {};
-  const permission: Record<string, string> = {};
-
-  for (const [serverName, config] of Object.entries(mcpServers)) {
-    let cliConfig: Record<string, unknown>;
-
-    if (config.type === 'sse' || config.type === 'streamable-http') {
-      // "sse" and "streamable-http" both map to "remote"
-      cliConfig = {
-        type: 'remote',
-        url: config.url,
-      };
-      if (config.headers && Object.keys(config.headers).length > 0) {
-        cliConfig.headers = config.headers;
-      }
-    } else {
-      // stdio (explicit or default when type is undefined)
-      cliConfig = {
-        type: 'local',
-        command: [config.command, ...(config.args ?? [])],
-      };
-      if (config.env && Object.keys(config.env).length > 0) {
-        cliConfig.environment = config.env;
-      }
-      if (config.cwd) {
-        cliConfig.cwd = config.cwd;
-      }
-    }
-    if (config.disabled) {
-      cliConfig.enabled = false;
-    }
-    if (config.timeout !== undefined) {
-      cliConfig.timeout = config.timeout * 1000;
-    }
-    mcp[serverName] = cliConfig;
-
-    // Convert alwaysAllow to permission rules
-    if (config.alwaysAllow && config.alwaysAllow.length > 0) {
-      const sanitizedServer = sanitizeMcpName(serverName);
-      if (config.alwaysAllow.includes('*')) {
-        permission[`${sanitizedServer}_*`] = 'allow';
-      } else {
-        for (const tool of config.alwaysAllow) {
-          const sanitizedTool = sanitizeMcpName(tool);
-          permission[`${sanitizedServer}_${sanitizedTool}`] = 'allow';
-        }
-      }
-    }
-  }
-
-  return { mcp, permission };
-}
-
 // Write Kilo auth file so the CLI's KiloSessions can call session ingest.
 // The CLI reads ~/.local/share/kilo/auth.json via Auth.get("kilo") but we
 // never run `kilo auth login` — credentials are injected purely via env vars
@@ -552,29 +477,21 @@ export class SessionService {
     if (env.KILO_OPENROUTER_BASE) {
       providerOptions.baseURL = env.KILO_OPENROUTER_BASE;
     }
-    const permissionConfig: Record<string, unknown> = {
-      external_directory: {
-        [`/tmp/attachments/${sessionId}/**`]: 'allow',
-      },
-    };
-    // Add MCP server configs converted to CLI-native format
-    let mcpConfig: Record<string, Record<string, unknown>> | undefined;
-    if (mcpServers && Object.keys(mcpServers).length > 0) {
-      const { mcp, permission: mcpPermissions } = convertMcpServersForCli(mcpServers);
-      mcpConfig = mcp;
-      // Merge alwaysAllow-derived permission rules with existing permissions
-      Object.assign(permissionConfig, mcpPermissions);
-    }
     const configContent: Record<string, unknown> = {
-      permission: permissionConfig,
+      permission: {
+        external_directory: {
+          [`/tmp/attachments/${sessionId}/**`]: 'allow',
+        },
+      },
       provider: {
         kilo: {
           options: providerOptions,
         },
       },
     };
-    if (mcpConfig) {
-      configContent.mcp = mcpConfig;
+    // MCP configs are already in CLI-native format — pass through directly
+    if (mcpServers && Object.keys(mcpServers).length > 0) {
+      configContent.mcp = mcpServers;
     }
     if (kilocodeModel && kilocodeModel.trim()) {
       const normalizedModel = kilocodeModel.startsWith('kilo/')
