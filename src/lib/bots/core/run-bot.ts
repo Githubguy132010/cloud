@@ -18,7 +18,7 @@ export type BotRunInput = {
   systemPrompt: string;
   userMessage: string;
   tools?: OpenAI.Chat.Completions.ChatCompletionTool[];
-  toolExecutor?: (toolCall: ToolCall) => Promise<BotToolResult>;
+  toolExecutor: (toolCall: ToolCall) => Promise<BotToolResult>;
   onToolResult?: (toolCall: ToolCall, result: BotToolResult) => void | Promise<void>;
   maxIterations?: number;
   logPrefix?: string;
@@ -120,12 +120,6 @@ export async function runBot(input: BotRunInput): Promise<BotRunResult> {
         `${logPrefix} Added assistant message to history, total messages:`,
         messages.length
       );
-
-      if (!input.toolExecutor) {
-        errorMessage = 'Tool call received without an executor';
-        finalResponse = 'Sorry, I could not process that request.';
-        break;
-      }
 
       for (const toolCall of message.tool_calls) {
         console.log(
