@@ -700,8 +700,9 @@ export const organizationSecurityAgentRouter = createTRPCRouter({
       const model = input.model || config?.config.model_slug || DEFAULT_SECURITY_AGENT_MODEL;
       const analysisMode = config?.config.analysis_mode ?? 'auto';
 
+      let result;
       try {
-        const result = await startSecurityAnalysis({
+        result = await startSecurityAnalysis({
           findingId: input.findingId,
           user: ctx.user,
           githubRepo: finding.repo_full_name,
@@ -710,18 +711,18 @@ export const organizationSecurityAgentRouter = createTRPCRouter({
           analysisMode,
           organizationId: input.organizationId,
         });
-
-        if (!result.started) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: result.error || 'Failed to start analysis',
-          });
-        }
-
-        return { success: true, triageOnly: result.triageOnly };
       } catch (error) {
         rethrowAsPaymentRequired(error);
       }
+
+      if (!result.started) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: result.error || 'Failed to start analysis',
+        });
+      }
+
+      return { success: true, triageOnly: result.triageOnly };
     }),
 
   /**

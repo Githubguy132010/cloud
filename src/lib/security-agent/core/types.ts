@@ -50,18 +50,12 @@ export type SecurityFindingAnalysisStatus =
   (typeof SecurityFindingAnalysisStatus)[keyof typeof SecurityFindingAnalysisStatus];
 
 /**
- * Analysis mode for the security agent pipeline
+ * Analysis mode for the security agent pipeline:
+ * - auto: triage first, sandbox only if triage recommends it
+ * - shallow: triage only, never runs sandbox
+ * - deep: always force sandbox analysis
  */
-export const AnalysisMode = {
-  /** Default: triage first, sandbox only if triage recommends it */
-  AUTO: 'auto',
-  /** Triage only — never runs sandbox analysis */
-  SHALLOW: 'shallow',
-  /** Always force sandbox analysis, skip triage recommendation */
-  DEEP: 'deep',
-} as const;
-
-export type AnalysisMode = (typeof AnalysisMode)[keyof typeof AnalysisMode];
+export type AnalysisMode = 'auto' | 'shallow' | 'deep';
 
 /**
  * Zod schema for SecurityAgentConfig
