@@ -1088,7 +1088,9 @@ describe('SessionService', () => {
 
     const getConfigContent = (sandboxCreateSession: ReturnType<typeof vi.fn>) => {
       const callArgs = sandboxCreateSession.mock.calls[0][0];
-      return JSON.parse(callArgs.env.KILO_CONFIG_CONTENT);
+      return JSON.parse(callArgs.env.KILO_CONFIG_CONTENT) as {
+        permission: { question?: string; external_directory?: Record<string, string> };
+      };
     };
 
     it.each([undefined, 'cloud-agent', 'app-builder'])(
