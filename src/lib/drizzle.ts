@@ -162,12 +162,18 @@ if (IS_PROD) {
 }
 
 function logPoolMetrics() {
-  const primary = { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount };
+  const primary = {
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount,
+    max: pool.options.max,
+  };
   const replica = usesSeparateReplica
     ? {
         total: replicaPool.totalCount,
         idle: replicaPool.idleCount,
         waiting: replicaPool.waitingCount,
+        max: replicaPool.options.max,
       }
     : null;
   console.log(
