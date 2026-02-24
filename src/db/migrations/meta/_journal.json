@@ -197,6 +197,13 @@
       "when": 1771935201251,
       "tag": "0027_unknown_shiva",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1771945770117,
+      "tag": "0028_wakeful_mercury",
+      "breakpoints": true
     }
   ]
 }
