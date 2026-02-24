@@ -43,6 +43,7 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
         sandboxId={status?.sandboxId || null}
         region={status?.flyRegion || null}
         gatewayUrl={gatewayUrl}
+        gatewayReady={gatewayStatus?.state === 'running'}
       />
 
       <Alert variant="warning">
