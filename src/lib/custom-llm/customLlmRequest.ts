@@ -38,6 +38,7 @@ import { ReasoningFormat } from '@/lib/custom-llm/format';
 import type OpenAI from 'openai';
 import crypto from 'crypto';
 import { db } from '@/lib/drizzle';
+import { eq } from 'drizzle-orm';
 
 function convertMessages(messages: OpenRouterChatCompletionsInput): ModelMessage[] {
   const toolNameByCallId = new Map<string, string>();
@@ -259,19 +260,8 @@ const FINISH_REASON_MAP: Record<string, string> = {
   other: 'stop',
 };
 
-function phaseKey(
-  userId: string,
-  taskId: string | undefined,
-  content: Array<OpenAI.Responses.ResponseOutputText | OpenAI.Responses.ResponseOutputRefusal>
-) {
-  return crypto.hash(
-    'sha256',
-    [
-      userId,
-      taskId,
-      ...content.filter(part => part.type === 'output_text').map(part => part.text),
-    ].join('|')
-  );
+function phaseKey(userId: string, taskId: string | undefined, content: string[]) {
+  return crypto.hash('sha256', [userId, taskId, ...content].join('|'));
 }
 
 function createStreamPartConverter(userId: string, taskId: string | undefined, model: string) {
@@ -295,7 +285,14 @@ function createStreamPartConverter(userId: string, taskId: string | undefined, m
           if (item.type === 'message' && phase) {
             await db
               .insert(temp_phase)
-              .values({ key: phaseKey(userId, taskId, item.content), value: phase })
+              .values({
+                key: phaseKey(
+                  userId,
+                  taskId,
+                  item.content.filter(part => part.type === 'output_text').map(part => part.text)
+                ),
+                value: phase,
+              })
               .onConflictDoNothing();
           }
         }
@@ -637,7 +634,7 @@ function convertGenerateResultToResponse(
   };
 }
 
-function createModel(customLlm: CustomLlm) {
+function createModel(customLlm: CustomLlm, userId: string, taskId: string | undefined) {
   if (customLlm.provider === 'anthropic') {
     const anthropic = createAnthropic({
       apiKey: customLlm.api_key,
@@ -649,6 +646,9 @@ function createModel(customLlm: CustomLlm) {
     const openai = createOpenAI({
       apiKey: customLlm.api_key,
       baseURL: customLlm.base_url,
+      fetch: customLlm.base_url.startsWith('https://api.openai.com/v1')
+        ? responseCreateParamsPatchFetch(userId, taskId)
+        : undefined,
     });
     return openai(customLlm.internal_id);
   }
@@ -688,6 +688,42 @@ function applyLegacyExtensionHack(choice: ChatCompletionChunkChoice | undefined)
   }
 }
 
+function responseCreateParamsPatchFetch(userId: string, taskId: string | undefined) {
+  return async function (input: string | URL | Request, init?: RequestInit) {
+    if (typeof init?.body === 'string') {
+      const json = JSON.parse(init.body) as OpenAI.Responses.ResponseCreateParams;
+      if (Array.isArray(json.input)) {
+        for (const message of json.input) {
+          if (!('role' in message) || message.role !== 'assistant') {
+            continue;
+          }
+          const key = phaseKey(
+            userId,
+            taskId,
+            Array.isArray(message.content)
+              ? message.content
+                  .filter(part => part.type === 'input_text' || part.type === 'output_text')
+                  .map(part => part.text)
+              : [message.content]
+          );
+          const phase = (
+            await db
+              .select({ phase: temp_phase.value })
+              .from(temp_phase)
+              .where(eq(temp_phase.key, key))
+          ).at(0)?.phase;
+          if (phase) {
+            Object.assign(message, { phase });
+          }
+        }
+        init.body = JSON.stringify(json);
+        debugSaveLog(init.body, 'request.native-patched.json');
+      }
+    }
+    return await fetch(input, init);
+  };
+}
+
 export async function customLlmRequest(
   customLlm: CustomLlm,
   request: OpenRouterChatCompletionRequest,
@@ -700,7 +736,7 @@ export async function customLlmRequest(
     reverseLegacyExtensionHack(messages);
   }
 
-  const model = createModel(customLlm);
+  const model = createModel(customLlm, userId, taskId);
   const commonParams = buildCommonParams(
     customLlm,
     convertMessages(messages),
