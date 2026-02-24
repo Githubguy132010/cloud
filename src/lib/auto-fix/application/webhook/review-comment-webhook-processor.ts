@@ -1,0 +1,242 @@
+/**
+ * Review Comment Webhook Processor
+ *
+ * Processes GitHub PR review comment events to trigger scoped Auto Fix.
+ * When a review comment contains "@kilo" and a fix keyword, this processor:
+ * 1. Validates the mention and author permissions
+ * 2. Checks Auto Fix configuration
+ * 3. Creates a fix ticket scoped to the specific file/line
+ * 4. Dispatches to Auto Fix worker
+ */
+
+import type { PlatformIntegration } from '@/db/schema';
+import { logExceptInTest, errorExceptInTest } from '@/lib/utils.server';
+import { captureException } from '@sentry/nextjs';
+import { getAgentConfigForOwner } from '@/lib/agent-config/db/agent-configs';
+import { createFixTicket, findExistingReviewCommentFixTicket } from '../../db/fix-tickets';
+import { tryDispatchPendingFixes } from '../../dispatch/dispatch-pending-fixes';
+import { getBotUserId } from '@/lib/bot-users/bot-user-service';
+import { addReactionToPRReviewComment } from '@/lib/integrations/platforms/github/adapter';
+import { AutoFixAgentConfigSchema } from '../../core/schemas';
+import type { Owner } from '../../core/schemas';
+import type {
+  PullRequestReviewCommentPayload,
+  GitHubAuthorAssociation,
+} from '@/lib/integrations/platforms/github/webhook-schemas';
+
+const KILO_MENTION_PATTERN = /@kilo\b/i;
+const FIX_KEYWORD_PATTERN = /\b(fix|resolve|address|patch|correct)\b/i;
+
+/**
+ * author_association values that imply write access.
+ * CONTRIBUTOR is intentionally excluded — they have merged PRs but no push access.
+ */
+const WRITE_ACCESS_ASSOCIATIONS = new Set<GitHubAuthorAssociation>([
+  'OWNER',
+  'MEMBER',
+  'COLLABORATOR',
+]);
+
+export class ReviewCommentWebhookProcessor {
+  async process(
+    payload: PullRequestReviewCommentPayload,
+    integration: PlatformIntegration
+  ): Promise<void> {
+    const { comment, pull_request, repository, installation } = payload;
+    const installationId = installation.id.toString();
+    const [repoOwner, repoName] = repository.full_name.split('/');
+
+    logExceptInTest('[ReviewCommentWebhookProcessor] Processing review comment', {
+      repoFullName: repository.full_name,
+      prNumber: pull_request.number,
+      commentId: comment.id,
+    });
+
+    // 1. Check if comment body contains @kilo and a fix keyword
+    if (!KILO_MENTION_PATTERN.test(comment.body) || !FIX_KEYWORD_PATTERN.test(comment.body)) {
+      logExceptInTest('[ReviewCommentWebhookProcessor] No @kilo fix mention found', {
+        commentId: comment.id,
+      });
+      return;
+    }
+
+    // 2. Check author_association for write access
+    if (!WRITE_ACCESS_ASSOCIATIONS.has(comment.author_association)) {
+      logExceptInTest('[ReviewCommentWebhookProcessor] Author lacks write access', {
+        commentId: comment.id,
+        authorAssociation: comment.author_association,
+        author: comment.user.login,
+      });
+      // Add thumbs-down reaction to indicate permission denied
+      try {
+        await addReactionToPRReviewComment(installationId, repoOwner, repoName, comment.id, '-1');
+      } catch {
+        // Best-effort reaction
+      }
+      return;
+    }
+
+    // 3. Build owner object
+    // For org owners, userId is temporarily set to the org ID; it gets resolved
+    // to the bot user ID before dispatch (see step 10 below).
+    const owner: Owner = integration.owned_by_organization_id
+      ? {
+          type: 'org',
+          id: integration.owned_by_organization_id,
+          userId: integration.owned_by_organization_id,
+        }
+      : {
+          type: 'user',
+          id: integration.owned_by_user_id || '',
+          userId: integration.owned_by_user_id || '',
+        };
+
+    // 4. Get Auto Fix agent config
+    const agentConfig = await getAgentConfigForOwner(owner, 'auto_fix', 'github');
+
+    if (!agentConfig || !agentConfig.is_enabled) {
+      logExceptInTest('[ReviewCommentWebhookProcessor] Auto Fix not enabled', {
+        owner,
+        hasConfig: !!agentConfig,
+        isEnabled: agentConfig?.is_enabled,
+      });
+      return;
+    }
+
+    const configResult = AutoFixAgentConfigSchema.safeParse(agentConfig.config);
+    if (!configResult.success) {
+      logExceptInTest('[ReviewCommentWebhookProcessor] Invalid agent config', {
+        owner,
+        errors: configResult.error.issues,
+      });
+      return;
+    }
+    const config = configResult.data;
+
+    // 5. Check if review comments are enabled
+    if (!config.enabled_for_review_comments) {
+      logExceptInTest('[ReviewCommentWebhookProcessor] Auto Fix not enabled for review comments', {
+        owner,
+      });
+      return;
+    }
+
+    // 6. Check repository selection
+    if (config.repository_selection_mode === 'selected') {
+      if (!config.selected_repository_ids.includes(repository.id)) {
+        logExceptInTest('[ReviewCommentWebhookProcessor] Repository not in selected list', {
+          repoId: repository.id,
+          selectedRepos: config.selected_repository_ids,
+        });
+        return;
+      }
+    }
+
+    // 7. Check for existing fix ticket (dedup by comment ID)
+    const existingTicket = await findExistingReviewCommentFixTicket(
+      repository.full_name,
+      comment.id
+    );
+
+    if (existingTicket) {
+      logExceptInTest('[ReviewCommentWebhookProcessor] Fix ticket already exists for comment', {
+        ticketId: existingTicket.id,
+        status: existingTicket.status,
+        commentId: comment.id,
+      });
+      // Add thumbs-up to indicate already processing
+      try {
+        await addReactionToPRReviewComment(installationId, repoOwner, repoName, comment.id, '+1');
+      } catch {
+        // Best-effort reaction
+      }
+      return;
+    }
+
+    // 8. Add eyes reaction to acknowledge the mention
+    try {
+      await addReactionToPRReviewComment(installationId, repoOwner, repoName, comment.id, 'eyes');
+    } catch (reactionError) {
+      errorExceptInTest(
+        '[ReviewCommentWebhookProcessor] Failed to add eyes reaction:',
+        reactionError
+      );
+      // Continue — reaction failure is not critical
+    }
+
+    // 9. Create fix ticket with review comment context
+    // Populate issue fields with PR-level data to satisfy NOT NULL constraints
+    try {
+      const ticketId = await createFixTicket({
+        owner,
+        platformIntegrationId: integration.id,
+        repoFullName: repository.full_name,
+        issueNumber: pull_request.number,
+        issueUrl: pull_request.html_url || comment.html_url,
+        issueTitle: pull_request.title,
+        issueBody: comment.body,
+        issueAuthor: pull_request.user.login,
+        issueLabels: [],
+        triggerSource: 'review_comment',
+        reviewCommentId: comment.id,
+        reviewCommentBody: comment.body,
+        filePath: comment.path,
+        lineNumber: comment.line ?? undefined,
+        diffHunk: comment.diff_hunk,
+        prHeadRef: pull_request.head.ref,
+      });
+
+      logExceptInTest('[ReviewCommentWebhookProcessor] Created fix ticket', {
+        ticketId,
+        repoFullName: repository.full_name,
+        prNumber: pull_request.number,
+        commentId: comment.id,
+      });
+
+      // 10. Get bot user ID for dispatch
+      let dispatchOwner: Owner;
+      if (owner.type === 'org') {
+        const botUserId = await getBotUserId(owner.id, 'auto-fix');
+        if (!botUserId) {
+          errorExceptInTest('[ReviewCommentWebhookProcessor] Bot user not found for organization', {
+            organizationId: owner.id,
+          });
+          return;
+        }
+        dispatchOwner = {
+          type: 'org',
+          id: owner.id,
+          userId: botUserId,
+        };
+      } else {
+        dispatchOwner = owner;
+      }
+
+      // 11. Dispatch to Auto Fix worker
+      await tryDispatchPendingFixes(dispatchOwner);
+    } catch (error) {
+      errorExceptInTest('[ReviewCommentWebhookProcessor] Error creating fix ticket:', error);
+      captureException(error, {
+        tags: { source: 'review-comment-webhook-processor' },
+        extra: {
+          repoFullName: repository.full_name,
+          prNumber: pull_request.number,
+          commentId: comment.id,
+        },
+      });
+
+      // Add confused reaction to indicate failure
+      try {
+        await addReactionToPRReviewComment(
+          installationId,
+          repoOwner,
+          repoName,
+          comment.id,
+          'confused'
+        );
+      } catch {
+        // Best-effort reaction
+      }
+    }
+  }
+}

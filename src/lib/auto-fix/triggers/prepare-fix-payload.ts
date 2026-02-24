@@ -56,8 +56,11 @@ export async function prepareFixPayload(params: PreparePayloadParams): Promise<D
     // 4. Get config values
     const config = agentConfig.config as AutoFixAgentConfig;
 
+    // 5. Determine trigger source
+    const triggerSource = ticket.trigger_source || 'label';
+
     // 5. Prepare session input
-    const sessionInput = {
+    const sessionInput: DispatchFixRequest['sessionInput'] = {
       repoFullName: ticket.repo_full_name,
       issueNumber: ticket.issue_number,
       issueTitle: ticket.issue_title,
@@ -76,11 +79,22 @@ export async function prepareFixPayload(params: PreparePayloadParams): Promise<D
         AUTO_FIX_CONSTANTS.DEFAULT_MAX_PR_CREATION_TIME_MINUTES,
     };
 
+    // For review comment triggers, add scoped context and set upstreamBranch
+    if (triggerSource === 'review_comment') {
+      sessionInput.upstreamBranch = ticket.pr_head_ref ?? undefined;
+      sessionInput.reviewCommentId = ticket.review_comment_id ?? undefined;
+      sessionInput.reviewCommentBody = ticket.review_comment_body ?? undefined;
+      sessionInput.filePath = ticket.file_path ?? undefined;
+      sessionInput.lineNumber = ticket.line_number ?? undefined;
+      sessionInput.diffHunk = ticket.diff_hunk ?? undefined;
+    }
+
     // 6. Build complete payload
     const payload: DispatchFixRequest = {
       ticketId,
       authToken,
       owner,
+      triggerSource,
       sessionInput,
     };
 

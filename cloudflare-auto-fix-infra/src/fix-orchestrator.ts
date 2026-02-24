@@ -8,7 +8,7 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import type { Env, FixTicket, FixRequest, ClassificationResult } from './types';
-import { buildPRPrompt } from './services/prompt-builder';
+import { buildPRPrompt, buildReviewCommentPrompt } from './services/prompt-builder';
 import { CloudAgentClient } from './services/cloud-agent-client';
 import { SSEStreamProcessor } from './services/sse-stream-processor';
 
@@ -39,6 +39,7 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
       authToken: params.authToken,
       sessionInput: params.sessionInput,
       owner: params.owner,
+      triggerSource: params.triggerSource || 'label',
       status: 'pending',
       updatedAt: new Date().toISOString(),
     };
@@ -151,34 +152,58 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
     // Build callback URL for Cloud Agent
     const callbackUrl = `${this.env.API_URL}/api/internal/auto-fix/pr-callback`;
 
-    // Build classification result from session input
-    const classification: ClassificationResult = {
-      classification: this.state.sessionInput.classification || 'bug',
-      confidence: this.state.sessionInput.confidence || 0.9,
-      intentSummary: this.state.sessionInput.intentSummary || 'Fix the reported issue',
-      relatedFiles: this.state.sessionInput.relatedFiles,
-    };
+    // Determine if this is a review comment trigger
+    const isReviewCommentFix = this.state.triggerSource === 'review_comment';
 
-    // Build PR creation prompt using comprehensive template
-    const prompt = buildPRPrompt(
-      {
-        repoFullName: this.state.sessionInput.repoFullName,
-        issueNumber: this.state.sessionInput.issueNumber,
-        issueTitle: this.state.sessionInput.issueTitle,
-        issueBody: this.state.sessionInput.issueBody,
-      },
-      classification,
-      {
-        pr_branch_prefix: config.pr_branch_prefix,
-        custom_instructions: config.custom_instructions,
-      },
-      this.state.ticketId
-    );
+    let prompt: string;
+
+    if (isReviewCommentFix) {
+      // Build scoped review comment prompt
+      prompt = buildReviewCommentPrompt(
+        {
+          repoFullName: this.state.sessionInput.repoFullName,
+          prNumber: this.state.sessionInput.issueNumber,
+          prTitle: this.state.sessionInput.issueTitle,
+          reviewCommentBody: this.state.sessionInput.reviewCommentBody || '',
+          filePath: this.state.sessionInput.filePath || '',
+          lineNumber: this.state.sessionInput.lineNumber,
+          diffHunk: this.state.sessionInput.diffHunk || '',
+          prHeadSha: this.state.sessionInput.prHeadSha,
+        },
+        {
+          custom_instructions: config.custom_instructions,
+        },
+        this.state.ticketId
+      );
+    } else {
+      // Build classification result from session input
+      const classification: ClassificationResult = {
+        classification: this.state.sessionInput.classification || 'bug',
+        confidence: this.state.sessionInput.confidence || 0.9,
+        intentSummary: this.state.sessionInput.intentSummary || 'Fix the reported issue',
+        relatedFiles: this.state.sessionInput.relatedFiles,
+      };
+
+      // Build PR creation prompt using comprehensive template
+      prompt = buildPRPrompt(
+        {
+          repoFullName: this.state.sessionInput.repoFullName,
+          issueNumber: this.state.sessionInput.issueNumber,
+          issueTitle: this.state.sessionInput.issueTitle,
+          issueBody: this.state.sessionInput.issueBody,
+        },
+        classification,
+        {
+          pr_branch_prefix: config.pr_branch_prefix,
+          custom_instructions: config.custom_instructions,
+        },
+        this.state.ticketId
+      );
+    }
 
     // Build session input
-    // DO NOT set upstreamBranch - this would cause the agent to work directly on the base branch
-    // Instead, the Cloud Agent will automatically create a new branch named session/{sessionId}
-    // and push changes to that branch, which we can then use to create a PR
+    // For review comment fixes: set upstreamBranch to the PR's head branch so changes push there
+    // For issue fixes: DO NOT set upstreamBranch - agent creates session/{sessionId} branch
     const sessionInput = {
       githubRepo: this.state.sessionInput.repoFullName,
       kilocodeOrganizationId: this.state.owner.type === 'org' ? this.state.owner.id : undefined,
@@ -188,7 +213,9 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
       githubToken,
       autoCommit: true,
       createdOnPlatform: 'autofix',
-      // upstreamBranch is intentionally NOT set - agent will create session/{sessionId} branch
+      ...(isReviewCommentFix && this.state.sessionInput.upstreamBranch
+        ? { upstreamBranch: this.state.sessionInput.upstreamBranch }
+        : {}),
       callbackUrl,
       callbackHeaders: {
         'X-Internal-Secret': this.env.INTERNAL_API_SECRET,
@@ -274,8 +301,13 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
     console.log('[AutoFixOrchestrator] Waiting for git push to propagate to GitHub...');
     await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
 
-    // Now that the Cloud Agent has completed and pushed the branch, create the GitHub PR
-    await this.createGitHubPR(sessionId);
+    // For review comment fixes: reply on the review thread instead of creating a new PR
+    if (this.state.triggerSource === 'review_comment') {
+      await this.replyToReviewComment(sessionId);
+    } else {
+      // For issue fixes: create a new GitHub PR
+      await this.createGitHubPR(sessionId);
+    }
   }
 
   /**
@@ -359,6 +391,49 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
       prNumber: prData.prNumber,
       prUrl: prData.prUrl,
       prBranch: branchName,
+    });
+  }
+
+  /**
+   * Reply to the review comment thread after Cloud Agent completes
+   * Called instead of createGitHubPR for review comment triggers
+   */
+  private async replyToReviewComment(sessionId: string | undefined): Promise<void> {
+    if (!sessionId) {
+      throw new Error('Cannot reply to review comment without sessionId');
+    }
+
+    console.log('[AutoFixOrchestrator] Replying to review comment', {
+      ticketId: this.state.ticketId,
+      sessionId,
+    });
+
+    const response = await fetch(`${this.env.API_URL}/api/internal/auto-fix/comment-reply`, {
+      method: 'POST',
+      headers: {
+        'X-Internal-Secret': this.env.INTERNAL_API_SECRET,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ticketId: this.state.ticketId,
+        sessionId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to reply to review comment: ${response.statusText} - ${errorText}`);
+    }
+
+    console.log('[AutoFixOrchestrator] Review comment reply posted successfully', {
+      ticketId: this.state.ticketId,
+      sessionId,
+    });
+
+    // Update status to completed
+    await this.updateStatus('completed', {
+      sessionId,
+      prBranch: this.state.sessionInput.upstreamBranch,
     });
   }
 

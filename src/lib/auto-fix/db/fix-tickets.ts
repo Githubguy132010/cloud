@@ -40,6 +40,13 @@ export async function createFixTicket(params: CreateFixTicketParams): Promise<st
         issue_body: params.issueBody,
         issue_author: params.issueAuthor,
         issue_labels: params.issueLabels || [],
+        trigger_source: params.triggerSource || 'label',
+        review_comment_id: params.reviewCommentId || null,
+        review_comment_body: params.reviewCommentBody || null,
+        file_path: params.filePath || null,
+        line_number: params.lineNumber || null,
+        diff_hunk: params.diffHunk || null,
+        pr_head_ref: params.prHeadRef || null,
         classification: params.classification || null,
         confidence: params.confidence?.toString() || null,
         intent_summary: params.intentSummary || null,
@@ -117,7 +124,8 @@ export async function findExistingFixTicket(
       .where(
         and(
           eq(auto_fix_tickets.repo_full_name, repoFullName),
-          eq(auto_fix_tickets.issue_number, issueNumber)
+          eq(auto_fix_tickets.issue_number, issueNumber),
+          eq(auto_fix_tickets.trigger_source, 'label')
         )
       )
       .limit(1);
@@ -127,6 +135,38 @@ export async function findExistingFixTicket(
     captureException(error, {
       tags: { operation: 'findExistingFixTicket' },
       extra: { repoFullName, issueNumber },
+    });
+    throw error;
+  }
+}
+
+/**
+ * Checks if an active (non-terminal) fix ticket already exists for a given repo and review comment ID.
+ * Returns the existing ticket if found, null otherwise.
+ * Completed/failed/cancelled tickets are ignored so users can re-trigger fixes.
+ */
+export async function findExistingReviewCommentFixTicket(
+  repoFullName: string,
+  reviewCommentId: number
+): Promise<AutoFixTicket | null> {
+  try {
+    const [ticket] = await db
+      .select()
+      .from(auto_fix_tickets)
+      .where(
+        and(
+          eq(auto_fix_tickets.repo_full_name, repoFullName),
+          eq(auto_fix_tickets.review_comment_id, reviewCommentId),
+          or(eq(auto_fix_tickets.status, 'pending'), eq(auto_fix_tickets.status, 'running'))
+        )
+      )
+      .limit(1);
+
+    return ticket || null;
+  } catch (error) {
+    captureException(error, {
+      tags: { operation: 'findExistingReviewCommentFixTicket' },
+      extra: { repoFullName, reviewCommentId },
     });
     throw error;
   }

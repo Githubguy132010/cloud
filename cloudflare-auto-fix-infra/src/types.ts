@@ -20,6 +20,8 @@ export interface ClassificationResult {
   suggestedAction?: string;
 }
 
+export type TriggerSource = 'label' | 'review_comment';
+
 export interface SessionInput {
   repoFullName: string;
   issueNumber: number;
@@ -38,6 +40,14 @@ export interface SessionInput {
   prTitleTemplate: string;
   prBodyTemplate?: string | null;
   maxPRCreationTimeMinutes?: number;
+  // Review comment context
+  upstreamBranch?: string;
+  reviewCommentId?: number;
+  reviewCommentBody?: string;
+  filePath?: string;
+  lineNumber?: number;
+  diffHunk?: string;
+  prHeadSha?: string;
 }
 
 export interface FixEvent {
@@ -53,6 +63,7 @@ export interface FixTicket {
   authToken: string;
   sessionInput: SessionInput;
   owner: Owner;
+  triggerSource: TriggerSource;
   status: FixStatus;
   sessionId?: string;
   cliSessionId?: string;
@@ -84,6 +95,7 @@ export interface FixRequest {
   authToken: string;
   sessionInput: SessionInput;
   owner: Owner;
+  triggerSource?: TriggerSource;
 }
 
 export interface FixResponse {
