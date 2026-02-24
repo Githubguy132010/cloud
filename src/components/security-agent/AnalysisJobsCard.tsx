@@ -211,7 +211,7 @@ export function AnalysisJobsCard({ organizationId, onGitHubError }: AnalysisJobs
     refetchInterval: query => {
       const result = query.state.data;
       if (!result) return false;
-      const findings = (result.jobs || []) as SecurityFinding[];
+      const findings = result.jobs || [];
       const hasActiveJobs = findings.some(f =>
         ['pending', 'running'].includes(f.analysis_status || '')
       );
@@ -255,7 +255,7 @@ export function AnalysisJobsCard({ organizationId, onGitHubError }: AnalysisJobs
   const handleRetry = (findingId: string) => {
     setStartingAnalysisId(findingId);
     // If the finding has triage data, retry only sandbox analysis to avoid redundant triage
-    const jobs = (data?.jobs || []) as SecurityFinding[];
+    const jobs = data?.jobs || [];
     const finding = jobs.find(f => f.id === findingId);
     const retrySandboxOnly = !!finding?.analysis?.triage && finding.analysis_status === 'failed';
     if (isOrg) {
@@ -333,7 +333,7 @@ export function AnalysisJobsCard({ organizationId, onGitHubError }: AnalysisJobs
     );
   }
 
-  const findings = (data?.jobs || []) as SecurityFinding[];
+  const findings = data?.jobs || [];
   const total = data?.total || 0;
   const runningCount = data?.runningCount || 0;
   const concurrencyLimit = data?.concurrencyLimit || 3;
