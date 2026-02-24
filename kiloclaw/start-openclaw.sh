@@ -317,6 +317,12 @@ EOFPATCH
 # ============================================================
 # START CONTROLLER
 # ============================================================
+# Tell the gateway it's running under a supervisor. On SIGUSR1 restart,
+# the gateway will exit cleanly (code 0) instead of spawning a detached
+# child process. The controller's supervisor detects the clean exit and
+# respawns the gateway immediately without backoff.
+export INVOCATION_ID=1
+
 echo 'Starting KiloClaw controller...'
 
 # Build gateway args as a JSON array (safe quoting through node serialization).
