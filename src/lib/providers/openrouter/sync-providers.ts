@@ -33,6 +33,9 @@ async function fetchVercelAiGatewayProviders() {
     method: 'GET',
     headers,
   });
+  if (!modelsResponse.ok) {
+    throw new Error(`Fetching models from ${gateway.id} failed: ${modelsResponse.status}`);
+  }
   const models = modelsSchema.parse(await modelsResponse.json());
 
   const limit = pLimit(5);
@@ -45,6 +48,11 @@ async function fetchVercelAiGatewayProviders() {
           method: 'GET',
           headers,
         });
+        if (!endpointsResponse.ok) {
+          throw new Error(
+            `Fetching model endpoints for ${model.id} failed: ${modelsResponse.status}`
+          );
+        }
         const endpoints = endpointsSchema.parse(await endpointsResponse.json());
         result[model.id] = endpoints.data.endpoints.map(ep => ep.provider_name);
       })
