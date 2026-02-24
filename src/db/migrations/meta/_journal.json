@@ -183,6 +183,13 @@
       "when": 1771923129231,
       "tag": "0025_busy_colleen_wing",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1771928226112,
+      "tag": "0026_quiet_namorita",
+      "breakpoints": true
     }
   ]
 }

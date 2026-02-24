@@ -19,6 +19,7 @@ import {
   free_model_usage,
   organizations,
   user_feedback,
+  cloud_agent_feedback,
   user_admin_notes,
   magic_link_tokens,
   stytch_fingerprints,
@@ -55,6 +56,7 @@ describe('User', () => {
     await db.delete(organization_memberships);
     await db.delete(free_model_usage);
     await db.delete(user_feedback);
+    await db.delete(cloud_agent_feedback);
     await db.delete(user_admin_notes);
     await db.delete(magic_link_tokens);
     await db.delete(stytch_fingerprints);
@@ -383,6 +385,21 @@ describe('User', () => {
       expect(feedback).toHaveLength(1);
       expect(feedback[0].kilo_user_id).toBeNull();
       expect(feedback[0].feedback_text).toBe('Great product!');
+    });
+
+    it('should nullify cloud_agent_feedback FK', async () => {
+      const user = await insertTestUser();
+      await db.insert(cloud_agent_feedback).values({
+        kilo_user_id: user.id,
+        feedback_text: 'Cloud agent is great!',
+      });
+
+      await softDeleteUser(user.id);
+
+      const feedback = await db.select().from(cloud_agent_feedback);
+      expect(feedback).toHaveLength(1);
+      expect(feedback[0].kilo_user_id).toBeNull();
+      expect(feedback[0].feedback_text).toBe('Cloud agent is great!');
     });
 
     it('should nullify free_model_usage FK', async () => {

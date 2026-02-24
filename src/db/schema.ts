@@ -2944,6 +2944,41 @@ export const app_builder_feedback = pgTable(
 export type AppBuilderFeedback = typeof app_builder_feedback.$inferSelect;
 export type NewAppBuilderFeedback = typeof app_builder_feedback.$inferInsert;
 
+// ============ CLOUD AGENT FEEDBACK ============
+
+export const cloud_agent_feedback = pgTable(
+  'cloud_agent_feedback',
+  {
+    id: uuid()
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey()
+      .notNull(),
+    kilo_user_id: text().references(() => kilocode_users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+    cloud_agent_session_id: text(),
+    organization_id: uuid().references(() => organizations.id, {
+      onDelete: 'set null',
+    }),
+    model: text(),
+    repository: text(),
+    is_streaming: boolean(),
+    message_count: integer(),
+    feedback_text: text().notNull(),
+    recent_messages: jsonb().$type<{ role: string; text: string; ts: number }[]>(),
+    created_at: timestamp({ withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  },
+  table => [
+    index('IDX_cloud_agent_feedback_created_at').on(table.created_at),
+    index('IDX_cloud_agent_feedback_kilo_user_id').on(table.kilo_user_id),
+    index('IDX_cloud_agent_feedback_cloud_agent_session_id').on(table.cloud_agent_session_id),
+  ]
+);
+
+export type CloudAgentFeedback = typeof cloud_agent_feedback.$inferSelect;
+export type NewCloudAgentFeedback = typeof cloud_agent_feedback.$inferInsert;
+
 // ─── KiloClaw (multi-tenant sandbox instances) ──────────────────────
 
 export const kiloclaw_instances = pgTable(
