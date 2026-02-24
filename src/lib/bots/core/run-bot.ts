@@ -126,9 +126,7 @@ export async function runBot(input: BotRunInput): Promise<BotRunResult> {
           toolCall.type === 'function' ? toolCall.function.name : 'N/A'
         );
 
-        toolCallsMade.push(
-          toolCall.type === 'custom' ? toolCall.custom.name : toolCall.function.name
-        );
+        toolCallsMade.push(toolCall.type === 'function' ? toolCall.function.name : 'N/A');
 
         try {
           const toolResult = await input.toolExecutor(toolCall);
