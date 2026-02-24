@@ -477,7 +477,9 @@ export async function processKiloBotMessage(
       );
       console.log('[SlackBot] Tool result received, length:', toolResult.response.length);
       console.log('[SlackBot] Tool result preview:', toolResult.response.slice(0, 100));
-      cloudAgentSessionId = toolResult.sessionId;
+      if (toolResult.sessionId) {
+        cloudAgentSessionId = toolResult.sessionId;
+      }
 
       return {
         content: toolResult.response,
