@@ -23,7 +23,6 @@ async function fetchVercelAiGatewayProviders() {
   const headers = {
     authorization: `Bearer ${gateway.apiKey}`,
   };
-  const result: Record<string, string[]> = {};
 
   const modelsSchema = z.object({ data: z.array(z.object({ id: z.string() })) });
   const endpointsSchema = z.object({
@@ -36,16 +35,21 @@ async function fetchVercelAiGatewayProviders() {
   });
   const models = modelsSchema.parse(await modelsResponse.json());
 
-  for (const model of models.data) {
-    console.debug(`[fetchVercelAiGatewayProviders] ${model.id}`);
-    const endpointsResponse = await fetch(`${gateway.apiUrl}/models/${model.id}/endpoints`, {
-      method: 'GET',
-      headers,
-    });
-    const endpoints = endpointsSchema.parse(await endpointsResponse.json());
-    result[model.id] = endpoints.data.endpoints.map(ep => ep.provider_name);
-  }
-
+  const limit = pLimit(5);
+  const result: Record<string, string[]> = {};
+  await Promise.all(
+    models.data.map(model =>
+      limit(async () => {
+        console.debug(`[fetchVercelAiGatewayProviders] ${model.id}`);
+        const endpointsResponse = await fetch(`${gateway.apiUrl}/models/${model.id}/endpoints`, {
+          method: 'GET',
+          headers,
+        });
+        const endpoints = endpointsSchema.parse(await endpointsResponse.json());
+        result[model.id] = endpoints.data.endpoints.map(ep => ep.provider_name);
+      })
+    )
+  );
   return result;
 }
 
