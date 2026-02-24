@@ -29,6 +29,7 @@ import { agentProfilesRouter } from '@/routers/agent-profiles-router';
 import { webhookTriggersRouter } from '@/routers/webhook-triggers-router';
 import { userFeedbackRouter } from '@/routers/user-feedback-router';
 import { appBuilderFeedbackRouter } from '@/routers/app-builder-feedback-router';
+import { cloudAgentNextFeedbackRouter } from '@/routers/cloud-agent-next-feedback-router';
 import { kiloclawRouter } from '@/routers/kiloclaw-router';
 import { unifiedSessionsRouter } from '@/routers/unified-sessions-router';
 
@@ -62,6 +63,7 @@ export const rootRouter = createTRPCRouter({
   webhookTriggers: webhookTriggersRouter,
   userFeedback: userFeedbackRouter,
   appBuilderFeedback: appBuilderFeedbackRouter,
+  cloudAgentNextFeedback: cloudAgentNextFeedbackRouter,
   kiloclaw: kiloclawRouter,
   unifiedSessions: unifiedSessionsRouter,
 });

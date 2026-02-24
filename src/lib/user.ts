@@ -42,6 +42,7 @@ import {
   user_period_cache,
   user_feedback,
   app_builder_feedback,
+  cloud_agent_feedback,
   free_model_usage,
   kilo_pass_scheduled_changes,
 } from '@/db/schema';
@@ -555,6 +556,10 @@ export async function softDeleteUser(userId: string) {
       .update(app_builder_feedback)
       .set({ kilo_user_id: null })
       .where(eq(app_builder_feedback.kilo_user_id, userId));
+    await tx
+      .update(cloud_agent_feedback)
+      .set({ kilo_user_id: null })
+      .where(eq(cloud_agent_feedback.kilo_user_id, userId));
     await tx
       .update(free_model_usage)
       .set({ kilo_user_id: null })
