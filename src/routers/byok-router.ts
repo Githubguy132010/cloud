@@ -49,6 +49,7 @@ const fetchSupportedModels = unstable_cache(
 
     for (const model of Object.values(vercelModelMetadata.data)) {
       if (model.id.includes('codestral')) continue;
+      if (model.type !== 'language') continue;
       for (const endpoint of model.endpoints) {
         const providerParsed = VercelUserByokInferenceProviderIdSchema.safeParse(endpoint.tag);
         if (!providerParsed.success) continue;
