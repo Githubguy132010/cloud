@@ -53,7 +53,12 @@ async function transferImage(params: TransferImageParams): Promise<string> {
     throw new Error(`No public URL configured for bucket: ${claims.dst_bucket}`);
   }
 
-  return `${baseUrl}/${destKey}`;
+  const encodedPath = destKey
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+
+  return `${baseUrl}/${encodedPath}`;
 }
 
 export { transferImage };
