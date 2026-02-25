@@ -78,14 +78,16 @@ export function InstanceControls({
           size="sm"
           variant="outline"
           className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
-          disabled={!isStopped || mutations.start.isPending || isDestroying}
+          disabled={
+            !isStopped || mutations.start.isPending || mutations.provision.isPending || isDestroying
+          }
           onClick={() => {
             posthog?.capture('claw_start_instance_clicked', { instance_status: status.status });
             mutations.start.mutate();
           }}
         >
           <Play className="h-4 w-4" />
-          {mutations.start.isPending ? (
+          {mutations.start.isPending || mutations.provision.isPending ? (
             <>
               Starting
               <AnimatedDots />
