@@ -389,18 +389,6 @@ export function BYOKKeysManager({ organizationId }: BYOKKeysManagerProps) {
                     })}
                   </SelectContent>
                 </Select>
-                {selectedProvider && getProviderModels(selectedProvider).length > 0 && (
-                  <div className="text-muted-foreground rounded-md border p-3 text-sm">
-                    <p className="mb-1 font-medium">Supported models:</p>
-                    <ul className="space-y-0.5">
-                      {getProviderModels(selectedProvider).map(m => (
-                        <li key={m.id} className="text-xs">
-                          {m.name}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -441,6 +429,21 @@ export function BYOKKeysManager({ organizationId }: BYOKKeysManagerProps) {
                   </Alert>
                 )}
               </div>
+
+              {selectedProvider && getProviderModels(selectedProvider).length > 0 && (
+                <div className="space-y-2">
+                  <Label>Supported Models</Label>
+                  <div className="text-muted-foreground rounded-md border p-3 text-sm">
+                    <ul className="max-h-32 space-y-0.5 overflow-y-auto">
+                      {getProviderModels(selectedProvider).map(m => (
+                        <li key={m.id} className="text-xs">
+                          {m.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>
