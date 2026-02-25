@@ -24,7 +24,17 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, Edit, Eye, EyeOff, Plus, Info, Lock } from 'lucide-react';
+import {
+  Trash2,
+  Edit,
+  Eye,
+  EyeOff,
+  Plus,
+  Info,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AutocompleteUserByokProviderIdSchema,
@@ -52,6 +62,34 @@ function BYOKDescription() {
   );
 }
 
+type SupportedModel = { id: string; name: string };
+
+function SupportedModelsList({ models }: { models: SupportedModel[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (models.length === 0) return null;
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {models.length} supported model{models.length !== 1 ? 's' : ''}
+      </button>
+      {expanded && (
+        <ul className="text-muted-foreground mt-1 ml-4 space-y-0.5 text-xs">
+          {models.map(m => (
+            <li key={m.id}>{m.name}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 type BYOKKeysManagerProps = {
   organizationId?: string;
 };
@@ -72,6 +110,8 @@ export function BYOKKeysManager({ organizationId }: BYOKKeysManagerProps) {
   const { data: keys, isLoading: keysLoading } = useQuery(
     trpc.byok.list.queryOptions(listQueryInput)
   );
+
+  const { data: supportedModels } = useQuery(trpc.byok.listSupportedModels.queryOptions());
 
   const createMutation = useMutation(
     trpc.byok.create.mutationOptions({
@@ -205,6 +245,10 @@ export function BYOKKeysManager({ organizationId }: BYOKKeysManagerProps) {
     return provider?.name || providerId;
   };
 
+  const getProviderModels = (providerId: string): SupportedModel[] => {
+    return supportedModels?.[providerId] ?? [];
+  };
+
   return (
     <div className="space-y-4">
       <BYOKDescription />
@@ -245,7 +289,8 @@ export function BYOKKeysManager({ organizationId }: BYOKKeysManagerProps) {
                         }
                       >
                         <td className={!key.is_enabled ? 'text-muted-foreground p-4' : 'p-4'}>
-                          {getProviderDisplayName(key.provider_id)}
+                          <div>{getProviderDisplayName(key.provider_id)}</div>
+                          <SupportedModelsList models={getProviderModels(key.provider_id)} />
                         </td>
                         <td className="text-muted-foreground p-4">
                           {new Date(key.created_at).toLocaleDateString()}
@@ -344,6 +389,18 @@ export function BYOKKeysManager({ organizationId }: BYOKKeysManagerProps) {
                     })}
                   </SelectContent>
                 </Select>
+                {selectedProvider && getProviderModels(selectedProvider).length > 0 && (
+                  <div className="text-muted-foreground rounded-md border p-3 text-sm">
+                    <p className="mb-1 font-medium">Supported models:</p>
+                    <ul className="space-y-0.5">
+                      {getProviderModels(selectedProvider).map(m => (
+                        <li key={m.id} className="text-xs">
+                          {m.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

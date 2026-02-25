@@ -2,9 +2,9 @@ import { baseProcedure, createTRPCRouter } from '@/lib/trpc/init';
 import { ensureOrganizationAccess } from '@/routers/organizations/utils';
 import { TRPCError } from '@trpc/server';
 import * as z from 'zod';
-import { db } from '@/lib/drizzle';
-import { byok_api_keys } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { db, readDb } from '@/lib/drizzle';
+import { byok_api_keys, modelsByProvider } from '@/db/schema';
+import { desc, eq } from 'drizzle-orm';
 import { encryptApiKey } from '@/lib/byok/encryption';
 import { BYOK_ENCRYPTION_KEY } from '@/lib/config.server';
 import { createAuditLog } from '@/lib/organizations/organization-audit-logs';
@@ -17,8 +17,49 @@ import {
   BYOKApiKeyResponseSchema,
   type BYOKApiKeyResponse,
 } from '@/lib/byok/types';
+import { VercelUserByokInferenceProviderIdSchema } from '@/lib/providers/openrouter/inference-provider-id';
+import { AUTOCOMPLETE_MODEL } from '@/lib/constants';
 
 export const byokRouter = createTRPCRouter({
+  // Returns a map of provider ID → list of supported model names, derived from Vercel metadata.
+  // Codestral is special-cased: its model list comes from Mistral's API, not Vercel.
+  listSupportedModels: baseProcedure
+    .output(z.record(z.string(), z.array(z.object({ id: z.string(), name: z.string() }))))
+    .query(async () => {
+      const vercelModelMetadata = (
+        await readDb
+          .select({ vercel: modelsByProvider.vercel })
+          .from(modelsByProvider)
+          .orderBy(desc(modelsByProvider.id))
+          .limit(1)
+      ).at(0)?.vercel;
+
+      const result: Record<string, { id: string; name: string }[]> = {};
+
+      // Codestral is not a Vercel gateway provider — it calls Mistral's API directly for FIM.
+      result['codestral'] = [
+        { id: `mistralai/${AUTOCOMPLETE_MODEL}`, name: 'Codestral (autocomplete)' },
+      ];
+
+      if (vercelModelMetadata) {
+        for (const model of Object.values(vercelModelMetadata)) {
+          for (const endpoint of model.endpoints) {
+            const providerParsed = VercelUserByokInferenceProviderIdSchema.safeParse(endpoint.tag);
+            if (!providerParsed.success) continue;
+            const providerId = providerParsed.data;
+            if (!result[providerId]) result[providerId] = [];
+            result[providerId].push({ id: model.id, name: model.name });
+          }
+        }
+        // Sort models alphabetically within each provider
+        for (const models of Object.values(result)) {
+          models.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      }
+
+      return result;
+    }),
+
   list: baseProcedure
     .input(ListBYOKKeysInputSchema)
     .output(z.array(BYOKApiKeyResponseSchema))
