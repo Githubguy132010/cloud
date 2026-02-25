@@ -173,6 +173,12 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await shutdownPosthogWithTimeout();
+    try {
+      await shutdownPosthogWithTimeout();
+    } catch (error) {
+      cronWarn('SECURITY: Unexpected failure during PostHog shutdown cleanup', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
