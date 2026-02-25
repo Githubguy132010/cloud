@@ -82,7 +82,7 @@ const PromptTemplateSchema = z.object({
 });
 
 // Template type derived from schema
-type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
+export type PromptTemplate = z.infer<typeof PromptTemplateSchema>;
 
 /**
  * Get the default local template for a platform
@@ -101,6 +101,33 @@ function getDefaultTemplate(platform: CodeReviewPlatform): PromptTemplate {
 }
 
 /**
+ * Merges style overrides from the local template into a remote template
+ * when the remote template doesn't include them. This ensures per-style
+ * features (like roast mode) still work even when the remote template
+ * only overrides the base prompt sections.
+ */
+export function resolveTemplate(
+  remoteTemplate: PromptTemplate | undefined,
+  localTemplate: PromptTemplate
+): { template: PromptTemplate; source: 'posthog' | 'local' } {
+  if (!remoteTemplate) {
+    return { template: localTemplate, source: 'local' };
+  }
+
+  return {
+    template: {
+      ...remoteTemplate,
+      styleGuidance: remoteTemplate.styleGuidance ?? localTemplate.styleGuidance,
+      commentFormatOverrides:
+        remoteTemplate.commentFormatOverrides ?? localTemplate.commentFormatOverrides,
+      summaryFormatOverrides:
+        remoteTemplate.summaryFormatOverrides ?? localTemplate.summaryFormatOverrides,
+    },
+    source: 'posthog',
+  };
+}
+
+/**
  * Load prompt template from PostHog or fall back to local
  * @param platform The platform to load template for
  * @returns Template and source indicator
@@ -115,20 +142,15 @@ async function loadPromptTemplate(platform: CodeReviewPlatform): Promise<{
   // Try to load from PostHog first
   const remoteTemplate = await getFeatureFlagPayload(PromptTemplateSchema, featureFlagName);
 
-  if (remoteTemplate) {
-    logExceptInTest('[loadPromptTemplate] Loaded template from PostHog', {
-      platform,
-      version: remoteTemplate.version,
-    });
-    return { template: remoteTemplate, source: 'posthog' };
-  }
+  const { template, source } = resolveTemplate(remoteTemplate, defaultTemplate);
 
-  // Fall back to local template
-  logExceptInTest('[loadPromptTemplate] Using local template', {
+  logExceptInTest('[loadPromptTemplate] Template resolved', {
     platform,
-    version: defaultTemplate.version,
+    version: template.version,
+    source,
   });
-  return { template: defaultTemplate, source: 'local' };
+
+  return { template, source };
 }
 
 /**
