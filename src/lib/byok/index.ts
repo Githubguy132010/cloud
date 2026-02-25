@@ -5,7 +5,7 @@ import { desc } from 'drizzle-orm';
 import { decryptApiKey } from '@/lib/byok/encryption';
 import { BYOK_ENCRYPTION_KEY } from '@/lib/config.server';
 import {
-  UserByokProviderIdSchema,
+  VercelUserByokInferenceProviderIdSchema,
   type UserByokProviderId,
 } from '@/lib/providers/openrouter/inference-provider-id';
 import { isCodestralModel } from '@/lib/providers/mistral';
@@ -31,7 +31,7 @@ const getModelUserByokProviders_cached = unstable_cache(
     }
     const providers =
       vercelModelMetadata[mapModelIdToVercel(modelId)]?.endpoints
-        .map(ep => UserByokProviderIdSchema.safeParse(ep.tag).data)
+        .map(ep => VercelUserByokInferenceProviderIdSchema.safeParse(ep.tag).data)
         .filter(providerId => providerId !== undefined) ?? [];
     if (providers.length === 0) {
       console.debug(`[getModelUserByokProviders_cached] no user byok providers for ${modelId}`);
