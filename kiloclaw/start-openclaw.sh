@@ -159,6 +159,28 @@ try {
     console.log('Starting with empty config');
 }
 
+// Migration: remove stale manually-managed kilocode provider config.
+// Pre-upgrade instances have a models.providers.kilocode entry with the old
+// /api/openrouter/ base URL and a flat model list (just {id, name}).
+// OpenClaw 2026.2.24+ has a built-in kilocode provider with the correct
+// /api/gateway/ URL and richer model definitions. Removing the stale entry
+// lets the built-in provider take over. The KILOCODE_API_BASE_URL override
+// below re-adds a minimal entry only when needed (local dev).
+if (config.models && config.models.providers && config.models.providers.kilocode) {
+    var staleBaseUrl = config.models.providers.kilocode.baseUrl || '';
+    if (staleBaseUrl.includes('/api/openrouter/') || staleBaseUrl === 'https://api.kilo.ai/api/gateway/') {
+        delete config.models.providers.kilocode;
+        console.log('Removed stale kilocode provider config (baseUrl: ' + staleBaseUrl + ')');
+        // Clean up empty providers/models objects
+        if (Object.keys(config.models.providers).length === 0) {
+            delete config.models.providers;
+        }
+        if (Object.keys(config.models).length === 0) {
+            delete config.models;
+        }
+    }
+}
+
 config.gateway = config.gateway || {};
 config.channels = config.channels || {};
 

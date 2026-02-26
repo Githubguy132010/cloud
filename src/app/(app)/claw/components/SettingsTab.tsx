@@ -192,6 +192,11 @@ export function SettingsTab({
   };
 
   function handleSave() {
+    if (isLoadingModels) {
+      toast.error('Models are still loading; try again in a moment.');
+      return;
+    }
+
     posthog?.capture('claw_save_config_clicked', {
       selected_model: selectedModel || null,
       instance_status: status.status,
