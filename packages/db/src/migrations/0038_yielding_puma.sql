@@ -1,5 +1,5 @@
 ALTER TABLE "auto_fix_tickets" ADD COLUMN "trigger_source" text DEFAULT 'label' NOT NULL;--> statement-breakpoint
-ALTER TABLE "auto_fix_tickets" ADD COLUMN "review_comment_id" integer;--> statement-breakpoint
+ALTER TABLE "auto_fix_tickets" ADD COLUMN "review_comment_id" bigint;--> statement-breakpoint
 ALTER TABLE "auto_fix_tickets" ADD COLUMN "review_comment_body" text;--> statement-breakpoint
 ALTER TABLE "auto_fix_tickets" ADD COLUMN "file_path" text;--> statement-breakpoint
 ALTER TABLE "auto_fix_tickets" ADD COLUMN "line_number" integer;--> statement-breakpoint

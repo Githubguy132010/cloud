@@ -2766,7 +2766,7 @@ export const auto_fix_tickets = pgTable(
     trigger_source: text().notNull().default('label').$type<'label' | 'review_comment'>(),
 
     // Review comment context (populated when trigger_source='review_comment')
-    review_comment_id: integer(),
+    review_comment_id: bigint({ mode: 'number' }),
     review_comment_body: text(),
     file_path: text(),
     line_number: integer(),

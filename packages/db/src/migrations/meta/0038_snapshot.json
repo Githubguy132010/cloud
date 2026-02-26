@@ -1322,7 +1322,7 @@
         },
         "review_comment_id": {
           "name": "review_comment_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
