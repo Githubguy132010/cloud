@@ -18,11 +18,11 @@
       "top_provider": {
         "is_moderated": false,
         "context_length": 1000000,
-        "max_completion_tokens": 64000
+        "max_completion_tokens": 128000
       },
       "pricing": {
-        "prompt": "0.0000010",
-        "completion": "0.0000010",
+        "prompt": "5.00",
+        "completion": "25.00",
         "request": "0",
         "image": "0",
         "web_search": "0",
@@ -36,11 +36,11 @@
         "reasoning",
         "include_reasoning"
       ],
-      "preferredIndex": 0,
       "opencode": {
         "family": "claude",
         "prompt": "anthropic"
-      }
+      },
+      "preferredIndex": 0
     },
     {
       "id": "minimax/minimax-m2.5:free",
@@ -514,6 +514,92 @@
         "tools"
       ],
       "default_parameters": {}
+    },
+    {
+      "id": "kilo/auto-free",
+      "name": "Kilo: Auto Free",
+      "created": 0,
+      "description": "Automatically routes your request to a free model.",
+      "architecture": {
+        "input_modalities": [
+          "text"
+        ],
+        "output_modalities": [
+          "text"
+        ],
+        "tokenizer": "Other"
+      },
+      "top_provider": {
+        "is_moderated": false,
+        "context_length": 204800,
+        "max_completion_tokens": 131072
+      },
+      "pricing": {
+        "prompt": "0",
+        "completion": "0",
+        "request": "0",
+        "image": "0",
+        "web_search": "0",
+        "internal_reasoning": "0"
+      },
+      "context_length": 204800,
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "tools",
+        "reasoning",
+        "include_reasoning"
+      ],
+      "settings": {
+        "included_tools": [
+          "search_and_replace"
+        ],
+        "excluded_tools": [
+          "apply_diff",
+          "edit_file"
+        ]
+      }
+    },
+    {
+      "id": "kilo/auto-small",
+      "name": "Kilo: Auto Small",
+      "created": 0,
+      "description": "Automatically routes your request to a small model.",
+      "architecture": {
+        "input_modalities": [
+          "text",
+          "image"
+        ],
+        "output_modalities": [
+          "text"
+        ],
+        "tokenizer": "Other"
+      },
+      "top_provider": {
+        "is_moderated": false,
+        "context_length": 400000,
+        "max_completion_tokens": 128000
+      },
+      "pricing": {
+        "prompt": "0.05",
+        "completion": "0.40",
+        "request": "0",
+        "image": "0",
+        "web_search": "0",
+        "internal_reasoning": "0"
+      },
+      "context_length": 400000,
+      "supported_parameters": [
+        "max_tokens",
+        "temperature",
+        "tools",
+        "reasoning",
+        "include_reasoning"
+      ],
+      "opencode": {
+        "family": "gpt",
+        "prompt": "codex"
+      }
     }
   ]
 }
