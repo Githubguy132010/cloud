@@ -64,10 +64,11 @@ export function registerConfigRoutes(
 
     try {
       writeBaseConfig(process.env);
-      const signaled = supervisor.signal('SIGUSR1');
+      const gatewayState = supervisor.getState();
+      const signaled = gatewayState === 'running' && supervisor.signal('SIGUSR1');
       if (!signaled) {
         console.warn(
-          '[controller] Config restored but gateway process is not running — SIGUSR1 not sent'
+          `[controller] Config restored but gateway is ${gatewayState} — SIGUSR1 not sent`
         );
       }
       return c.json({ ok: true, signaled });
