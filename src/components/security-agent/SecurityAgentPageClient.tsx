@@ -400,23 +400,8 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
       })
     );
 
-  // Refresh installation mutations - Organization
-  const { mutate: orgRefreshMutate, isPending: isOrgRefreshPending } = useMutation(
-    trpc.organizations.githubApps.refreshInstallation.mutationOptions({
-      onSuccess: () => {
-        toast.success('Permissions refreshed', {
-          description: 'GitHub App permissions have been updated from GitHub.',
-        });
-        void queryClient.invalidateQueries();
-      },
-      onError: error => {
-        toast.error('Failed to refresh permissions', { description: error.message });
-      },
-    })
-  );
-
-  // Refresh installation mutations - Personal
-  const { mutate: personalRefreshMutate, isPending: isPersonalRefreshPending } = useMutation(
+  // Refresh installation mutation (unified - works for both org and personal)
+  const { mutate: refreshMutate, isPending: isRefreshPending } = useMutation(
     trpc.githubApps.refreshInstallation.mutationOptions({
       onSuccess: () => {
         toast.success('Permissions refreshed', {
@@ -424,7 +409,7 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
         });
         void queryClient.invalidateQueries();
       },
-      onError: error => {
+      onError: (error: { message: string }) => {
         toast.error('Failed to refresh permissions', { description: error.message });
       },
     })
@@ -573,11 +558,11 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
 
   const handleRefreshPermissions = useCallback(() => {
     if (isOrg && organizationId) {
-      orgRefreshMutate({ organizationId });
+      refreshMutate({ organizationId });
     } else {
-      personalRefreshMutate();
+      refreshMutate(undefined);
     }
-  }, [isOrg, organizationId, orgRefreshMutate, personalRefreshMutate]);
+  }, [isOrg, organizationId, refreshMutate]);
 
   // Check integration and permissions
   const hasIntegration = permissionData?.hasIntegration ?? false;
@@ -646,7 +631,7 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
   const isSavingConfig = isOrg ? isOrgSaveConfigPending : isPersonalSaveConfigPending;
   const isTogglingEnabled = isOrg ? isOrgSetEnabledPending : isPersonalSetEnabledPending;
   const isDeletingFindings = isOrg ? isOrgDeleteFindingsPending : isPersonalDeleteFindingsPending;
-  const isRefreshing = isOrg ? isOrgRefreshPending : isPersonalRefreshPending;
+  const isRefreshing = isRefreshPending;
 
   // Orphaned repositories data
   const orphanedRepositories = orphanedReposData ?? [];
