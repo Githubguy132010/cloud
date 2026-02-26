@@ -1,4 +1,4 @@
-import { KiloFreeModel } from '@/lib/providers/kilo-free-model';
+import type { KiloFreeModel } from '@/lib/providers/kilo-free-model';
 import type { OpenRouterChatCompletionRequest } from '@/lib/providers/openrouter/types';
 
 export const kimi_k25_free_model: KiloFreeModel = {
