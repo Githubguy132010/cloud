@@ -183,7 +183,11 @@ export function DiscordIntegrationDetails({ success, error }: DiscordIntegration
                 <Button
                   variant="outline"
                   onClick={() => {
-                    window.open('https://discord.com/developers/applications', '_blank');
+                    window.open(
+                      'https://discord.com/developers/applications',
+                      '_blank',
+                      'noopener,noreferrer'
+                    );
                   }}
                 >
                   <Settings className="mr-2 h-4 w-4" />
