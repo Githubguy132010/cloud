@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       });
 
       return NextResponse.redirect(
-        new URL(buildDiscordRedirectPath(state, `error=${error}`), APP_URL)
+        new URL(buildDiscordRedirectPath(state, `error=${encodeURIComponent(error)}`), APP_URL)
       );
     }
 
