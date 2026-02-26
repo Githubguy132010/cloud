@@ -12,8 +12,8 @@ export type ModelEntry = { id: string; name: string };
 const ModelEntrySchema = z.object({ id: z.string(), name: z.string() });
 
 const MachineSizeSchema = z.object({
-  cpus: z.number(),
-  memory_mb: z.number(),
+  cpus: z.number().int().min(1).max(8),
+  memory_mb: z.number().int().min(256).max(16384),
   cpu_kind: z.enum(['shared', 'performance']).optional(),
 });
 
@@ -124,6 +124,8 @@ export const PersistedStateSchema = z.object({
   // Two-phase destroy: IDs pending deletion on Fly. Cleared once Fly confirms.
   pendingDestroyMachineId: z.string().nullable().default(null),
   pendingDestroyVolumeId: z.string().nullable().default(null),
+  // For stale auto-destroy only: defer DO state wipe until Postgres row is marked destroyed.
+  pendingPostgresMarkOnFinalize: z.boolean().default(false),
   // Cooldown: last time we attempted metadata-based machine recovery from Fly.
   // Prevents hammering listMachines on every alarm when there's genuinely nothing.
   lastMetadataRecoveryAt: z.number().nullable().default(null),

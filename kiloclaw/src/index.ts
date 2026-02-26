@@ -20,6 +20,7 @@ import { redactSensitiveParams } from './utils/logging';
 import { authMiddleware, internalApiMiddleware } from './auth';
 import { sandboxIdFromUserId } from './auth/sandbox-id';
 import { registerVersionIfNeeded } from './lib/image-version';
+import { startingUpPage } from './pages/starting-up';
 
 // Export DOs (match wrangler.jsonc class_name bindings)
 export { KiloClawInstance } from './durable-objects/kiloclaw-instance';
@@ -116,7 +117,14 @@ async function authGuard(c: Context<AppEnv>, next: Next) {
 async function deriveSandboxId(c: Context<AppEnv>, next: Next) {
   const userId = c.get('userId');
   if (userId) {
-    c.set('sandboxId', sandboxIdFromUserId(userId));
+    try {
+      c.set('sandboxId', sandboxIdFromUserId(userId));
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('userId too long')) {
+        return c.text('Invalid user identifier', 400);
+      }
+      throw err;
+    }
   }
   return next();
 }
@@ -288,6 +296,17 @@ app.all('*', async c => {
     }
     console.log('[WS] Fly Proxy response status:', containerResponse.status);
 
+    // Gateway not ready yet — return a clear JSON error for WebSocket clients
+    if (containerResponse.status === 502) {
+      return c.json(
+        {
+          error: 'Instance is starting up',
+          hint: 'The gateway process is still initializing. Please retry shortly.',
+        },
+        503
+      );
+    }
+
     const containerWs = containerResponse.webSocket;
     if (!containerWs) {
       console.error('[WS] No WebSocket in response - returning direct response');
@@ -401,6 +420,12 @@ app.all('*', async c => {
     }
   }
   console.log('[HTTP] Response status:', httpResponse.status);
+
+  // Gateway not ready yet — show friendly "starting up" page instead of raw 502
+  if (httpResponse.status === 502) {
+    return startingUpPage();
+  }
+
   return httpResponse;
 });
 
