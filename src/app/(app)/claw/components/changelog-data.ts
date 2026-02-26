@@ -13,6 +13,13 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     date: '2026-02-26',
     description:
+      'Added Restore Default Config: rewrite openclaw.json from environment variables and restart the gateway without a full redeploy. Available in Settings > Danger Zone.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
+    date: '2026-02-26',
+    description:
       'Added ripgrep (rg), GitHub CLI (gh), rsync, zstd, and ClawHub CLI to the default image.',
     category: 'feature',
     deployHint: null,
