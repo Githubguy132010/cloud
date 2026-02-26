@@ -32,7 +32,6 @@ import {
   type InstanceConfig,
   type PersistedState,
   type EncryptedEnvelope,
-  type ModelEntry,
   type MachineSize,
 } from '../schemas/instance-config';
 import {
@@ -50,6 +49,7 @@ import {
   HEALTH_PROBE_TIMEOUT_SECONDS,
   HEALTH_PROBE_INTERVAL_MS,
   STALE_PROVISION_THRESHOLD_MS,
+  OPENCLAW_BUILTIN_DEFAULT_MODEL,
 } from '../config';
 import type { FlyClientConfig } from '../fly/client';
 import type {
@@ -364,7 +364,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
   private kilocodeApiKey: PersistedState['kilocodeApiKey'] = null;
   private kilocodeApiKeyExpiresAt: PersistedState['kilocodeApiKeyExpiresAt'] = null;
   private kilocodeDefaultModel: PersistedState['kilocodeDefaultModel'] = null;
-  private kilocodeModels: PersistedState['kilocodeModels'] = null;
   private channels: PersistedState['channels'] = null;
   private provisionedAt: number | null = null;
   private lastStartedAt: number | null = null;
@@ -405,7 +404,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       this.kilocodeApiKey = s.kilocodeApiKey;
       this.kilocodeApiKeyExpiresAt = s.kilocodeApiKeyExpiresAt;
       this.kilocodeDefaultModel = s.kilocodeDefaultModel;
-      this.kilocodeModels = s.kilocodeModels;
       this.channels = s.channels;
       this.provisionedAt = s.provisionedAt;
       this.lastStartedAt = s.lastStartedAt;
@@ -512,7 +510,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       kilocodeApiKey: config.kilocodeApiKey ?? null,
       kilocodeApiKeyExpiresAt: config.kilocodeApiKeyExpiresAt ?? null,
       kilocodeDefaultModel: config.kilocodeDefaultModel ?? null,
-      kilocodeModels: config.kilocodeModels ?? null,
       channels: config.channels ?? null,
       machineSize: config.machineSize ?? this.machineSize ?? null,
     } satisfies Partial<PersistedState>;
@@ -552,7 +549,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     this.kilocodeApiKey = config.kilocodeApiKey ?? null;
     this.kilocodeApiKeyExpiresAt = config.kilocodeApiKeyExpiresAt ?? null;
     this.kilocodeDefaultModel = config.kilocodeDefaultModel ?? null;
-    this.kilocodeModels = config.kilocodeModels ?? null;
     this.channels = config.channels ?? null;
     this.machineSize = config.machineSize ?? this.machineSize ?? null;
     if (isNew) {
@@ -583,12 +579,10 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     kilocodeApiKey?: string | null;
     kilocodeApiKeyExpiresAt?: string | null;
     kilocodeDefaultModel?: string | null;
-    kilocodeModels?: ModelEntry[] | null;
   }): Promise<{
     kilocodeApiKey: string | null;
     kilocodeApiKeyExpiresAt: string | null;
     kilocodeDefaultModel: string | null;
-    kilocodeModels: ModelEntry[] | null;
   }> {
     await this.loadState();
 
@@ -606,20 +600,25 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       this.kilocodeDefaultModel = patch.kilocodeDefaultModel;
       pending.kilocodeDefaultModel = this.kilocodeDefaultModel;
     }
-    if (patch.kilocodeModels !== undefined) {
-      this.kilocodeModels = patch.kilocodeModels;
-      pending.kilocodeModels = this.kilocodeModels;
-    }
 
     if (Object.keys(pending).length > 0) {
       await this.ctx.storage.put(pending);
+    }
+
+    // Hot-patch the running machine's config file if the default model changed.
+    // This avoids requiring a full machine restart — OpenClaw watches the config file.
+    // When cleared (null), fall back to OpenClaw's built-in default.
+    if (patch.kilocodeDefaultModel !== undefined) {
+      const model = this.kilocodeDefaultModel ?? OPENCLAW_BUILTIN_DEFAULT_MODEL;
+      await this.patchConfigOnMachine({
+        agents: { defaults: { model: { primary: model } } },
+      });
     }
 
     return {
       kilocodeApiKey: this.kilocodeApiKey,
       kilocodeApiKeyExpiresAt: this.kilocodeApiKeyExpiresAt,
       kilocodeDefaultModel: this.kilocodeDefaultModel,
-      kilocodeModels: this.kilocodeModels,
     };
   }
 
@@ -1294,7 +1293,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       kilocodeApiKey: this.kilocodeApiKey ?? undefined,
       kilocodeApiKeyExpiresAt: this.kilocodeApiKeyExpiresAt ?? undefined,
       kilocodeDefaultModel: this.kilocodeDefaultModel ?? undefined,
-      kilocodeModels: this.kilocodeModels ?? undefined,
       channels: this.channels ?? undefined,
       machineSize: this.machineSize ?? undefined,
     };
@@ -1334,7 +1332,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
   private async callGatewayController<T>(
     path: string,
     method: 'GET' | 'POST',
-    responseSchema: ZodType<T>
+    responseSchema: ZodType<T>,
+    jsonBody?: unknown
   ): Promise<T> {
     const { appName, machineId, sandboxId } = this.requireGatewayControllerContext();
 
@@ -1345,15 +1344,21 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     const gatewayToken = await deriveGatewayToken(sandboxId, this.env.GATEWAY_TOKEN_SECRET);
     const url = `https://${appName}.fly.dev${path}`;
 
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${gatewayToken}`,
+      Accept: 'application/json',
+      'fly-force-instance-id': machineId,
+    };
+    if (jsonBody !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     let response: Response;
     try {
       response = await fetch(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${gatewayToken}`,
-          Accept: 'application/json',
-          'fly-force-instance-id': machineId,
-        },
+        headers,
+        body: jsonBody !== undefined ? JSON.stringify(jsonBody) : undefined,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1453,6 +1458,31 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         return null;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Hot-patch the openclaw.json config on the running machine.
+   * The gateway watches the config file and reloads on change.
+   * Non-fatal: if the machine isn't running, the patch is silently skipped
+   * (the next start will pick up the value from env vars anyway).
+   */
+  async patchConfigOnMachine(patch: Record<string, unknown>): Promise<void> {
+    await this.loadState();
+    if (this.status !== 'running' || !this.flyMachineId) return;
+    try {
+      await this.callGatewayController(
+        '/_kilo/config/patch',
+        'POST',
+        GatewayCommandResponseSchema,
+        patch
+      );
+    } catch (err) {
+      // Non-fatal — the config will be applied on next machine start via env vars
+      console.warn(
+        '[DO] patchConfigOnMachine failed (non-fatal):',
+        err instanceof Error ? err.message : String(err)
+      );
     }
   }
 
@@ -2018,7 +2048,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     this.kilocodeApiKey = null;
     this.kilocodeApiKeyExpiresAt = null;
     this.kilocodeDefaultModel = null;
-    this.kilocodeModels = null;
     this.channels = null;
     this.provisionedAt = null;
     this.lastStartedAt = null;
@@ -2534,7 +2563,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         encryptedSecrets: this.encryptedSecrets ?? undefined,
         kilocodeApiKey: this.kilocodeApiKey ?? undefined,
         kilocodeDefaultModel: this.kilocodeDefaultModel ?? undefined,
-        kilocodeModels: this.kilocodeModels ?? undefined,
         channels: this.channels ?? undefined,
       }
     );
