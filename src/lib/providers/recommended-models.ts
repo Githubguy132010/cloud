@@ -43,6 +43,7 @@ export function getVersionedModelSettings(model: string): VersionedSettings | un
 export function getOpenCodeSettings(model: string): OpenCodeSettings | undefined {
   if (model.startsWith('kilo/auto')) {
     return {
+      family: 'claude',
       prompt: 'anthropic',
     };
   }
