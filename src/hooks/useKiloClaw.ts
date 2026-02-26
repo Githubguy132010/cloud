@@ -71,6 +71,16 @@ export function useKiloClawGatewayStatus(enabled: boolean) {
   );
 }
 
+export function useControllerVersion(enabled: boolean) {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.kiloclaw.controllerVersion.queryOptions(undefined, {
+      enabled,
+      staleTime: 5 * 60_000, // version doesn't change without a redeploy
+    })
+  );
+}
+
 export function useKiloClawMutations() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();

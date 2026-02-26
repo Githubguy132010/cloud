@@ -17,6 +17,7 @@ import type {
   GatewayProcessStatusResponse,
   GatewayProcessActionResponse,
   ConfigRestoreResponse,
+  ControllerVersionResponse,
 } from './types';
 
 /**
@@ -158,6 +159,10 @@ export class KiloClawInternalClient {
 
   async getGatewayStatus(userId: string): Promise<GatewayProcessStatusResponse> {
     return this.request(`/api/platform/gateway/status?userId=${encodeURIComponent(userId)}`);
+  }
+
+  async getControllerVersion(userId: string): Promise<ControllerVersionResponse> {
+    return this.request(`/api/platform/controller-version?userId=${encodeURIComponent(userId)}`);
   }
 
   async startGateway(userId: string): Promise<GatewayProcessActionResponse> {

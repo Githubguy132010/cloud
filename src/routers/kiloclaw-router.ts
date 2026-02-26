@@ -279,6 +279,11 @@ export const kiloclawRouter = createTRPCRouter({
     return client.getGatewayStatus(ctx.user.id);
   }),
 
+  controllerVersion: baseProcedure.query(async ({ ctx }) => {
+    const client = new KiloClawInternalClient();
+    return client.getControllerVersion(ctx.user.id);
+  }),
+
   restartOpenClaw: baseProcedure.mutation(async ({ ctx }) => {
     const client = new KiloClawInternalClient();
     return client.restartGatewayProcess(ctx.user.id);

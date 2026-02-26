@@ -187,6 +187,12 @@ export type ConfigRestoreResponse = {
   signaled: boolean;
 };
 
+/** Response from GET /api/platform/controller-version. Null fields = old controller. */
+export type ControllerVersionResponse = {
+  version: string | null;
+  commit: string | null;
+};
+
 /** Combined status + gateway token returned by tRPC getStatus */
 export type KiloClawDashboardStatus = PlatformStatusResponse & {
   gatewayToken: string | null;

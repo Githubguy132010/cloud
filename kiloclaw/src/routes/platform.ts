@@ -311,6 +311,29 @@ platform.get('/gateway/status', async c => {
   }
 });
 
+// GET /api/platform/controller-version?userId=...
+platform.get('/controller-version', async c => {
+  const userId = c.req.query('userId');
+  if (!userId) {
+    return c.json({ error: 'userId query parameter is required' }, 400);
+  }
+
+  try {
+    const result = await withDORetry(
+      instanceStubFactory(c.env, userId),
+      stub => stub.getControllerVersion(),
+      'getControllerVersion'
+    );
+    // null means the controller is too old to have /_kilo/version
+    return c.json(result ?? { version: null, commit: null }, 200);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const status = statusCodeFromError(err);
+    console.error(`[platform] controller version failed: ${message} status=${status}`);
+    return jsonError(message, status);
+  }
+});
+
 // POST /api/platform/gateway/start
 platform.post('/gateway/start', async c => {
   const result = await parseBody(c, UserIdRequestSchema);

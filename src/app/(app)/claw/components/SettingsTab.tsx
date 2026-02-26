@@ -6,7 +6,7 @@ import { usePostHog } from 'posthog-js/react';
 import { toast } from 'sonner';
 import type { KiloClawDashboardStatus } from '@/lib/kiloclaw/types';
 import type { useKiloClawMutations } from '@/hooks/useKiloClaw';
-import { useKiloClawConfig } from '@/hooks/useKiloClaw';
+import { useControllerVersion, useKiloClawConfig } from '@/hooks/useKiloClaw';
 import { useOpenRouterModels } from '@/app/api/openrouter/hooks';
 import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,20 @@ import { CHANNELS, CHANNEL_TYPES, type ChannelDefinition } from './channel-confi
 import { ConfirmActionDialog } from './ConfirmActionDialog';
 
 type ClawMutations = ReturnType<typeof useKiloClawMutations>;
+
+/** Returns true if calver `version` is >= `minVersion` (e.g. "2026.2.26"). */
+function calverAtLeast(version: string | null | undefined, minVersion: string): boolean {
+  if (!version) return false;
+  const parts = version.split('.').map(Number);
+  const minParts = minVersion.split('.').map(Number);
+  for (let i = 0; i < minParts.length; i++) {
+    const a = parts[i] ?? 0;
+    const b = minParts[i] ?? 0;
+    if (a > b) return true;
+    if (a < b) return false;
+  }
+  return true; // equal
+}
 
 function ChannelSection({
   channel,
@@ -166,6 +180,8 @@ export function SettingsTab({
   const isSaving = mutations.patchConfig.isPending;
   const isDestroying = status.status === 'destroying';
   const isRunning = status.status === 'running';
+  const { data: controllerVersion } = useControllerVersion(isRunning);
+  const supportsConfigRestore = calverAtLeast(controllerVersion?.version, '2026.2.26');
 
   const channelStatus = config?.channels ?? {
     telegram: false,
@@ -272,24 +288,25 @@ export function SettingsTab({
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-medium text-red-400">Danger Zone</h3>
             <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-              Restore config, stop, or destroy this instance. Destroy permanently removes associated
-              data.
+              Stop or destroy this instance. Destroy permanently removes associated data.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!isRunning || mutations.restoreConfig.isPending || isDestroying}
-                onClick={() => {
-                  posthog?.capture('claw_restore_config_clicked', {
-                    instance_status: status.status,
-                  });
-                  setConfirmRestore(true);
-                }}
-              >
-                <RotateCcw className="h-4 w-4" />
-                Restore Default Config
-              </Button>
+              {supportsConfigRestore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!isRunning || mutations.restoreConfig.isPending || isDestroying}
+                  onClick={() => {
+                    posthog?.capture('claw_restore_config_clicked', {
+                      instance_status: status.status,
+                    });
+                    setConfirmRestore(true);
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restore Default Config
+                </Button>
+              )}
 
               <Button
                 variant="outline"
@@ -362,34 +379,36 @@ export function SettingsTab({
         </div>
       </div>
 
-      <ConfirmActionDialog
-        open={confirmRestore}
-        onOpenChange={setConfirmRestore}
-        title="Restore Default Config"
-        description="This will rewrite openclaw.json to defaults based on the machine's current environment variables and restart the gateway process. Any manual config changes made via the Control UI will be lost. This does not pull fresh settings from your dashboard — use Redeploy for that."
-        confirmLabel="Restore & Restart"
-        confirmIcon={<RotateCcw className="mr-1 h-4 w-4" />}
-        isPending={mutations.restoreConfig.isPending}
-        pendingLabel="Restoring..."
-        onConfirm={() => {
-          posthog?.capture('claw_restore_config_confirmed', {
-            instance_status: status.status,
-          });
-          mutations.restoreConfig.mutate(undefined, {
-            onSuccess: data => {
-              if (data.signaled) {
-                toast.success('Config restored and gateway restarting');
-              } else {
-                toast.success(
-                  'Config restored, but the gateway was not running — restart the instance to apply'
-                );
-              }
-              setConfirmRestore(false);
-            },
-            onError: err => toast.error(`Failed to restore config: ${err.message}`),
-          });
-        }}
-      />
+      {supportsConfigRestore && (
+        <ConfirmActionDialog
+          open={confirmRestore}
+          onOpenChange={setConfirmRestore}
+          title="Restore Default Config"
+          description="This will rewrite openclaw.json to defaults based on the machine's current environment variables and restart the gateway process. Any manual config changes made via the Control UI will be lost. This does not pull fresh settings from your dashboard — use Redeploy for that."
+          confirmLabel="Restore & Restart"
+          confirmIcon={<RotateCcw className="mr-1 h-4 w-4" />}
+          isPending={mutations.restoreConfig.isPending}
+          pendingLabel="Restoring..."
+          onConfirm={() => {
+            posthog?.capture('claw_restore_config_confirmed', {
+              instance_status: status.status,
+            });
+            mutations.restoreConfig.mutate(undefined, {
+              onSuccess: data => {
+                if (data.signaled) {
+                  toast.success('Config restored and gateway restarting');
+                } else {
+                  toast.success(
+                    'Config restored, but the gateway was not running — restart the instance to apply'
+                  );
+                }
+                setConfirmRestore(false);
+              },
+              onError: err => toast.error(`Failed to restore config: ${err.message}`),
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
