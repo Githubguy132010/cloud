@@ -8,8 +8,11 @@ const CONFIG_PATH = '/root/.openclaw/openclaw.json';
  * Deep-merge `patch` into `target`, creating intermediate objects as needed.
  * Arrays and primitives in the patch overwrite the target value.
  */
+const BANNED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function deepMerge(target: Record<string, unknown>, patch: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(patch)) {
+    if (BANNED_KEYS.has(key)) continue;
     if (
       value !== null &&
       typeof value === 'object' &&

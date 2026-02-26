@@ -98,6 +98,38 @@ describe('/_kilo/config routes', () => {
     expect(resp.status).toBe(400);
   });
 
+  it('rejects prototype pollution keys', async () => {
+    const app = new Hono();
+    registerConfigRoutes(app, 'test-token');
+
+    const existingConfig = { safe: 'value' };
+    readMock.mockReturnValue(JSON.stringify(existingConfig));
+
+    const resp = await app.request('/_kilo/config/patch', {
+      method: 'POST',
+      body: JSON.stringify({
+        __proto__: { polluted: true },
+        constructor: { polluted: true },
+        prototype: { polluted: true },
+        nested: { __proto__: { deep: true } },
+        legit: 'ok',
+      }),
+      headers: authHeaders(),
+    });
+
+    expect(resp.status).toBe(200);
+    expect(writeMock).toHaveBeenCalledOnce();
+    const written = JSON.parse(writeMock.mock.calls[0][1] as string);
+    // Banned keys are silently dropped at every depth
+    expect(Object.hasOwn(written, '__proto__')).toBe(false);
+    expect(Object.hasOwn(written, 'constructor')).toBe(false);
+    expect(Object.hasOwn(written, 'prototype')).toBe(false);
+    expect(Object.hasOwn(written.nested ?? {}, '__proto__')).toBe(false);
+    // Legit keys are preserved
+    expect(written.legit).toBe('ok');
+    expect(written.safe).toBe('value');
+  });
+
   it('returns 500 when config file is missing', async () => {
     const app = new Hono();
     registerConfigRoutes(app, 'test-token');
