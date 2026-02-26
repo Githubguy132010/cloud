@@ -101,6 +101,9 @@ export default {
     let claims: ImageMCPTokenClaims;
     try {
       const secret = await env.NEXTAUTH_SECRET.get();
+      if (!secret) {
+        throw new Error('SECRET is not configured');
+      }
       claims = validateToken(authHeader, secret);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Authentication failed';

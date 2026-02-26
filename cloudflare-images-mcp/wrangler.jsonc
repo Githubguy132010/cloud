@@ -14,7 +14,7 @@
     "enabled": true,
   },
   "vars": {
-    "BUCKET_PUBLIC_URLS": "{\"app-builder-assets\": \"https://assets.up.kilo.ai\"}",
+    "BUCKET_PUBLIC_URLS": "{\"app-builder-assets\": \"https://assets.kiloapps.io\"}",
   },
   "secrets_store_secrets": [
     {
