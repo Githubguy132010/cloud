@@ -88,7 +88,7 @@ export function InstanceTab({
       <p className="text-muted-foreground text-sm">
         {isControllerError
           ? 'Gateway control unavailable. Redeploy to update instance to use this feature.'
-          : `Failed to load gateway status: ${gatewayError.message}`}
+          : 'Failed to load gateway status.'}
       </p>
     );
   }

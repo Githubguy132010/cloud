@@ -31,7 +31,11 @@ export class KiloClawUserClient {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`KiloClaw API error (${res.status}): ${body}`);
+      console.error(
+        `KiloClaw API error (${res.status}) ${options?.method ?? 'GET'} ${path}:`,
+        body
+      );
+      throw new Error(`KiloClaw API error (${res.status})`);
     }
 
     return res.json() as Promise<T>;

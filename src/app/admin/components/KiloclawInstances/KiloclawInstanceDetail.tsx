@@ -510,9 +510,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                     {gatewayStatusError instanceof Error &&
                     gatewayStatusError.message.includes('GatewayControllerError')
                       ? 'Gateway control unavailable. Redeploy to update instance to use this feature.'
-                      : gatewayStatusError instanceof Error
-                        ? gatewayStatusError.message
-                        : 'Failed to load gateway status'}
+                      : 'Failed to load gateway status'}
                   </AlertDescription>
                 </Alert>
               )}
