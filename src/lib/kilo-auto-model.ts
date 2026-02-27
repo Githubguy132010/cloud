@@ -1,4 +1,12 @@
-import type { ModelSettings, OpenCodeSettings } from '@/lib/organizations/model-settings';
+import type {
+  ModelSettings,
+  OpenCodeSettings,
+  Verbosity,
+} from '@/lib/organizations/model-settings';
+import {
+  CLAUDE_OPUS_CURRENT_MODEL_ID,
+  CLAUDE_SONNET_CURRENT_MODEL_ID,
+} from '@/lib/providers/anthropic';
 import { minimax_m25_free_model } from '@/lib/providers/minimax';
 
 type AutoModel = {
@@ -66,4 +74,43 @@ export const AUTO_MODELS = [KILO_AUTO_FRONTIER_MODEL, KILO_AUTO_FREE_MODEL, KILO
 
 export function isKiloAutoModel(model: string) {
   return AUTO_MODELS.some(m => m.id === model);
+}
+
+type ResolvedAutoModel = {
+  model: string;
+  reasoning?: { enabled: boolean };
+  verbosity?: Verbosity;
+};
+
+// Mode → model mappings for kilo/auto routing.
+// Add/remove/modify entries here to change routing behavior.
+const MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
+  // Opus modes (planning, reasoning, orchestration, debugging)
+  ['plan', { model: CLAUDE_OPUS_CURRENT_MODEL_ID }],
+  ['general', { model: CLAUDE_OPUS_CURRENT_MODEL_ID }],
+  ['architect', { model: CLAUDE_OPUS_CURRENT_MODEL_ID }],
+  ['orchestrator', { model: CLAUDE_OPUS_CURRENT_MODEL_ID }],
+  ['ask', { model: CLAUDE_OPUS_CURRENT_MODEL_ID }],
+  ['debug', { model: CLAUDE_OPUS_CURRENT_MODEL_ID }],
+  // Sonnet modes (implementation, exploration)
+  ['build', { model: CLAUDE_SONNET_CURRENT_MODEL_ID }],
+  ['explore', { model: CLAUDE_SONNET_CURRENT_MODEL_ID }],
+  ['code', { model: CLAUDE_SONNET_CURRENT_MODEL_ID }],
+]);
+
+export function resolveAutoModel(model: string, modeHeader: string | null): ResolvedAutoModel {
+  if (model === KILO_AUTO_FREE_MODEL.id) {
+    return { model: minimax_m25_free_model.public_id };
+  }
+  if (model === KILO_AUTO_SMALL_MODEL.id) {
+    return { model: 'openai/gpt-5-nano' };
+  }
+  const mode = modeHeader?.trim().toLowerCase() ?? 'code';
+  return (
+    MODE_TO_MODEL.get(mode) ?? {
+      model: CLAUDE_SONNET_CURRENT_MODEL_ID,
+      reasoning: { enabled: true },
+      verbosity: 'high',
+    }
+  );
 }
