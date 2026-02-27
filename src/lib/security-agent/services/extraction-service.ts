@@ -27,6 +27,7 @@ const VALID_SUGGESTED_ACTIONS: SandboxSuggestedAction[] = [
 ];
 
 const log = sentryLogger('security-agent:extraction', 'info');
+const warn = sentryLogger('security-agent:extraction', 'warning');
 const logError = sentryLogger('security-agent:extraction', 'error');
 
 // Version string for API requests - must be >= 4.69.1 to pass LLM proxy version check
@@ -164,7 +165,19 @@ function parseExtractionResult(
   try {
     const parsed = JSON.parse(args);
 
-    if (typeof parsed.isExploitable !== 'boolean' && parsed.isExploitable !== 'unknown') {
+    let isExploitable = parsed.isExploitable;
+    if (typeof isExploitable === 'string') {
+      const normalized = isExploitable.trim().toLowerCase();
+      if (normalized === 'true') {
+        warn('Coercing string isExploitable to boolean true');
+        isExploitable = true;
+      } else if (normalized === 'false') {
+        warn('Coercing string isExploitable to boolean false');
+        isExploitable = false;
+      }
+    }
+
+    if (typeof isExploitable !== 'boolean' && isExploitable !== 'unknown') {
       logError('Invalid isExploitable', { value: parsed.isExploitable });
       return null;
     }
@@ -195,7 +208,7 @@ function parseExtractionResult(
     }
 
     return {
-      isExploitable: parsed.isExploitable,
+      isExploitable,
       exploitabilityReasoning: parsed.exploitabilityReasoning,
       usageLocations: parsed.usageLocations.map(String),
       suggestedFix: parsed.suggestedFix,

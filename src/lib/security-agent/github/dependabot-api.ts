@@ -108,7 +108,30 @@ function toInternalAlert(alert: GitHubDependabotAlert): DependabotAlertRaw {
 export type FetchAlertsResult =
   | { status: 'success'; alerts: DependabotAlertRaw[] }
   | { status: 'repo_not_found' }
-  | { status: 'alerts_disabled' };
+  | { status: 'alerts_disabled' }
+  | { status: 'alerts_unavailable' };
+
+function normalizeErrorMessage(message?: string): string {
+  return (message ?? '').toLowerCase();
+}
+
+function isDependabotAlertsDisabledMessage(message?: string): boolean {
+  const normalized = normalizeErrorMessage(message);
+  return (
+    normalized.includes('dependabot alerts are disabled') ||
+    normalized.includes('dependabot alerts are not available')
+  );
+}
+
+function isDependabotAlertsUnavailableMessage(message?: string): boolean {
+  const normalized = normalizeErrorMessage(message);
+  return (
+    normalized.includes('repository access blocked') ||
+    normalized.includes('archived repositories') ||
+    normalized.includes('archived repository') ||
+    normalized.includes('dependabot alerts are not available')
+  );
+}
 
 /**
  * Fetch ALL Dependabot alerts for a repository (including fixed/dismissed)
@@ -166,13 +189,20 @@ export async function fetchAllDependabotAlerts(
     const message = (error as { message?: string }).message;
 
     // Handle case where Dependabot alerts are disabled or unavailable for the repository
-    if (
-      httpStatus === 403 &&
-      (message?.includes('Dependabot alerts are disabled') ||
-        message?.includes('Dependabot alerts are not available'))
-    ) {
+    if (httpStatus === 403 && isDependabotAlertsDisabledMessage(message)) {
       log(`Dependabot alerts are not available for ${owner}/${repo}, skipping`);
       return { status: 'alerts_disabled' };
+    }
+
+    // Handle geo/policy/blocked access cases as non-fatal skips.
+    if (
+      httpStatus === 451 ||
+      ((httpStatus === 403 || httpStatus === 422) && isDependabotAlertsUnavailableMessage(message))
+    ) {
+      warn(`Dependabot alerts are unavailable for ${owner}/${repo}, skipping`, {
+        status: httpStatus,
+      });
+      return { status: 'alerts_unavailable' };
     }
 
     // Handle case where repository no longer exists or is inaccessible

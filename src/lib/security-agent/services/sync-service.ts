@@ -86,6 +86,11 @@ export async function syncDependabotAlertsForRepo(params: {
       return result;
     }
 
+    if (fetchResult.status === 'alerts_unavailable') {
+      warn(`Dependabot alerts unavailable for ${repoFullName}, skipping`);
+      return result;
+    }
+
     const alerts = fetchResult.alerts;
     log(`Fetched ${alerts.length} alerts from GitHub for ${repoFullName}`);
 
