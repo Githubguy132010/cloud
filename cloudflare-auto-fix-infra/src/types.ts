@@ -114,7 +114,6 @@ export interface Env {
   INTERNAL_API_SECRET: string;
   BACKEND_AUTH_TOKEN: string;
   CLOUD_AGENT_URL: string;
-  CLOUD_AGENT_API_KEY: string;
 
   // Optional Sentry
   SENTRY_DSN?: string;

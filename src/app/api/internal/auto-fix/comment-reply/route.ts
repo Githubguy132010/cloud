@@ -33,6 +33,7 @@ type CommentReplyPayload = {
   sessionId?: string;
   outcome?: 'success' | 'failed';
   errorMessage?: string;
+  prBranch?: string;
 };
 
 type FriendlyFailure = {
@@ -148,6 +149,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isTerminalState =
+      ticket.status === 'completed' || ticket.status === 'failed' || ticket.status === 'cancelled';
+    if (isTerminalState) {
+      logExceptInTest(
+        '[auto-fix-comment-reply] Ticket already terminal, skipping duplicate reply',
+        {
+          ticketId,
+          status: ticket.status,
+        }
+      );
+      return NextResponse.json({ success: true, action: 'skipped_terminal' });
+    }
+
     // Get GitHub token
     let installationId: string | undefined;
     if (ticket.platform_integration_id) {
@@ -247,7 +261,7 @@ export async function POST(req: NextRequest) {
         // Update ticket status
         await updateFixTicketStatus(ticketId, 'completed', {
           sessionId,
-          prBranch: ticket.pr_head_ref || undefined,
+          prBranch: payload.prBranch || ticket.pr_head_ref || undefined,
           completedAt: new Date(),
         });
 
