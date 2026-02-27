@@ -1,7 +1,5 @@
-declare type Hyperdrive = unknown;
-
-declare interface Fetcher {
-  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+declare interface Hyperdrive {
+  connectionString: string;
 }
 
 declare interface Message<T> {
@@ -27,10 +25,14 @@ declare interface SecretsStoreSecret {
   get(): Promise<string>;
 }
 
+declare interface GitTokenService {
+  getToken(installationId: string, appType?: 'standard' | 'lite'): Promise<string>;
+}
+
 declare interface CloudflareEnv {
   SECURITY_SYNC_WORKER_AUTH_TOKEN: SecretsStoreSecret;
   SECURITY_SYNC_WORKER_HMAC_SECRET: SecretsStoreSecret;
   SYNC_QUEUE: Queue<import('./src/index').SecuritySyncMessage>;
   HYPERDRIVE: Hyperdrive;
-  GIT_TOKEN_SERVICE: Fetcher;
+  GIT_TOKEN_SERVICE: GitTokenService;
 }

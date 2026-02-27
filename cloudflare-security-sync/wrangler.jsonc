@@ -42,6 +42,7 @@
     {
       "binding": "GIT_TOKEN_SERVICE",
       "service": "git-token-service",
+      "entrypoint": "GitTokenRPCEntrypoint",
     },
   ],
   "secrets_store_secrets": [
@@ -87,6 +88,7 @@
         {
           "binding": "GIT_TOKEN_SERVICE",
           "service": "git-token-service-dev",
+          "entrypoint": "GitTokenRPCEntrypoint",
         },
       ],
       "secrets_store_secrets": [

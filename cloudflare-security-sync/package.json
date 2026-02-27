@@ -10,6 +10,7 @@
     "types": "wrangler types --env-interface CloudflareEnv worker-configuration.d.ts"
   },
   "dependencies": {
+    "pg": "^8.18.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

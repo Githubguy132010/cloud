@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { createDatabase } from './db';
+import { syncOwner } from './sync';
 
 const MAX_SIGNATURE_AGE_SECONDS = 5 * 60;
 
@@ -199,7 +201,10 @@ async function handleDispatch(request: Request, env: CloudflareEnv): Promise<Res
   });
 }
 
-async function processSecuritySyncMessage(message: Message<SecuritySyncMessage>): Promise<void> {
+async function processSecuritySyncMessage(
+  message: Message<SecuritySyncMessage>,
+  env: CloudflareEnv
+): Promise<void> {
   const parsedMessage = SecuritySyncMessageSchema.safeParse(message.body);
   if (!parsedMessage.success) {
     console.error('Invalid security sync queue message', {
@@ -219,8 +224,39 @@ async function processSecuritySyncMessage(message: Message<SecuritySyncMessage>)
     chunkCount: body.chunkCount,
     dispatchTime: body.dispatchedAt,
   });
+  function resolveOwner(
+    raw: typeof body.owner
+  ): { organizationId: string } | { userId: string } | null {
+    if (raw.organizationId) return { organizationId: raw.organizationId };
+    if (raw.userId) return { userId: raw.userId };
+    return null;
+  }
+  const owner = resolveOwner(body.owner);
+  if (!owner) {
+    console.error('Owner has neither organizationId nor userId', { messageId: body.messageId });
+    message.ack();
+    return;
+  }
+  const db = createDatabase(env.HYPERDRIVE.connectionString);
+  const startTime = Date.now();
 
-  // Queue wiring + auth are live. Worker-native sync execution is implemented in the next phase.
+  const result = await syncOwner({
+    db,
+    gitTokenService: env.GIT_TOKEN_SERVICE,
+    owner,
+    runId: body.runId,
+  });
+
+  const durationMs = Date.now() - startTime;
+  console.info('Security sync completed for owner', {
+    runId: body.runId,
+    ownerKey: body.ownerKey,
+    synced: result.synced,
+    errors: result.errors,
+    staleRepos: result.staleRepos,
+    durationMs,
+  });
+
   message.ack();
 }
 
@@ -253,10 +289,10 @@ export default {
     return jsonResponse({ success: false, error: 'Not found' }, 404);
   },
 
-  async queue(batch: MessageBatch<SecuritySyncMessage>): Promise<void> {
+  async queue(batch: MessageBatch<SecuritySyncMessage>, env: CloudflareEnv): Promise<void> {
     for (const message of batch.messages) {
       try {
-        await processSecuritySyncMessage(message);
+        await processSecuritySyncMessage(message, env);
       } catch (error) {
         console.error('Security sync queue processing failed', {
           error: error instanceof Error ? error.message : String(error),

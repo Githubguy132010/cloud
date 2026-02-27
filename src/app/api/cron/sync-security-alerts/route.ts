@@ -2,12 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { captureException } from '@sentry/nextjs';
-import {
-  CRON_SECRET,
-  SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL,
-  SECURITY_SYNC_USE_WORKER,
-} from '@/lib/config.server';
-import { runFullSync } from '@/lib/security-agent/services/sync-service';
+import { CRON_SECRET, SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL } from '@/lib/config.server';
 import {
   dispatchSecuritySyncToWorker,
   getEnabledSecuritySyncOwners,
@@ -16,7 +11,6 @@ import { shutdownPosthog } from '@/lib/posthog';
 import { sentryLogger } from '@/lib/utils.server';
 
 export const maxDuration = 800;
-const USE_WORKER_DISPATCH = SECURITY_SYNC_USE_WORKER === 'true';
 
 const log = sentryLogger('security-agent:cron-sync', 'info');
 const cronWarn = sentryLogger('cron', 'warning');
@@ -101,10 +95,11 @@ async function sendBetterStackHeartbeat(params: {
 }
 
 /**
- * Vercel Cron Job: Sync Security Alerts
+ * Vercel Cron Job: Dispatch Security Alert Sync to Cloudflare Worker
  *
- * This endpoint runs periodically to sync Dependabot alerts from GitHub
- * for all organizations/users with security reviews enabled.
+ * This endpoint runs periodically to dispatch Dependabot alert sync jobs
+ * to the Cloudflare Worker queue for all organizations/users with
+ * security reviews enabled.
  *
  * Schedule: Every 6 hours
  */
@@ -119,84 +114,56 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    log('Starting security alerts sync...');
+    log('Starting security alerts sync dispatch...');
     const startTime = Date.now();
 
-    if (USE_WORKER_DISPATCH) {
-      const owners = await getEnabledSecuritySyncOwners();
+    const owners = await getEnabledSecuritySyncOwners();
 
-      if (owners.length === 0) {
-        log('No enabled security sync owners found, skipping dispatch');
-
-        await sendBetterStackHeartbeat({
-          heartbeatUrl: SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL,
-          heartbeatType: 'success',
-          context: {
-            ownersDispatched: 0,
-          },
-        });
-
-        return NextResponse.json({
-          success: true,
-          mode: 'worker_dispatch',
-          ownersDispatched: 0,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      const runId = randomUUID();
-      const dispatchResult = await dispatchSecuritySyncToWorker({
-        runId,
-        owners,
-      });
-
-      const duration = Date.now() - startTime;
-      const summary = {
-        success: true,
-        mode: 'worker_dispatch',
-        runId,
-        duration: `${duration}ms`,
-        ownersDispatched: owners.length,
-        enqueuedMessages: dispatchResult.enqueuedMessages,
-        timestamp: new Date().toISOString(),
-      };
-
-      log('Worker dispatch completed', summary);
+    if (owners.length === 0) {
+      log('No enabled security sync owners found, skipping dispatch');
 
       await sendBetterStackHeartbeat({
         heartbeatUrl: SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL,
         heartbeatType: 'success',
         context: {
-          runId,
-          ownersDispatched: owners.length,
-          enqueuedMessages: dispatchResult.enqueuedMessages,
+          ownersDispatched: 0,
         },
       });
 
-      return NextResponse.json(summary);
+      return NextResponse.json({
+        success: true,
+        mode: 'worker_dispatch',
+        ownersDispatched: 0,
+        timestamp: new Date().toISOString(),
+      });
     }
 
-    const result = await runFullSync();
+    const runId = randomUUID();
+    const dispatchResult = await dispatchSecuritySyncToWorker({
+      runId,
+      owners,
+    });
 
     const duration = Date.now() - startTime;
     const summary = {
       success: true,
+      mode: 'worker_dispatch',
+      runId,
       duration: `${duration}ms`,
-      totalSynced: result.totalSynced,
-      totalErrors: result.totalErrors,
-      configsProcessed: result.configsProcessed,
+      ownersDispatched: owners.length,
+      enqueuedMessages: dispatchResult.enqueuedMessages,
       timestamp: new Date().toISOString(),
     };
 
-    log('Sync completed', summary);
+    log('Worker dispatch completed', summary);
 
     await sendBetterStackHeartbeat({
       heartbeatUrl: SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL,
       heartbeatType: 'success',
       context: {
-        totalSynced: result.totalSynced,
-        totalErrors: result.totalErrors,
-        configsProcessed: result.configsProcessed,
+        runId,
+        ownersDispatched: owners.length,
+        enqueuedMessages: dispatchResult.enqueuedMessages,
       },
     });
 
@@ -206,7 +173,7 @@ export async function GET(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
 
-    logError('Error syncing security alerts', {
+    logError('Error dispatching security alerts sync', {
       errorName,
       errorMessage,
       errorStack,
@@ -214,7 +181,7 @@ export async function GET(request: NextRequest) {
     captureException(error, {
       tags: { endpoint: 'cron/sync-security-alerts' },
       extra: {
-        action: 'syncing_security_alerts',
+        action: 'dispatching_security_alerts_sync',
       },
     });
 
@@ -231,7 +198,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: 'Failed to sync security alerts',
+        error: 'Failed to dispatch security alerts sync',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
