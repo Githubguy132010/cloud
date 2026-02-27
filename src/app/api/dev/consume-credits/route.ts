@@ -93,7 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       feature: null,
       session_id: null,
       mode: null,
-      kilo_auto_model: null,
+      auto_model: null,
     };
 
     // Use the existing countAndStoreUsage function

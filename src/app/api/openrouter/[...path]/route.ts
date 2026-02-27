@@ -116,11 +116,10 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   // After this resolution, the rest of the proxy flow behaves as if the client requested
   // the resolved model directly.
   const modeHeader = request.headers.get('x-kilocode-mode')?.trim() || null;
-  let kiloAutoModel: string | null = null;
+  let autoModel: string | null = null;
   if (isKiloAutoModel(requestedModelLowerCased)) {
-    const resolved = resolveAutoModel(requestedModelLowerCased, modeHeader);
-    kiloAutoModel = resolved.model;
-    Object.assign(requestBodyParsed, resolved);
+    autoModel = requestedModelLowerCased;
+    Object.assign(requestBodyParsed, resolveAutoModel(requestedModelLowerCased, modeHeader));
   }
 
   const originalModelIdLowerCased = requestBodyParsed.model.toLowerCase();
@@ -291,7 +290,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     feature: validateFeatureHeader(request.headers.get(FEATURE_HEADER)),
     session_id: taskId ?? null,
     mode: modeHeader,
-    kilo_auto_model: kiloAutoModel,
+    auto_model: autoModel,
   };
 
   setTag('ui.ai_model', requestBodyParsed.model);

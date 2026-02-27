@@ -195,8 +195,8 @@ function generateRandomRecord(
       pickRandom(['code', 'build', 'architect', 'ask', 'debug', 'plan', 'general'], Math.random()),
       50
     ),
-    kilo_auto_model: maybeNull(
-      pickRandom(['anthropic/claude-sonnet-4.5', 'anthropic/claude-opus-4'], Math.random()),
+    auto_model: maybeNull(
+      pickRandom(['kilo/auto', 'kilo/auto-free', 'kilo/auto-small'], Math.random()),
       70
     ),
   };

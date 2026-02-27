@@ -59,7 +59,7 @@ function defineDefaultContextInfo(): UsageContextInfo {
     feature: null,
     session_id: null,
     mode: null,
-    kilo_auto_model: null,
+    auto_model: null,
   };
 }
 
@@ -114,7 +114,7 @@ export function createMockUsageContext(
     feature: 'vscode-extension',
     session_id: null,
     mode: null,
-    kilo_auto_model: null,
+    auto_model: null,
   };
 }
 

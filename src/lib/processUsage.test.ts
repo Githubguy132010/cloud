@@ -339,7 +339,7 @@ describe('logMicrodollarUsage', () => {
       feature: 'vscode-extension',
       session_id: null,
       mode: null,
-      kilo_auto_model: null,
+      auto_model: null,
     }) satisfies MicrodollarUsageContext;
 
   test('stores usage data and increments user microdollars for positive cost', async () => {
