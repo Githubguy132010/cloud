@@ -70,11 +70,11 @@ jobs:
           now_epoch=$(date +%s)
           age_hours=$(( (now_epoch - tag_epoch) / 3600 ))
           echo "Tag created $age_hours hours ago ($tag_date)"
-          if [ "$age_hours" -lt 12 ]; then
+          if [ "$age_hours" -lt 24 ]; then
             echo "recent=true" >> "$GITHUB_OUTPUT"
           else
             echo "recent=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping — release is older than 12 hours"
+            echo "Skipping — release is older than 24 hours"
           fi
 
       - name: Notify webhook of new release
