@@ -15,6 +15,7 @@ import {
   isDiscordBotMessage,
   truncateForDiscord,
 } from '@/lib/discord-bot/discord-utils';
+import { getDevUserSuffix } from '@/lib/slack-bot/dev-user-info';
 
 export const maxDuration = 800;
 
@@ -165,7 +166,8 @@ async function processGatewayMessage(event: ForwardedGatewayEvent) {
   console.log(`[DiscordBot:Webhook] Bot processing completed in ${responseTimeMs}ms`);
 
   // Post the response as a reply to the original message
-  const responseText = truncateForDiscord(result.response);
+  const responseWithDevInfo = result.response + getDevUserSuffix();
+  const responseText = truncateForDiscord(responseWithDevInfo);
   const postResult = await postDiscordMessage(channelId, responseText, {
     messageReference: { message_id: messageId },
   });
