@@ -141,9 +141,9 @@ export async function findExistingFixTicket(
 }
 
 /**
- * Checks if an active fix ticket already exists for a given repo and review comment ID.
- * Returns pending/running tickets for webhook deduplication; terminal states are ignored.
- * Re-runs should reset/retry the existing ticket rather than inserting a new row.
+ * Checks if a fix ticket already exists for a given repo and review comment ID.
+ * Returns tickets regardless of status so webhook deduplication stays aligned
+ * with the unique index on (repo_full_name, review_comment_id).
  */
 export async function findExistingReviewCommentFixTicket(
   repoFullName: string,
@@ -156,8 +156,7 @@ export async function findExistingReviewCommentFixTicket(
       .where(
         and(
           eq(auto_fix_tickets.repo_full_name, repoFullName),
-          eq(auto_fix_tickets.review_comment_id, reviewCommentId),
-          or(eq(auto_fix_tickets.status, 'pending'), eq(auto_fix_tickets.status, 'running'))
+          eq(auto_fix_tickets.review_comment_id, reviewCommentId)
         )
       )
       .limit(1);

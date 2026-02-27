@@ -13,7 +13,11 @@ import type { PlatformIntegration } from '@/db/schema';
 import { logExceptInTest, errorExceptInTest } from '@/lib/utils.server';
 import { captureException } from '@sentry/nextjs';
 import { getAgentConfigForOwner } from '@/lib/agent-config/db/agent-configs';
-import { createFixTicket, findExistingReviewCommentFixTicket } from '../../db/fix-tickets';
+import {
+  createFixTicket,
+  findExistingReviewCommentFixTicket,
+  resetFixTicketForRetry,
+} from '../../db/fix-tickets';
 import { tryDispatchPendingFixes } from '../../dispatch/dispatch-pending-fixes';
 import { getBotUserId } from '@/lib/bot-users/bot-user-service';
 import { addReactionToPRReviewComment } from '@/lib/integrations/platforms/github/adapter';
@@ -138,21 +142,6 @@ export class ReviewCommentWebhookProcessor {
       comment.id
     );
 
-    if (existingTicket) {
-      logExceptInTest('[ReviewCommentWebhookProcessor] Fix ticket already exists for comment', {
-        ticketId: existingTicket.id,
-        status: existingTicket.status,
-        commentId: comment.id,
-      });
-      // Add thumbs-up to indicate already processing
-      try {
-        await addReactionToPRReviewComment(installationId, repoOwner, repoName, comment.id, '+1');
-      } catch {
-        // Best-effort reaction
-      }
-      return;
-    }
-
     // 8. Resolve dispatch owner (org bot user or personal owner)
     let dispatchOwner: Owner;
     if (owner.type === 'org') {
@@ -184,7 +173,79 @@ export class ReviewCommentWebhookProcessor {
       dispatchOwner = owner;
     }
 
-    // 9. Add eyes reaction to acknowledge the mention
+    // 9. Handle existing ticket before creating a new one
+    if (existingTicket) {
+      if (existingTicket.status === 'pending' || existingTicket.status === 'running') {
+        logExceptInTest(
+          '[ReviewCommentWebhookProcessor] Fix ticket already in progress for comment',
+          {
+            ticketId: existingTicket.id,
+            status: existingTicket.status,
+            commentId: comment.id,
+          }
+        );
+        try {
+          await addReactionToPRReviewComment(installationId, repoOwner, repoName, comment.id, '+1');
+        } catch {
+          // Best-effort reaction
+        }
+        return;
+      }
+
+      logExceptInTest('[ReviewCommentWebhookProcessor] Resetting existing ticket for retry', {
+        ticketId: existingTicket.id,
+        previousStatus: existingTicket.status,
+        commentId: comment.id,
+      });
+
+      try {
+        await resetFixTicketForRetry(existingTicket.id);
+
+        try {
+          await addReactionToPRReviewComment(
+            installationId,
+            repoOwner,
+            repoName,
+            comment.id,
+            'eyes'
+          );
+        } catch (reactionError) {
+          errorExceptInTest(
+            '[ReviewCommentWebhookProcessor] Failed to add eyes reaction for retry:',
+            reactionError
+          );
+        }
+
+        await tryDispatchPendingFixes(dispatchOwner);
+      } catch (error) {
+        errorExceptInTest('[ReviewCommentWebhookProcessor] Error retrying existing ticket:', error);
+        captureException(error, {
+          tags: { source: 'review-comment-webhook-processor', flow: 'retry-existing-ticket' },
+          extra: {
+            ticketId: existingTicket.id,
+            repoFullName: repository.full_name,
+            prNumber: pull_request.number,
+            commentId: comment.id,
+          },
+        });
+
+        try {
+          await addReactionToPRReviewComment(
+            installationId,
+            repoOwner,
+            repoName,
+            comment.id,
+            'confused'
+          );
+        } catch {
+          // Best-effort reaction
+        }
+      }
+
+      return;
+    }
+
+    // 10. Add eyes reaction to acknowledge the mention
     try {
       await addReactionToPRReviewComment(installationId, repoOwner, repoName, comment.id, 'eyes');
     } catch (reactionError) {
@@ -195,7 +256,7 @@ export class ReviewCommentWebhookProcessor {
       // Continue — reaction failure is not critical
     }
 
-    // 10. Create fix ticket with review comment context
+    // 11. Create fix ticket with review comment context
     // Populate issue fields with PR-level data to satisfy NOT NULL constraints
     try {
       const ticketId = await createFixTicket({
@@ -224,7 +285,7 @@ export class ReviewCommentWebhookProcessor {
         commentId: comment.id,
       });
 
-      // 11. Dispatch to Auto Fix worker
+      // 12. Dispatch to Auto Fix worker
       await tryDispatchPendingFixes(dispatchOwner);
     } catch (error) {
       errorExceptInTest('[ReviewCommentWebhookProcessor] Error creating fix ticket:', error);
