@@ -14,7 +14,7 @@ type LogUploaderOpts = {
   wrapperLogPath: string;
 };
 
-type LogUploader = {
+export type LogUploader = {
   start: (intervalMs?: number) => void;
   uploadNow: () => Promise<void>;
   stop: () => void;

@@ -378,7 +378,7 @@ export function createLifecycleManager(
     // Run post-completion tasks first (auto-commit, condense), THEN send the complete event.
     // The complete event must be sent after post-completion tasks so that clients don't
     // disconnect before autocommit output is streamed.
-    runPostCompletionTasks()
+    void runPostCompletionTasks()
       .catch(err =>
         logToFile(
           `post-completion tasks failed: ${err instanceof Error ? err.message : String(err)}`

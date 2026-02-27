@@ -16,6 +16,7 @@
 import type { WrapperState, JobContext } from './state.js';
 import type { KiloClient } from './kilo-client.js';
 import { createLogUploader } from './log-uploader.js';
+import { SESSION_ID_RE } from '../../src/shared/protocol.js';
 import { logToFile } from './utils.js';
 
 // ---------------------------------------------------------------------------
@@ -178,6 +179,21 @@ function createStartJobHandler(deps: ServerDependencies, kiloClient: KiloClient)
       );
     }
 
+    // Validate sessionId format before using in filesystem path (defense-in-depth)
+    if (!SESSION_ID_RE.test(body.sessionId)) {
+      return errorResponse('INVALID_REQUEST', 'Invalid sessionId format', 400);
+    }
+
+    // Parse ingest URL to derive worker base URL for log uploads
+    let workerBaseUrl: string;
+    try {
+      const ingestOrigin = new URL(body.ingestUrl);
+      ingestOrigin.protocol = ingestOrigin.protocol === 'wss:' ? 'https:' : 'http:';
+      workerBaseUrl = ingestOrigin.origin;
+    } catch {
+      return errorResponse('INVALID_REQUEST', 'Invalid ingestUrl', 400);
+    }
+
     // Create or resume kilo session
     let kiloSessionId: string;
     try {
@@ -221,14 +237,6 @@ function createStartJobHandler(deps: ServerDependencies, kiloClient: KiloClient)
     }
 
     // Create and start log uploader for this job
-    const ingestOrigin = new URL(body.ingestUrl);
-    ingestOrigin.protocol = ingestOrigin.protocol === 'wss:' ? 'https:' : 'http:';
-    const workerBaseUrl = ingestOrigin.origin;
-    // Validate sessionId format before using in filesystem path (defense-in-depth)
-    const SESSION_ID_RE = /^agent_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!SESSION_ID_RE.test(body.sessionId)) {
-      return errorResponse('INVALID_REQUEST', 'Invalid sessionId format', 400);
-    }
     const cliLogDir = `/home/${body.sessionId}/.local/share/kilo/log`;
     const wrapperLogPath = process.env.WRAPPER_LOG_PATH ?? '/tmp/kilocode-wrapper.log';
     const logUploader = createLogUploader({

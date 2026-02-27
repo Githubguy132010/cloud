@@ -11,6 +11,8 @@
  */
 
 import type { IngestEvent } from '../../src/shared/protocol.js';
+import type { LogUploader } from './log-uploader.js';
+export type { LogUploader } from './log-uploader.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,12 +40,6 @@ export interface LastError {
   message: string;
   timestamp: number;
 }
-
-export type LogUploader = {
-  start: (intervalMs?: number) => void;
-  uploadNow: () => Promise<void>;
-  stop: () => void;
-};
 
 export interface WrapperStatus {
   state: 'idle' | 'active';

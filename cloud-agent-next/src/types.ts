@@ -4,13 +4,9 @@ import type { CallbackJob } from './callbacks/index.js';
 import type { SessionIngestBinding } from './session-ingest-binding.js';
 import * as z from 'zod';
 import { Limits } from './schema.js';
+import { SESSION_ID_RE } from './shared/protocol.js';
 
-export const sessionIdSchema = z
-  .string()
-  .regex(
-    /^agent_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    'Invalid session ID format'
-  );
+export const sessionIdSchema = z.string().regex(SESSION_ID_RE, 'Invalid session ID format');
 
 export const githubRepoSchema = z
   .string()
