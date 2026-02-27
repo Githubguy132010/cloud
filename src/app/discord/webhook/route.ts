@@ -16,6 +16,8 @@ import {
   truncateForDiscord,
 } from '@/lib/discord-bot/discord-utils';
 
+export const maxDuration = 800;
+
 /**
  * Reaction emoji for processing state
  */
