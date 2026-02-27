@@ -21,7 +21,7 @@ RUN apt-get update \
        > /etc/apt/sources.list.d/github-cli.list \
     && curl -sS https://downloads.1password.com/linux/keys/1password.asc \
        | gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg \
-    && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main' \
+    && echo "deb [arch=${ARCH} signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/${ARCH} stable main" \
        > /etc/apt/sources.list.d/1password.list \
     && mkdir -p /etc/debsig/policies/AC2D62742012EA22/ \
     && curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol \
@@ -42,14 +42,14 @@ RUN npm install -g pnpm
 
 # Install OpenClaw
 # Pin to specific version for reproducible builds
-RUN npm install -g openclaw@2026.2.25 \
+RUN npm install -g openclaw@2026.2.26 \
     && openclaw --version
 
 # Install ClawHub CLI
 RUN npm install -g clawhub
 
 # Install mcporter (MCP server tooling)
-RUN npm install -g mcporter
+RUN npm install -g mcporter@0.7.3
 
 # Install pinned Bun (build-time only) and compile the controller bundle.
 ARG BUN_VERSION=1.2.4
@@ -73,7 +73,7 @@ RUN mkdir -p /root/.openclaw \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-02-26-v56-fix-kilocode-models-array
+# Build cache bust: 2026-02-27-v57-openclaw-2026.2.26-1password-arch-fix
 RUN echo "7"
 COPY start-openclaw.sh /usr/local/bin/start-openclaw.sh
 COPY openclaw-pairing-list.js /usr/local/bin/openclaw-pairing-list.js
