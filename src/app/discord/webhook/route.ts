@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { NextRequest } from 'next/server';
 import { after, NextResponse } from 'next/server';
 import { InteractionType, InteractionResponseType } from 'discord-interactions';
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   // Check if this is a forwarded Gateway event (from our Gateway listener)
   const gatewayToken = request.headers.get('x-discord-gateway-token');
   if (gatewayToken) {
-    if (gatewayToken !== DISCORD_BOT_TOKEN) {
+    if (!DISCORD_BOT_TOKEN || !timingSafeTokenEqual(gatewayToken, DISCORD_BOT_TOKEN)) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
@@ -186,4 +187,16 @@ async function processGatewayMessage(event: ForwardedGatewayEvent) {
   if (!removeResult.ok) {
     await removeDiscordReaction(channelId, messageId, PROCESSING_EMOJI);
   }
+}
+
+function timingSafeTokenEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare a with itself to avoid leaking length via timing,
+    // then return false.
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
 }
