@@ -14,6 +14,7 @@ import {
   DeleteBYOKKeyInputSchema,
   SetBYOKKeyEnabledInputSchema,
   ListBYOKKeysInputSchema,
+  TestBYOKKeyInputSchema,
   BYOKApiKeyResponseSchema,
   type BYOKApiKeyResponse,
 } from '@/lib/byok/types';
@@ -326,6 +327,46 @@ export const byokRouter = createTRPCRouter({
       return {
         ...updatedKey,
         provider_name: updatedKey.provider_id,
+      };
+    }),
+
+  testApiKey: baseProcedure
+    .input(TestBYOKKeyInputSchema)
+    .output(z.object({ success: z.boolean(), message: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const { organizationId, id } = input;
+
+      if (organizationId) {
+        await ensureOrganizationAccess(ctx, organizationId);
+      }
+
+      const [existingKey] = await db
+        .select({
+          organization_id: byok_api_keys.organization_id,
+          kilo_user_id: byok_api_keys.kilo_user_id,
+          provider_id: byok_api_keys.provider_id,
+        })
+        .from(byok_api_keys)
+        .where(eq(byok_api_keys.id, id));
+
+      if (!existingKey) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'BYOK key not found' });
+      }
+
+      if (organizationId) {
+        if (existingKey.organization_id !== organizationId) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'BYOK key not found' });
+        }
+      } else {
+        if (existingKey.kilo_user_id !== ctx.user.id) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'BYOK key not found' });
+        }
+      }
+
+      // TODO: implement actual key validation per provider
+      return {
+        success: true,
+        message: `Placeholder: testing ${existingKey.provider_id} key is not yet implemented`,
       };
     }),
 
