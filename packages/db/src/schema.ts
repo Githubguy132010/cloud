@@ -25,45 +25,45 @@ import {
 } from 'drizzle-orm/pg-core';
 import { isNotNull, isNull, sql } from 'drizzle-orm';
 import * as z from 'zod';
+import {
+  KiloPassTier,
+  KiloPassCadence,
+  KiloPassIssuanceSource,
+  KiloPassIssuanceItemKind,
+  KiloPassAuditLogAction,
+  KiloPassAuditLogResult,
+  KiloPassScheduledChangeStatus,
+  FeedbackFor,
+  FeedbackSource,
+  CliSessionSharedState,
+  SecurityAuditLogAction,
+} from './schema-types';
 import type {
   OrganizationModeConfig,
   OrganizationPlan,
   OrganizationRole,
   OrganizationSettings,
-} from '@/lib/organizations/organization-base-types';
-import type { AuditLogAction } from '@/lib/organizations/audit-log-actions';
-import type { EncryptedData } from '@/lib/byok/encryption';
-import type { AuthProviderId } from '@/lib/auth/provider-metadata';
-import type { AbuseClassification } from '@/types/AbuseClassification';
-import type { PlatformRepository, IntegrationPermissions } from '@/lib/integrations/core/types';
-import type { BuildStatus, Provider } from '@/lib/user-deployments/types';
-import type { CodeReviewAgentConfig } from '@/lib/agent-config/core/types';
-import type { DependabotAlertRaw, SecurityFindingAnalysis } from '@/lib/security-agent/core/types';
-import { SecurityAuditLogAction } from '@/lib/security-agent/core/enums';
-import type {
+  AuditLogAction,
+  EncryptedData,
+  AuthProviderId,
+  AbuseClassification,
+  PlatformRepository,
+  IntegrationPermissions,
+  BuildStatus,
+  Provider,
+  CodeReviewAgentConfig,
+  DependabotAlertRaw,
+  SecurityFindingAnalysis,
   NormalizedOpenRouterResponse,
   OpenRouterModel,
-} from '@/lib/providers/openrouter/openrouter-types';
-import { CliSessionSharedState } from '@/types/cli-session-shared-state';
-import type Stripe from 'stripe';
-import {
-  KiloPassAuditLogAction,
-  KiloPassAuditLogResult,
-  KiloPassCadence,
-  KiloPassIssuanceItemKind,
-  KiloPassIssuanceSource,
-  KiloPassScheduledChangeStatus,
-  KiloPassTier,
-} from '@/lib/kilo-pass/enums';
-import type { AnyPgColumn as DrizzleAnyPgColumn } from 'drizzle-orm/pg-core';
-import { FeedbackFor, FeedbackSource } from '@/lib/feedback/enums';
-import type {
+  StripeSubscriptionStatus,
   OpenCodeSettings,
   ReasoningEffort,
   Tool,
   Verbosity,
-} from '@/lib/organizations/model-settings';
-import type { StoredModel } from '@/lib/providers/vercel/types';
+  StoredModel,
+} from './schema-types';
+import type { AnyPgColumn as DrizzleAnyPgColumn } from 'drizzle-orm/pg-core';
 
 /**
  * Generates a complete check constraint for an enum column.
@@ -209,7 +209,7 @@ export const kilo_pass_subscriptions = pgTable(
     stripe_subscription_id: text().notNull().unique(),
     tier: text().notNull().$type<KiloPassTier>(),
     cadence: text().notNull().$type<KiloPassCadence>(),
-    status: text().notNull().$type<Stripe.Subscription.Status>(),
+    status: text().notNull().$type<StripeSubscriptionStatus>(),
     /**
      * Tracks whether the subscription is set to cancel at the end of the current billing period.
      * When true with status='active', the subscription is effectively "pending cancellation".
