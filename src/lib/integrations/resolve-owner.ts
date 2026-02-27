@@ -5,7 +5,9 @@ import { ensureOrganizationAccess } from '@/routers/organizations/utils';
 import type { OrganizationRole } from '@/lib/organizations/organization-types';
 
 /** Shared zod schema for endpoints that optionally accept an organizationId. */
-export const optionalOrgInput = z.object({ organizationId: z.string().uuid().optional() }).optional();
+export const optionalOrgInput = z
+  .object({ organizationId: z.string().uuid().optional() })
+  .optional();
 
 /**
  * Build an Owner value from the request context.
