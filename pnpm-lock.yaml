@@ -358,9 +358,6 @@ importers:
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
-      drizzle-kit:
-        specifier: ^0.31.8
-        version: 0.31.8
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
@@ -436,6 +433,9 @@ importers:
       '@cloudflare/sandbox':
         specifier: 0.6.7
         version: 0.6.7
+      '@kilocode/db':
+        specifier: workspace:*
+        version: link:../packages/db
       '@octokit/auth-app':
         specifier: ^8.1.2
         version: 8.1.2
@@ -445,12 +445,12 @@ importers:
       aws4fetch:
         specifier: ^1.0.20
         version: 1.0.20
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.44.7(@cloudflare/workers-types@4.20260130.0)(@opentelemetry/api@1.9.0)(@types/pg@8.16.0)(bun-types@1.3.9)(kysely@0.28.10)(pg@8.18.0)
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
-      pg:
-        specifier: ^8.16.3
-        version: 8.16.3
       workers-tagged-logger:
         specifier: ^1.0.0
         version: 1.0.0
@@ -473,9 +473,6 @@ importers:
       '@types/node':
         specifier: ^22
         version: 22.19.1
-      '@types/pg':
-        specifier: ^8.15.6
-        version: 8.15.6
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20251019.1
         version: 7.0.0-dev.20251019.1
@@ -7243,10 +7240,6 @@ packages:
   drange@1.1.1:
     resolution: {integrity: sha512-pYxfDYpued//QpnLIm4Avk7rsNtAtQkUES2cwAYSvD/wd2pKD71gN2Ebj3e7klzXwjocvE8c5vx/1fxwpqmSxA==}
     engines: {node: '>=4'}
-
-  drizzle-kit@0.31.8:
-    resolution: {integrity: sha512-O9EC/miwdnRDY10qRxM8P3Pg8hXe3LyU4ZipReKOgTwn4OqANmftj8XJz1UPUAS6NMHf0E2htjsbQujUTkncCg==}
-    hasBin: true
 
   drizzle-kit@0.31.9:
     resolution: {integrity: sha512-GViD3IgsXn7trFyBUUHyTFBpH/FsHTxYJ66qdbVggxef4UBPHRYxQaRzYLTuekYnk9i5FIEL9pbBIwMqX/Uwrg==}
@@ -19088,15 +19081,6 @@ snapshots:
   dotenv@17.2.3: {}
 
   drange@1.1.1: {}
-
-  drizzle-kit@0.31.8:
-    dependencies:
-      '@drizzle-team/brocli': 0.10.2
-      '@esbuild-kit/esm-loader': 2.6.5
-      esbuild: 0.27.0
-      esbuild-register: 3.6.0(esbuild@0.27.0)
-    transitivePeerDependencies:
-      - supports-color
 
   drizzle-kit@0.31.9:
     dependencies:
