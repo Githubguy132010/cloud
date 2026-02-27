@@ -430,7 +430,7 @@ export async function* streamKilocodeExecution(
         timeoutSeconds: streamTimeoutSeconds,
       });
       abnormalTermination = true;
-      terminationReason = `Stream timeout exceeded (${streamTimeoutSeconds / 60} minutes)`;
+      terminationReason = `Stream timeout exceeded (${Math.round(streamTimeoutSeconds / 60)} minutes)`;
 
       // Emit error event before cleanup
       yield {

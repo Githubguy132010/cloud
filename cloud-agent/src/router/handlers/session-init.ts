@@ -143,13 +143,23 @@ export function createSessionInitHandlers() {
               }
             }
 
-            const usageEvent = await createSandboxUsageEvent(session, sessionId);
-            yield usageEvent;
-
             if (interrupted) {
+              // Best-effort sandbox usage after interrupted stream (container may be dead)
+              try {
+                yield await createSandboxUsageEvent(session, sessionId);
+              } catch (usageError) {
+                logger
+                  .withFields({
+                    error: usageError instanceof Error ? usageError.message : String(usageError),
+                  })
+                  .warn('Failed to collect sandbox usage after interrupted session (non-fatal)');
+              }
               logger.info('Session execution interrupted; skipping post-exec steps');
               return;
             }
+
+            const usageEvent = await createSandboxUsageEvent(session, sessionId);
+            yield usageEvent;
 
             // Auto-commit if requested
             if (input.autoCommit) {
@@ -310,6 +320,7 @@ export function createSessionInitHandlers() {
             // may be necessary to avoid hitting Cloudflare's subrequest limit, but in this context it is set to false.
             // Infrastructure interruptions (RPC disconnects, container failures, etc.) will still be handled appropriately.
             let interrupted = false;
+            let interruptReason: string | undefined;
             for await (const event of streamKilocodeExec(input.mode, input.prompt, {
               sessionId,
               skipInterruptPolling: false,
@@ -318,11 +329,14 @@ export function createSessionInitHandlers() {
               yield event;
               if (event.streamEventType === 'interrupted' || event.streamEventType === 'error') {
                 interrupted = true;
+                if (event.streamEventType === 'error') {
+                  interruptReason = event.error;
+                } else if (event.streamEventType === 'interrupted') {
+                  interruptReason = event.reason;
+                }
                 break;
               }
             }
-
-            yield await createSandboxUsageEvent(session, sessionId);
 
             // sessionId is assigned at generator start, so it's always available here
             const confirmedSessionId = sessionId;
@@ -330,17 +344,31 @@ export function createSessionInitHandlers() {
             if (interrupted) {
               logger.info('Session execution interrupted/failed; skipping post-exec steps');
 
-              // Invoke callback with interrupted/failed status
+              // Best-effort sandbox usage after interrupted stream (container may be dead)
+              try {
+                yield await createSandboxUsageEvent(session, confirmedSessionId);
+              } catch (usageError) {
+                logger
+                  .withFields({
+                    error: usageError instanceof Error ? usageError.message : String(usageError),
+                  })
+                  .warn('Failed to collect sandbox usage after interrupted session (non-fatal)');
+              }
+
+              // Invoke callback with interrupted/failed status, including the real error reason
               logger.info('Invoking callback for interrupted session');
               await invokeCallback(callbackUrl, callbackHeaders, {
                 sessionId: confirmedSessionId,
                 status: 'interrupted',
+                ...(interruptReason ? { errorMessage: interruptReason } : {}),
               });
 
               // Auto-cleanup still happens in the finally block below
               // But skip: auto-commit and complete event
               return;
             }
+
+            yield await createSandboxUsageEvent(session, confirmedSessionId);
 
             // Auto-commit if requested
             logger.info(`Checking for auto-commit request: ${input.autoCommit}`);
@@ -635,13 +663,26 @@ export function createSessionInitHandlers() {
                   }
                 }
 
-                const usageEvent = await createSandboxUsageEvent(session, sessionId);
-                yield usageEvent;
-
                 if (interrupted) {
+                  // Best-effort sandbox usage after interrupted stream (container may be dead)
+                  try {
+                    yield await createSandboxUsageEvent(session, sessionId);
+                  } catch (usageError) {
+                    logger
+                      .withFields({
+                        error:
+                          usageError instanceof Error ? usageError.message : String(usageError),
+                      })
+                      .warn(
+                        'Failed to collect sandbox usage after interrupted session (non-fatal)'
+                      );
+                  }
                   logger.info('Session execution interrupted; skipping post-exec steps');
                   return;
                 }
+
+                const usageEvent = await createSandboxUsageEvent(session, sessionId);
+                yield usageEvent;
 
                 // Auto-commit if requested
                 if (metadata.autoCommit) {
@@ -775,13 +816,26 @@ export function createSessionInitHandlers() {
                   }
                 }
 
-                const usageEvent = await createSandboxUsageEvent(session, sessionId);
-                yield usageEvent;
-
                 if (interrupted) {
+                  // Best-effort sandbox usage after interrupted stream (container may be dead)
+                  try {
+                    yield await createSandboxUsageEvent(session, sessionId);
+                  } catch (usageError) {
+                    logger
+                      .withFields({
+                        error:
+                          usageError instanceof Error ? usageError.message : String(usageError),
+                      })
+                      .warn(
+                        'Failed to collect sandbox usage after interrupted session (non-fatal)'
+                      );
+                  }
                   logger.info('Session execution interrupted; skipping post-exec steps');
                   return;
                 }
+
+                const usageEvent = await createSandboxUsageEvent(session, sessionId);
+                yield usageEvent;
 
                 // Auto-commit if requested
                 if (legacyInput.autoCommit) {

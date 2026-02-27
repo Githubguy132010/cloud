@@ -943,8 +943,6 @@ export async function* autoCommitChangesStream(
     // Use dynamic prompt - omit protection warning if upstreamBranch is set
     const prompt = buildAutoCommitPrompt(hasExplicitUpstreamBranch);
     yield* streamKilocodeExec('code', prompt, { sessionId });
-
-    yield createStatusEvent('Auto-commit completed successfully', sessionId);
   } catch (error) {
     logger
       .withFields({
@@ -953,5 +951,42 @@ export async function* autoCommitChangesStream(
       .warn('Auto-commit execution failed');
 
     yield createStatusEvent('Auto-commit failed', sessionId);
+    return;
   }
+
+  // Safety net: verify push happened, push programmatically if not.
+  // This is outside the try/catch above so push failures propagate as
+  // hard errors to callers (triggering callback with status: 'failed').
+  const unpushed = await session.exec(
+    `cd ${workspacePath} && git log origin/${currentBranch}..HEAD --oneline 2>&1`
+  );
+  const unpushedOutput = unpushed.stdout.trim();
+
+  if (unpushed.exitCode === 0 && unpushedOutput.length > 0) {
+    const commitCount = unpushedOutput.split('\n').length;
+    logger
+      .withFields({ currentBranch, unpushedOutput, commitCount })
+      .warn('Kilo CLI did not push — pushing programmatically');
+
+    yield createStatusEvent(`Pushing ${commitCount} unpushed commit(s)...`, sessionId);
+
+    const pushResult = await session.exec(
+      `cd ${workspacePath} && git push origin ${currentBranch}`
+    );
+    if (pushResult.exitCode !== 0) {
+      const pushStderr = pushResult.stderr?.trim() || 'Unknown push error';
+      logger
+        .withFields({
+          exitCode: pushResult.exitCode,
+          stderr: pushStderr,
+          stdout: pushResult.stdout?.trim(),
+        })
+        .error('Programmatic git push failed');
+      throw new Error(`Push failed (exit ${pushResult.exitCode}): ${pushStderr}`);
+    }
+
+    logger.withFields({ currentBranch, commitCount }).info('Programmatic git push succeeded');
+  }
+
+  yield createStatusEvent('Auto-commit completed successfully', sessionId);
 }

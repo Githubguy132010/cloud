@@ -83,6 +83,10 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
         isPRTimeout,
       });
 
+      if (this.state.triggerSource === 'review_comment') {
+        await this.notifyReviewCommentResult(this.state.sessionId, 'failed', errorMessage);
+      }
+
       await this.updateStatus('failed', {
         errorMessage: errorMessage,
       });
@@ -319,9 +323,9 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
     console.log('[AutoFixOrchestrator] Waiting for git push to propagate to GitHub...');
     await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
 
-    // For review comment fixes: reply on the review thread instead of creating a new PR
+    // For review comment fixes: acknowledge result on original comment instead of creating a new PR
     if (this.state.triggerSource === 'review_comment') {
-      await this.replyToReviewComment(sessionId);
+      await this.notifyReviewCommentResult(sessionId, 'success');
     } else {
       // For issue fixes: create a new GitHub PR
       await this.createGitHubPR(sessionId);
@@ -413,46 +417,69 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
   }
 
   /**
-   * Reply to the review comment thread after Cloud Agent completes
-   * Called instead of createGitHubPR for review comment triggers
+   * Notify on the original review comment after review-comment auto-fix completes.
+   * - success: add +1 reaction
+   * - failed: post a reply on the thread with failure details
    */
-  private async replyToReviewComment(sessionId: string | undefined): Promise<void> {
-    if (!sessionId) {
-      throw new Error('Cannot reply to review comment without sessionId');
-    }
-
-    console.log('[AutoFixOrchestrator] Replying to review comment', {
+  private async notifyReviewCommentResult(
+    sessionId: string | undefined,
+    outcome: 'success' | 'failed',
+    errorMessage?: string
+  ): Promise<void> {
+    console.log('[AutoFixOrchestrator] Notifying review comment result', {
       ticketId: this.state.ticketId,
       sessionId,
+      outcome,
+      hasError: !!errorMessage,
     });
 
-    const response = await fetch(`${this.env.API_URL}/api/internal/auto-fix/comment-reply`, {
-      method: 'POST',
-      headers: {
-        'X-Internal-Secret': this.env.INTERNAL_API_SECRET,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const response = await fetch(`${this.env.API_URL}/api/internal/auto-fix/comment-reply`, {
+        method: 'POST',
+        headers: {
+          'X-Internal-Secret': this.env.INTERNAL_API_SECRET,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticketId: this.state.ticketId,
+          sessionId,
+          outcome,
+          errorMessage,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn('[AutoFixOrchestrator] Failed to notify review comment result', {
+          ticketId: this.state.ticketId,
+          sessionId,
+          outcome,
+          httpStatus: response.status,
+          httpStatusText: response.statusText,
+          errorText,
+        });
+      } else {
+        console.log('[AutoFixOrchestrator] Review comment result notification succeeded', {
+          ticketId: this.state.ticketId,
+          sessionId,
+          outcome,
+        });
+      }
+    } catch (notifyError) {
+      console.warn('[AutoFixOrchestrator] Error notifying review comment result', {
         ticketId: this.state.ticketId,
         sessionId,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to reply to review comment: ${response.statusText} - ${errorText}`);
+        outcome,
+        error: notifyError instanceof Error ? notifyError.message : String(notifyError),
+      });
     }
 
-    console.log('[AutoFixOrchestrator] Review comment reply posted successfully', {
-      ticketId: this.state.ticketId,
-      sessionId,
-    });
-
-    // Update status to completed
-    await this.updateStatus('completed', {
-      sessionId,
-      prBranch: this.state.sessionInput.upstreamBranch,
-    });
+    if (outcome === 'success') {
+      await this.updateStatus('completed', {
+        sessionId,
+        prBranch: this.state.sessionInput.upstreamBranch,
+      });
+    }
   }
 
   /**

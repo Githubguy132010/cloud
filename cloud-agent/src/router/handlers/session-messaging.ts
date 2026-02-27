@@ -195,13 +195,23 @@ export function createSessionMessagingHandlers() {
             }
           }
 
-          const usageEvent = await createSandboxUsageEvent(session, sessionId);
-          yield usageEvent;
-
           if (interrupted) {
+            // Best-effort sandbox usage after interrupted stream (container may be dead)
+            try {
+              yield await createSandboxUsageEvent(session, sessionId);
+            } catch (usageError) {
+              logger
+                .withFields({
+                  error: usageError instanceof Error ? usageError.message : String(usageError),
+                })
+                .warn('Failed to collect sandbox usage after interrupted session (non-fatal)');
+            }
             logger.info('Session execution interrupted; skipping post-exec steps');
             return;
           }
+
+          const usageEvent = await createSandboxUsageEvent(session, sessionId);
+          yield usageEvent;
 
           // Auto-commit if requested
           if (input.autoCommit) {
