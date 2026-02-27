@@ -610,6 +610,35 @@ describe('autoCommitChangesStream', () => {
       expect(mockStreamKilocodeExec).not.toHaveBeenCalled();
     });
 
+    it('should fail auto-commit for unsafe branch names', async () => {
+      // Mock git branch --show-current returning unsafe shell characters
+      mockExec.mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: 'feature/new; rm -rf /\n',
+        stderr: '',
+      });
+
+      const { autoCommitChangesStream } = await import('./workspace');
+      const stream = autoCommitChangesStream(
+        fakeSession,
+        '/workspace',
+        mockStreamKilocodeExec,
+        'session-123'
+      );
+
+      const events = [];
+      for await (const event of stream) {
+        events.push(event);
+      }
+
+      expect(events).toHaveLength(2);
+      expect(events[1]).toMatchObject({
+        streamEventType: 'status',
+        message: expect.stringContaining('invalid branch name'),
+      });
+      expect(mockStreamKilocodeExec).not.toHaveBeenCalled();
+    });
+
     it('should handle git command failure', async () => {
       // Mock git branch --show-current failing
       mockExec.mockResolvedValueOnce({

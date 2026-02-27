@@ -612,6 +612,24 @@ async function gitFetch(session: ExecutionSession, workspacePath: string): Promi
   }
 }
 
+const SAFE_GIT_BRANCH_PATTERN = /^(?!-)[A-Za-z0-9._/-]+$/;
+
+function ensureSafeGitBranchName(branchName: string): string {
+  const isSafeFormat =
+    SAFE_GIT_BRANCH_PATTERN.test(branchName) &&
+    !branchName.startsWith('/') &&
+    !branchName.endsWith('/') &&
+    !branchName.includes('//') &&
+    !branchName.includes('..') &&
+    !branchName.includes('@{');
+
+  if (!isSafeFormat) {
+    throw new Error(`Unsafe git branch name: ${branchName}`);
+  }
+
+  return branchName;
+}
+
 async function branchExistsLocally(
   session: ExecutionSession,
   workspacePath: string,
@@ -737,7 +755,9 @@ export async function manageBranch(
   branchName: string,
   isUpstreamBranch: boolean = false
 ): Promise<string> {
-  logger.setTags({ branchName, workspacePath });
+  const safeBranchName = ensureSafeGitBranchName(branchName);
+
+  logger.setTags({ branchName: safeBranchName, workspacePath });
   logger.withTags({ isUpstream: isUpstreamBranch }).info('Managing branch');
 
   // Fetch latest refs from remote
@@ -745,8 +765,8 @@ export async function manageBranch(
 
   // Check branch existence in parallel
   const [existsLocally, existsRemotely] = await Promise.all([
-    branchExistsLocally(session, workspacePath, branchName),
-    branchExistsRemotely(session, workspacePath, branchName),
+    branchExistsLocally(session, workspacePath, safeBranchName),
+    branchExistsRemotely(session, workspacePath, safeBranchName),
   ]);
 
   logger.withTags({ existsLocally, existsRemotely }).debug('Branch status');
@@ -754,46 +774,46 @@ export async function manageBranch(
   // Four explicit cases
   if (existsLocally && existsRemotely) {
     // Case 1: Exists in both places - checkout and sync
-    await checkoutExistingBranch(session, workspacePath, branchName);
+    await checkoutExistingBranch(session, workspacePath, safeBranchName);
 
     // Only pull for session branches, not upstream
     if (!isUpstreamBranch) {
-      await pullLatestChangesLenient(session, workspacePath, branchName);
+      await pullLatestChangesLenient(session, workspacePath, safeBranchName);
     }
     // For upstream: fetch already happened, checkout is done, leave as-is
   } else if (existsLocally && !existsRemotely) {
     // Case 2: Only exists locally - just checkout
-    await checkoutExistingBranch(session, workspacePath, branchName);
+    await checkoutExistingBranch(session, workspacePath, safeBranchName);
   } else if (!existsLocally && existsRemotely) {
     // Case 3: Only exists remotely
     if (isUpstreamBranch) {
       // For upstream branches (review comment flows), use plain checkout semantics.
       // This avoids explicit branch creation commands while still checking out
       // the remote branch after fetch.
-      await checkoutExistingBranch(session, workspacePath, branchName);
+      await checkoutExistingBranch(session, workspacePath, safeBranchName);
     } else {
       // Session branches still use explicit tracking branch creation.
-      await createTrackingBranch(session, workspacePath, branchName);
+      await createTrackingBranch(session, workspacePath, safeBranchName);
     }
   } else {
     // Case 4: Doesn't exist anywhere
     if (isUpstreamBranch) {
-      if (GITHUB_PULL_REF_PATTERN.test(branchName)) {
-        await fetchPullRefAndCheckout(session, workspacePath, branchName);
-        logger.withTags({ pullRef: branchName }).info('Checked out GitHub pull ref');
+      if (GITHUB_PULL_REF_PATTERN.test(safeBranchName)) {
+        await fetchPullRefAndCheckout(session, workspacePath, safeBranchName);
+        logger.withTags({ pullRef: safeBranchName }).info('Checked out GitHub pull ref');
         logger.debug('Successfully on branch');
-        return branchName;
+        return safeBranchName;
       }
 
       throw new Error(
-        `Branch "${branchName}" not found in repository. Please ensure the branch exists remotely.`
+        `Branch "${safeBranchName}" not found in repository. Please ensure the branch exists remotely.`
       );
     }
-    await createNewBranch(session, workspacePath, branchName);
+    await createNewBranch(session, workspacePath, safeBranchName);
   }
 
   logger.debug('Successfully on branch');
-  return branchName;
+  return safeBranchName;
 }
 
 /**
@@ -909,6 +929,20 @@ export async function* autoCommitChangesStream(
     return;
   }
 
+  let safeCurrentBranch: string;
+  try {
+    safeCurrentBranch = ensureSafeGitBranchName(currentBranch);
+  } catch (error) {
+    logger
+      .withFields({
+        currentBranch,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      .error('Invalid current branch name for auto-commit');
+    yield createStatusEvent('Auto-commit failed: invalid branch name', sessionId);
+    return;
+  }
+
   // If upstreamBranch is explicitly set, bypass all protection
   const hasExplicitUpstreamBranch = upstreamBranch !== undefined;
 
@@ -958,7 +992,7 @@ export async function* autoCommitChangesStream(
   // This is outside the try/catch above so push failures propagate as
   // hard errors to callers (triggering callback with status: 'failed').
   const unpushed = await session.exec(
-    `cd ${workspacePath} && git log origin/${currentBranch}..HEAD --oneline 2>&1`
+    `cd ${workspacePath} && git log origin/${safeCurrentBranch}..HEAD --oneline 2>&1`
   );
   const unpushedOutput = unpushed.stdout.trim();
   const verificationOutput = `${unpushed.stdout || ''}\n${unpushed.stderr || ''}`.trim();
@@ -988,11 +1022,11 @@ export async function* autoCommitChangesStream(
     if (commitCount !== undefined) {
       yield createStatusEvent(`Pushing ${commitCount} unpushed commit(s)...`, sessionId);
     } else {
-      yield createStatusEvent(`Pushing branch '${currentBranch}' to origin...`, sessionId);
+      yield createStatusEvent(`Pushing branch '${safeCurrentBranch}' to origin...`, sessionId);
     }
 
     const pushResult = await session.exec(
-      `cd ${workspacePath} && git push origin ${currentBranch}`
+      `cd ${workspacePath} && git push origin ${safeCurrentBranch}`
     );
     if (pushResult.exitCode !== 0) {
       const pushStderr = pushResult.stderr?.trim() || 'Unknown push error';
