@@ -224,7 +224,7 @@ function createStartJobHandler(deps: ServerDependencies, kiloClient: KiloClient)
     const ingestOrigin = new URL(body.ingestUrl);
     ingestOrigin.protocol = ingestOrigin.protocol === 'wss:' ? 'https:' : 'http:';
     const workerBaseUrl = ingestOrigin.origin;
-    const cliLogPath = `/home/${body.sessionId}/.kilocode/cli/logs/cli.txt`;
+    const cliLogDir = `/home/${body.sessionId}/.local/share/kilo/log`;
     const wrapperLogPath = process.env.WRAPPER_LOG_PATH ?? '/tmp/kilocode-wrapper.log';
     const logUploader = createLogUploader({
       workerBaseUrl,
@@ -232,7 +232,7 @@ function createStartJobHandler(deps: ServerDependencies, kiloClient: KiloClient)
       executionId: body.executionId,
       userId: body.userId,
       kilocodeToken: body.kilocodeToken,
-      cliLogPath,
+      cliLogDir,
       wrapperLogPath,
     });
     state.setLogUploader(logUploader);

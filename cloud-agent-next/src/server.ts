@@ -141,9 +141,13 @@ app.put(
       return c.text('Request body too large', 413);
     }
 
-    const body = c.req.raw.body;
-    if (!body) {
+    // Buffer the body — R2 requires a known-length value (ArrayBuffer, string, etc.)
+    const body = await c.req.arrayBuffer();
+    if (body.byteLength === 0) {
       return c.text('Missing request body', 400);
+    }
+    if (body.byteLength > MAX_LOG_UPLOAD_BYTES) {
+      return c.text('Request body too large', 413);
     }
 
     const sessionId = c.req.param('sessionId');

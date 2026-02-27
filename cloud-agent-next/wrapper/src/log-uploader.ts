@@ -9,7 +9,8 @@ type LogUploaderOpts = {
   executionId: string;
   userId: string;
   kilocodeToken: string;
-  cliLogPath: string;
+  /** Directory containing CLI log files (e.g. ~/.local/share/kilo/log/) */
+  cliLogDir: string;
   wrapperLogPath: string;
 };
 
@@ -26,11 +27,12 @@ type TarStream = {
   kill: () => void;
 };
 
-function createTarStream(files: Array<string>): TarStream | undefined {
-  const existing = files.filter(f => existsSync(f));
+function createTarStream(paths: Array<string>): TarStream | undefined {
+  const existing = paths.filter(f => existsSync(f));
   if (existing.length === 0) return undefined;
 
-  // Use -C dir basename for each file so the archive contains only filenames, not full paths
+  // Use -C parent basename for each path so the archive contains relative names, not full paths.
+  // Works for both files and directories.
   const tarArgs = ['czf', '-'];
   for (const f of existing) {
     tarArgs.push('-C', dirname(f), basename(f));
@@ -66,7 +68,7 @@ export function createLogUploader(opts: LogUploaderOpts): LogUploader {
   let intervalId: ReturnType<typeof setInterval> | undefined;
 
   async function uploadNow(): Promise<void> {
-    const tar = createTarStream([opts.cliLogPath, opts.wrapperLogPath]);
+    const tar = createTarStream([opts.cliLogDir, opts.wrapperLogPath]);
     if (!tar) return;
 
     const abort = new AbortController();
