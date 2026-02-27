@@ -54,6 +54,8 @@ export async function registerVersionIfNeeded(
   imageDigest: string | null = null,
   hyperdriveConnectionString?: string
 ): Promise<boolean> {
+  const publishedAt = new Date().toISOString();
+
   // Upsert to Postgres catalog, throttled to once per minute per isolate.
   const now = Date.now();
   if (
@@ -66,7 +68,7 @@ export async function registerVersionIfNeeded(
         variant,
         imageTag,
         imageDigest,
-        publishedAt: new Date().toISOString(),
+        publishedAt,
       });
       lastCatalogSyncMs = now;
     } catch (e) {
@@ -90,7 +92,6 @@ export async function registerVersionIfNeeded(
     }
   }
 
-  const publishedAt = new Date().toISOString();
   const entry: ImageVersionEntry = {
     openclawVersion,
     variant,

@@ -7,7 +7,7 @@ import type { KiloClawApp } from './durable-objects/kiloclaw-app';
 export type KiloClawEnv = {
   KILOCLAW_INSTANCE: DurableObjectNamespace<KiloClawInstance>;
   KILOCLAW_APP: DurableObjectNamespace<KiloClawApp>;
-  HYPERDRIVE: Hyperdrive;
+  HYPERDRIVE?: Hyperdrive;
   KV_CLAW_CACHE: KVNamespace;
 
   // Auth secrets
