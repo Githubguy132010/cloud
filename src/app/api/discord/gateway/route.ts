@@ -179,6 +179,7 @@ async function runGatewayListener(
   });
 
   let isShuttingDown = false;
+  let botUserId: string | null = null;
 
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
@@ -212,6 +213,7 @@ async function runGatewayListener(
 
     client.once(Events.ClientReady, readyClient => {
       console.log(`[DiscordGateway] Connected as ${readyClient.user.tag}`);
+      botUserId = readyClient.user.id;
     });
 
     client.on(Events.Error, error => {
@@ -227,6 +229,7 @@ async function runGatewayListener(
           type: `GATEWAY_${packet.t}`,
           timestamp: Date.now(),
           data: packet.d,
+          botUserId,
         };
 
         try {

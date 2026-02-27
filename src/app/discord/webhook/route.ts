@@ -28,6 +28,7 @@ const COMPLETE_EMOJI = '\u2705'; // white check mark
 type ForwardedGatewayEvent = {
   type: string;
   timestamp: number;
+  botUserId: string | null;
   data: {
     id: string;
     content: string;
@@ -124,13 +125,18 @@ async function processGatewayMessage(event: ForwardedGatewayEvent) {
     return;
   }
 
+  // Check if this message mentions the bot
+  const botUserId = event.botUserId;
+  const mentionsBot = botUserId && message.mentions?.some(m => m.id === botUserId);
+  if (!mentionsBot) {
+    // Message doesn't mention the bot, ignore it
+    return;
+  }
+
   const { content, channel_id: channelId, guild_id: guildId, author, id: messageId } = message;
 
   // Strip the bot mention and check if there's remaining text
-  // We need the bot's own user ID to strip its mention
-  // The Gateway listener passes it in the mentions array
-  const botMention = message.mentions?.find(m => m.id !== author.id);
-  const cleanedText = stripDiscordBotMention(content, botMention?.id ?? null);
+  const cleanedText = stripDiscordBotMention(content, botUserId);
 
   if (!cleanedText) {
     console.log('[DiscordBot:Webhook] No text after removing mention, ignoring');
