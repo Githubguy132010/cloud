@@ -31,6 +31,7 @@ export async function run() {
     const updateResult = await db
       .update(organizations)
       .set({
+        // Changed from 30 days; no orgs on trial have null end at this time
         free_trial_end_at: sql`${organizations.created_at} + INTERVAL '14 days'`,
       })
       .where(isNull(organizations.free_trial_end_at));
