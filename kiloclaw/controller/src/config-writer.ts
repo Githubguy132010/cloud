@@ -5,6 +5,7 @@
  * Both this module and the shell script must produce identical config for the
  * same set of env vars. When updating one, update the other.
  */
+import { execFileSync as nodeExecFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,10 +14,28 @@ const DEFAULT_CONFIG_PATH = '/root/.openclaw/openclaw.json';
 
 export const MAX_CONFIG_BACKUPS = 5;
 
+/** Flags passed to `openclaw onboard`, matching start-openclaw.sh. */
+const ONBOARD_FLAGS = [
+  'onboard',
+  '--non-interactive',
+  '--accept-risk',
+  '--mode',
+  'local',
+  '--gateway-port',
+  '3001',
+  '--gateway-bind',
+  'loopback',
+  '--skip-channels',
+  '--skip-skills',
+  '--skip-health',
+] as const;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConfigObject = Record<string, any>;
 
 type EnvLike = Record<string, string | undefined>;
+
+type ExecFileOptions = { env?: NodeJS.ProcessEnv; stdio?: 'inherit' | 'pipe' };
 
 export type ConfigWriterDeps = {
   readFileSync: (path: string, encoding: BufferEncoding) => string;
@@ -26,6 +45,7 @@ export type ConfigWriterDeps = {
   readdirSync: (dir: string) => string[];
   unlinkSync: (path: string) => void;
   existsSync: (path: string) => boolean;
+  execFileSync: (cmd: string, args: string[], opts: ExecFileOptions) => void;
 };
 
 const defaultDeps: ConfigWriterDeps = {
@@ -36,6 +56,7 @@ const defaultDeps: ConfigWriterDeps = {
   readdirSync: dir => fs.readdirSync(dir),
   unlinkSync: p => fs.unlinkSync(p),
   existsSync: p => fs.existsSync(p),
+  execFileSync: (cmd, args, opts) => nodeExecFileSync(cmd, args, opts),
 };
 
 /**
@@ -195,14 +216,17 @@ export function generateBaseConfig(
 }
 
 /**
- * Generate and write the base config to disk.
+ * Generate a fresh config and write it to disk.
  *
- * Safety measures:
- * 1. Backs up the existing config to a timestamped .bak file
- * 2. Prunes old backups beyond MAX_CONFIG_BACKUPS
- * 3. Writes to a .tmp file first
- * 4. Validates the serialized JSON is parseable
- * 5. Atomically renames .tmp into place (rename on same FS is atomic on Linux)
+ * Flow:
+ * 1. Back up existing config to a timestamped .bak file
+ * 2. Prune old backups beyond MAX_CONFIG_BACKUPS
+ * 3. Run `openclaw onboard` targeting a temp file (creates a fresh, valid config
+ *    without touching the existing one — if onboard fails, nothing is lost)
+ * 4. Patch the fresh config with env-var-derived fields (gateway auth, channels,
+ *    exec policy, dev overrides) via generateBaseConfig
+ * 5. Validate the serialized JSON is parseable
+ * 6. Atomically rename the temp file into place
  *
  * Returns the generated config object.
  */
@@ -239,19 +263,35 @@ export function writeBaseConfig(
     console.warn('Failed to prune old config backups:', error);
   }
 
-  // 3. Generate config
-  const config = generateBaseConfig(env, configPath, deps);
-
-  // 4. Serialize and validate roundtrip
-  const serialized = JSON.stringify(config, null, 2);
-  JSON.parse(serialized); // throws on broken JSON — should never happen, but belt-and-suspenders
-
-  // 5. Write to temp file in the same directory (same filesystem guarantees
-  //    atomic rename). Random suffix avoids collisions and predictable paths.
+  // 3. Run `openclaw onboard` targeting a temp file so the existing (possibly
+  //    broken) config is untouched until we're ready to atomically swap in.
   const tmpPath = path.join(dir, `.${base}.kilotmp.${crypto.randomBytes(6).toString('hex')}`);
   try {
+    const apiKey = env.KILOCODE_API_KEY;
+    if (!apiKey) {
+      throw new Error('KILOCODE_API_KEY is required for config restore');
+    }
+
+    console.log('Running openclaw onboard to generate fresh config...');
+    deps.execFileSync('openclaw', [...ONBOARD_FLAGS, '--kilocode-api-key', apiKey], {
+      env: { ...process.env, OPENCLAW_CONFIG_PATH: tmpPath },
+      stdio: 'inherit',
+    });
+    console.log('Onboard completed, patching config...');
+
+    // 4. Patch the fresh onboard config with env-var-derived fields
+    const config = generateBaseConfig(env, tmpPath, deps);
+
+    // 5. Serialize and validate roundtrip
+    const serialized = JSON.stringify(config, null, 2);
+    JSON.parse(serialized); // belt-and-suspenders: should never fail
+
+    // 6. Write patched config to the temp file, then atomically rename into place
     deps.writeFileSync(tmpPath, serialized);
     deps.renameSync(tmpPath, configPath);
+
+    console.log('Configuration restored successfully');
+    return config;
   } catch (error) {
     // Clean up the temp file so we don't leak partial writes
     try {
@@ -261,7 +301,4 @@ export function writeBaseConfig(
     }
     throw error;
   }
-
-  console.log('Configuration patched successfully');
-  return config;
 }

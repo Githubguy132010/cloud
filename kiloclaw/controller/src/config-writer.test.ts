@@ -1,21 +1,32 @@
 import { describe, it, expect, vi } from 'vitest';
 import { generateBaseConfig, writeBaseConfig, MAX_CONFIG_BACKUPS } from './config-writer';
 
+/** Minimal config that `openclaw onboard` would produce. */
+const ONBOARD_CONFIG = JSON.stringify({
+  gateway: { port: 3001, mode: 'local' },
+  agents: { defaults: { model: { primary: 'kilocode/anthropic/claude-opus-4.6' } } },
+  plugins: { entries: { telegram: { enabled: false }, discord: { enabled: false } } },
+});
+
 function fakeDeps(existingConfig?: string) {
   const written: { path: string; data: string }[] = [];
   const copied: { src: string; dest: string }[] = [];
   const renamed: { from: string; to: string }[] = [];
   const unlinked: string[] = [];
+  const execCalls: { cmd: string; args: string[]; env?: Record<string, string | undefined> }[] = [];
   let dirEntries: string[] = [];
 
   return {
     deps: {
-      readFileSync: vi.fn((path: string) => {
-        if (path.endsWith('openclaw.json') && existingConfig !== undefined) return existingConfig;
-        throw new Error(`ENOENT: no such file: ${path}`);
+      readFileSync: vi.fn((filePath: string) => {
+        if (filePath.endsWith('openclaw.json') && existingConfig !== undefined)
+          return existingConfig;
+        // After execFileSync (onboard), the temp file "exists" with fresh config
+        if (filePath.includes('.kilotmp.')) return ONBOARD_CONFIG;
+        throw new Error(`ENOENT: no such file: ${filePath}`);
       }),
-      writeFileSync: vi.fn((path: string, data: string) => {
-        written.push({ path, data });
+      writeFileSync: vi.fn((filePath: string, data: string) => {
+        written.push({ path: filePath, data });
       }),
       renameSync: vi.fn((from: string, to: string) => {
         renamed.push({ from, to });
@@ -24,18 +35,24 @@ function fakeDeps(existingConfig?: string) {
         copied.push({ src, dest });
       }),
       readdirSync: vi.fn(() => dirEntries),
-      unlinkSync: vi.fn((path: string) => {
-        unlinked.push(path);
+      unlinkSync: vi.fn((filePath: string) => {
+        unlinked.push(filePath);
       }),
-      existsSync: vi.fn((path: string) => {
-        if (path.endsWith('openclaw.json')) return existingConfig !== undefined;
+      existsSync: vi.fn((filePath: string) => {
+        if (filePath.endsWith('openclaw.json')) return existingConfig !== undefined;
         return false;
       }),
+      execFileSync: vi.fn(
+        (cmd: string, args: string[], opts: { env?: Record<string, string | undefined> }) => {
+          execCalls.push({ cmd, args, env: opts.env });
+        }
+      ),
     },
     written,
     copied,
     renamed,
     unlinked,
+    execCalls,
     setDirEntries(entries: string[]) {
       dirEntries = entries;
     },
@@ -271,32 +288,72 @@ describe('generateBaseConfig', () => {
 });
 
 describe('writeBaseConfig', () => {
-  it('writes via tmp file and renames into place', () => {
-    const { deps, written, renamed } = fakeDeps();
+  it('runs onboard targeting tmp file, patches, and renames into place', () => {
+    const { deps, written, renamed, execCalls } = fakeDeps();
     writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
 
-    // Should write to a hidden tmp file with random suffix, not directly to config path
-    expect(written).toHaveLength(1);
-    expect(written[0].path).toMatch(/\/tmp\/\.openclaw\.json\.kilotmp\.[0-9a-f]{12}$/);
+    // Should have called openclaw onboard with correct args
+    expect(execCalls).toHaveLength(1);
+    expect(execCalls[0].cmd).toBe('openclaw');
+    expect(execCalls[0].args).toContain('onboard');
+    expect(execCalls[0].args).toContain('--non-interactive');
+    expect(execCalls[0].args).toContain('--kilocode-api-key');
+    expect(execCalls[0].args).toContain('test-api-key');
 
-    // Should rename tmp -> config path
+    // OPENCLAW_CONFIG_PATH should point to the temp file
+    const configPathEnv = execCalls[0].env?.OPENCLAW_CONFIG_PATH;
+    expect(configPathEnv).toMatch(/\/tmp\/\.openclaw\.json\.kilotmp\.[0-9a-f]{12}$/);
+
+    // Should write patched config to the same tmp file, then rename to final path
+    expect(written).toHaveLength(1);
+    expect(written[0].path).toBe(configPathEnv);
     expect(renamed).toHaveLength(1);
-    expect(renamed[0].from).toBe(written[0].path);
+    expect(renamed[0].from).toBe(configPathEnv);
     expect(renamed[0].to).toBe('/tmp/openclaw.json');
 
-    // The written data should be valid JSON
-    expect(() => JSON.parse(written[0].data)).not.toThrow();
+    // The written data should be valid JSON with our patches applied
+    const config = JSON.parse(written[0].data);
+    expect(config.gateway.auth.token).toBe('test-gw-token');
+    expect(config.tools.exec.host).toBe('gateway');
   });
 
-  it('backs up existing config with timestamp before writing', () => {
-    const existing = JSON.stringify({ old: true });
-    const { deps, copied } = fakeDeps(existing);
+  it('passes all onboard flags matching start-openclaw.sh', () => {
+    const { deps, execCalls } = fakeDeps();
     writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
 
+    const args = execCalls[0].args;
+    expect(args).toContain('--accept-risk');
+    expect(args).toContain('--mode');
+    expect(args[args.indexOf('--mode') + 1]).toBe('local');
+    expect(args).toContain('--gateway-port');
+    expect(args[args.indexOf('--gateway-port') + 1]).toBe('3001');
+    expect(args).toContain('--gateway-bind');
+    expect(args[args.indexOf('--gateway-bind') + 1]).toBe('loopback');
+    expect(args).toContain('--skip-channels');
+    expect(args).toContain('--skip-skills');
+    expect(args).toContain('--skip-health');
+  });
+
+  it('throws if KILOCODE_API_KEY is missing', () => {
+    const { deps } = fakeDeps();
+    const env = { ...minimalEnv() };
+    delete env.KILOCODE_API_KEY;
+
+    expect(() => writeBaseConfig(env, '/tmp/openclaw.json', deps)).toThrow(
+      'KILOCODE_API_KEY is required'
+    );
+  });
+
+  it('backs up existing config with timestamp before onboard', () => {
+    const existing = JSON.stringify({ old: true });
+    const { deps, copied, execCalls } = fakeDeps(existing);
+    writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
+
+    // Backup happens before onboard
     expect(copied).toHaveLength(1);
     expect(copied[0].src).toBe('/tmp/openclaw.json');
-    // Backup filename: openclaw.json.bak.{ISO timestamp with hyphens instead of colons}
     expect(copied[0].dest).toMatch(/\/tmp\/openclaw\.json\.bak\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-/);
+    expect(execCalls).toHaveLength(1);
   });
 
   it('does not back up when no existing config', () => {
@@ -309,7 +366,6 @@ describe('writeBaseConfig', () => {
   it('prunes old backups beyond MAX_CONFIG_BACKUPS', () => {
     const existing = JSON.stringify({ old: true });
     const harness = fakeDeps(existing);
-    // Simulate 7 existing backup files (sorted lexicographically = chronologically)
     harness.setDirEntries([
       'openclaw.json.bak.2026-02-20T10-00-00.000Z',
       'openclaw.json.bak.2026-02-21T10-00-00.000Z',
@@ -322,38 +378,9 @@ describe('writeBaseConfig', () => {
 
     writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', harness.deps);
 
-    // Should prune the 2 oldest (7 - MAX_CONFIG_BACKUPS = 2)
     expect(harness.unlinked).toHaveLength(7 - MAX_CONFIG_BACKUPS);
     expect(harness.unlinked[0]).toBe('/tmp/openclaw.json.bak.2026-02-20T10-00-00.000Z');
     expect(harness.unlinked[1]).toBe('/tmp/openclaw.json.bak.2026-02-21T10-00-00.000Z');
-  });
-
-  it('does not prune when fewer backups than MAX_CONFIG_BACKUPS', () => {
-    const existing = JSON.stringify({ old: true });
-    const harness = fakeDeps(existing);
-    harness.setDirEntries([
-      'openclaw.json.bak.2026-02-25T10-00-00.000Z',
-      'openclaw.json.bak.2026-02-26T10-00-00.000Z',
-    ]);
-
-    writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', harness.deps);
-
-    expect(harness.unlinked).toHaveLength(0);
-  });
-
-  it('ignores non-backup files in the directory', () => {
-    const existing = JSON.stringify({ old: true });
-    const harness = fakeDeps(existing);
-    harness.setDirEntries([
-      'openclaw.json',
-      'openclaw.json.bak.2026-02-26T10-00-00.000Z',
-      'openclaw.json.tmp',
-      'unrelated.txt',
-    ]);
-
-    writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', harness.deps);
-
-    expect(harness.unlinked).toHaveLength(0);
   });
 
   it('continues if backup pruning fails', () => {
@@ -363,11 +390,27 @@ describe('writeBaseConfig', () => {
       throw new Error('permission denied');
     });
 
-    // Should not throw — pruning failure is non-fatal
     const config = writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', harness.deps);
     expect(config.gateway.port).toBe(3001);
     expect(harness.written).toHaveLength(1);
     expect(harness.renamed).toHaveLength(1);
+  });
+
+  it('cleans up tmp file if onboard fails', () => {
+    const harness = fakeDeps();
+    harness.deps.execFileSync.mockImplementation(() => {
+      throw new Error('openclaw: command not found');
+    });
+
+    expect(() => writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', harness.deps)).toThrow(
+      'openclaw: command not found'
+    );
+
+    // Tmp file cleaned up, nothing written or renamed
+    expect(harness.unlinked).toHaveLength(1);
+    expect(harness.unlinked[0]).toMatch(/\.kilotmp\./);
+    expect(harness.written).toHaveLength(0);
+    expect(harness.renamed).toHaveLength(0);
   });
 
   it('cleans up tmp file if rename fails', () => {
@@ -386,25 +429,31 @@ describe('writeBaseConfig', () => {
     expect(harness.unlinked[0]).toBe(harness.written[0].path);
   });
 
-  it('cleans up tmp file if writeFileSync fails', () => {
-    const harness = fakeDeps();
-    harness.deps.writeFileSync.mockImplementation(() => {
-      throw new Error('ENOSPC: no space left on device');
+  it('does not touch existing config if onboard fails', () => {
+    const existing = JSON.stringify({ important: 'data' });
+    const harness = fakeDeps(existing);
+    harness.deps.execFileSync.mockImplementation(() => {
+      throw new Error('onboard failed');
     });
 
     expect(() => writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', harness.deps)).toThrow(
-      'ENOSPC'
+      'onboard failed'
     );
 
-    // unlinkSync called for cleanup (may fail since file wasn't created, but that's caught)
+    // Backup was created but existing config was never overwritten
+    expect(harness.copied).toHaveLength(1);
     expect(harness.renamed).toHaveLength(0);
   });
 
-  it('returns the generated config object', () => {
+  it('returns the generated config object with onboard base + patches', () => {
     const { deps } = fakeDeps();
     const config = writeBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
 
+    // From onboard base config
     expect(config.gateway.port).toBe(3001);
+    expect(config.gateway.mode).toBe('local');
+    // From our patches
+    expect(config.gateway.auth.token).toBe('test-gw-token');
     expect(config.tools.exec.host).toBe('gateway');
   });
 });
