@@ -95,6 +95,7 @@
     "cmdk": "^1.1.1",
     "customerio-node": "^4.2.0",
     "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.44.7",
     "dayjs": "^1.11.19",
     "event-source-polyfill": "^1.0.31",
     "eventsource-parser": "^3.0.6",
