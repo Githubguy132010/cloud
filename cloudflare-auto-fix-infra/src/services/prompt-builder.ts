@@ -39,12 +39,13 @@ type PRPromptTemplate = {
 };
 
 const MAX_CUSTOM_INSTRUCTIONS_LENGTH = 2000; // Max length for custom instructions
+const MAX_REVIEW_CONTEXT_LENGTH = 4000;
 
 /**
  * Sanitize user input to prevent prompt injection
  * Removes or escapes potentially harmful patterns
  */
-const sanitizeUserInput = (input: string): string => {
+const sanitizeInputPatterns = (input: string): string => {
   // Remove markdown code blocks that might contain instructions
   let sanitized = input.replace(/```[\s\S]*?```/g, '[code block removed]');
 
@@ -54,9 +55,25 @@ const sanitizeUserInput = (input: string): string => {
     '[instruction override attempt removed]'
   );
 
+  return sanitized;
+};
+
+const sanitizeUserInput = (input: string): string => {
+  let sanitized = sanitizeInputPatterns(input);
+
   // Limit length to prevent token exhaustion
   if (sanitized.length > MAX_CUSTOM_INSTRUCTIONS_LENGTH) {
     sanitized = sanitized.slice(0, MAX_CUSTOM_INSTRUCTIONS_LENGTH) + '\n[truncated]';
+  }
+
+  return sanitized;
+};
+
+const sanitizeReviewContextInput = (input: string): string => {
+  let sanitized = sanitizeInputPatterns(input);
+
+  if (sanitized.length > MAX_REVIEW_CONTEXT_LENGTH) {
+    sanitized = `${sanitized.slice(0, MAX_REVIEW_CONTEXT_LENGTH)}\n[truncated]`;
   }
 
   return sanitized;
@@ -238,6 +255,8 @@ type ReviewCommentPromptTemplate = {
 const buildReviewCommentContext = (info: ReviewCommentInfo): string => {
   const lineInfo = info.lineNumber ? `**Line:** ${info.lineNumber}` : '**Line:** (not specified)';
   const shaInfo = info.prHeadSha ? `\n**Head Commit:** ${info.prHeadSha.substring(0, 8)}` : '';
+  const reviewCommentBody = sanitizeReviewContextInput(info.reviewCommentBody);
+  const diffHunk = sanitizeReviewContextInput(info.diffHunk);
 
   return `# PR Review Comment Fix Task
 
@@ -250,12 +269,14 @@ ${lineInfo}${shaInfo}
 
 ## Review Comment
 
-${info.reviewCommentBody}
+\`\`\`text
+${reviewCommentBody}
+\`\`\`
 
 ## Diff Context
 
 \`\`\`diff
-${info.diffHunk}
+${diffHunk}
 \`\`\`
 
 ---
