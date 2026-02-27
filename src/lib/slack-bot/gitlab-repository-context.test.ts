@@ -20,7 +20,7 @@ describe('formatGitLabRepositoriesForPrompt', () => {
 
     expect(result).toContain('GitLab repository context');
     expect(result).toContain('Account: gitlab-user');
-    expect(result).toContain('Instance: https://gitlab.com');
+    expect(result).toContain('Instance: gitlab.com');
     expect(result).toContain('Repository access: selected');
     expect(result).toContain('Repositories synced at: 2024-01-15T10:00:00Z');
     expect(result).toContain('mygroup/project-a [id: 1]');
@@ -57,7 +57,7 @@ describe('formatGitLabRepositoriesForPrompt', () => {
     expect(result).toContain('No GitLab repositories are currently connected');
   });
 
-  test('includes self-hosted instance URL', () => {
+  test('redacts self-hosted instance URL to prevent leaking internal hostnames', () => {
     const context: GitLabRepositoryContext = {
       accountLogin: 'admin',
       repositoryAccess: 'selected',
@@ -68,7 +68,8 @@ describe('formatGitLabRepositoriesForPrompt', () => {
 
     const result = formatGitLabRepositoriesForPrompt(context);
 
-    expect(result).toContain('Instance: https://gitlab.example.com');
+    expect(result).toContain('Instance: self-hosted GitLab');
+    expect(result).not.toContain('gitlab.example.com');
     expect(result).toContain('team/internal (private) [id: 10]');
   });
 

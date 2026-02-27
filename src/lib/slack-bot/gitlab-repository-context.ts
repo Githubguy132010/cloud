@@ -39,6 +39,17 @@ export async function getGitLabRepositoryContext(owner: Owner): Promise<GitLabRe
   };
 }
 
+/** Redact self-hosted GitLab URLs so internal hostnames don't leak into LLM prompts. */
+function describeInstance(url: string): string {
+  try {
+    const hostname = new URL(url).hostname;
+    if (hostname === 'gitlab.com') return 'gitlab.com';
+  } catch {
+    // malformed URL — fall through
+  }
+  return 'self-hosted GitLab';
+}
+
 export function formatGitLabRepositoriesForPrompt(context: GitLabRepositoryContext): string {
   const headerLines: string[] = ['\n\nGitLab repository context for this workspace:'];
 
@@ -46,7 +57,7 @@ export function formatGitLabRepositoriesForPrompt(context: GitLabRepositoryConte
     headerLines.push(`- Account: ${context.accountLogin}`);
   }
   if (context.instanceUrl) {
-    headerLines.push(`- Instance: ${context.instanceUrl}`);
+    headerLines.push(`- Instance: ${describeInstance(context.instanceUrl)}`);
   }
   if (context.repositoryAccess) {
     headerLines.push(`- Repository access: ${context.repositoryAccess}`);

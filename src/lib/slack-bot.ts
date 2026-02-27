@@ -155,7 +155,6 @@ const SPAWN_CLOUD_AGENT_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
         },
       },
       required: ['prompt'],
-      oneOf: [{ required: ['githubRepo'] }, { required: ['gitlabProject'] }],
     },
   },
 };
