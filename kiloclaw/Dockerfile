@@ -42,10 +42,14 @@ ARG BUN_VERSION=1.2.4
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
 ENV PATH="/root/.bun/bin:$PATH"
 
+ARG CONTROLLER_COMMIT=unknown
 COPY controller/ /tmp/controller-build/
 RUN cd /tmp/controller-build \
     && bun install --frozen-lockfile \
+    && CONTROLLER_VERSION="$(date -u +'%Y.%-m.%-d')" \
     && bun build src/index.ts --outfile=/usr/local/bin/kiloclaw-controller.js --target=node --minify \
+       --define "KILOCLAW_CONTROLLER_VERSION='\"${CONTROLLER_VERSION}\"'" \
+       --define "KILOCLAW_CONTROLLER_COMMIT='\"${CONTROLLER_COMMIT}\"'" \
     && rm -rf /tmp/controller-build
 
 # Create OpenClaw directories
@@ -55,8 +59,8 @@ RUN mkdir -p /root/.openclaw \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-02-26-v54-native-kilocode-provider-migration
-RUN echo "5"
+# Build cache bust: 2026-02-26-v56-fix-kilocode-models-array
+RUN echo "7"
 COPY start-openclaw.sh /usr/local/bin/start-openclaw.sh
 COPY openclaw-pairing-list.js /usr/local/bin/openclaw-pairing-list.js
 COPY openclaw-device-pairing-list.js /usr/local/bin/openclaw-device-pairing-list.js

@@ -104,6 +104,16 @@ const GatewayCommandResponseSchema = z.object({
   ok: z.boolean(),
 });
 
+const ConfigRestoreResponseSchema = z.object({
+  ok: z.boolean(),
+  signaled: z.boolean(),
+});
+
+const ControllerVersionResponseSchema = z.object({
+  version: z.string(),
+  commit: z.string(),
+});
+
 class GatewayControllerError extends Error {
   readonly status: number;
 
@@ -1422,6 +1432,33 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       'POST',
       GatewayCommandResponseSchema
     );
+  }
+
+  async restoreConfig(version: string): Promise<{ ok: boolean; signaled: boolean }> {
+    await this.loadState();
+    return this.callGatewayController(
+      `/_kilo/config/restore/${encodeURIComponent(version)}`,
+      'POST',
+      ConfigRestoreResponseSchema
+    );
+  }
+
+  /** Returns null if the controller is too old to have the /_kilo/version endpoint. */
+  async getControllerVersion(): Promise<{ version: string; commit: string } | null> {
+    await this.loadState();
+    try {
+      return await this.callGatewayController(
+        '/_kilo/version',
+        'GET',
+        ControllerVersionResponseSchema
+      );
+    } catch (error) {
+      // Old controllers without /_kilo/version return 404
+      if (error instanceof GatewayControllerError && error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**
