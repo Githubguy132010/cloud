@@ -153,7 +153,30 @@ async function patchConfig(
   return sanitizeKiloCodeConfigResponse(response);
 }
 
+const KILOCLAW_STATUS_PAGE_RESOURCE_ID = '8737418';
+
+async function fetchKiloClawServiceDegraded(): Promise<boolean> {
+  try {
+    const response = await fetch('https://status.kilo.ai/index.json');
+    if (!response.ok) return false;
+    const data = await response.json();
+    const included: Array<{ id: string; type: string; attributes?: { status?: string } }> =
+      data.included ?? [];
+    const resource = included.find(
+      entry =>
+        entry.type === 'status_page_resource' && entry.id === KILOCLAW_STATUS_PAGE_RESOURCE_ID
+    );
+    return resource?.attributes?.status != null && resource.attributes.status !== 'operational';
+  } catch {
+    return false;
+  }
+}
+
 export const kiloclawRouter = createTRPCRouter({
+  serviceDegraded: baseProcedure.query(async () => {
+    return fetchKiloClawServiceDegraded();
+  }),
+
   // Status + gateway token (two internal client calls, merged for the dashboard)
   getStatus: baseProcedure.query(async ({ ctx }) => {
     const client = new KiloClawInternalClient();
