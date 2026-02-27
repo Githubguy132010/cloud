@@ -153,7 +153,7 @@ export async function getOwnerConfig(
   // Get agent config
   const configs = await db.query<AgentConfigRow>(
     `SELECT id, config, is_enabled FROM agent_configs
-     WHERE agent_type = 'security_scan' AND is_enabled = true AND ${ownerColumn} = $1
+     WHERE agent_type = 'security_scan' AND platform = 'github' AND is_enabled = true AND ${ownerColumn} = $1
      LIMIT 1`,
     [ownerId]
   );
