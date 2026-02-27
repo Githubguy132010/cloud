@@ -22,5 +22,18 @@ export async function verifyDiscordRequest(
     return false;
   }
 
+  // Reject requests older than 5 minutes to prevent replay attacks
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) {
+    return false;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - ts) > 60 * 5) {
+    console.warn(
+      '[Discord] Request timestamp too old or too far in the future, possible replay attack'
+    );
+    return false;
+  }
+
   return verifyKey(rawBody, signature, timestamp, publicKey);
 }
