@@ -1,0 +1,113 @@
+name: Check for new OpenClaw release
+
+on:
+  schedule:
+    - cron: '0 */12 * * *' # Every 12 hours (midnight and noon UTC)
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: kiloclaw/Dockerfile
+          sparse-checkout-cone-mode: false
+
+      - name: Get current pinned version
+        id: current
+        run: |
+          version=$(grep -oP 'openclaw@\K[0-9]+\.[0-9]+\.[0-9]+' kiloclaw/Dockerfile)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Current pinned version: $version"
+
+      - name: Get latest stable release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(
+            gh api repos/openclaw/openclaw/git/refs/tags \
+              --paginate --jq '.[].ref' \
+            | sed 's|refs/tags/v||' \
+            | grep -vE '-' \
+            | sort -V \
+            | tail -1
+          )
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Latest stable release: $version"
+
+      - name: Check if release is less than 24 hours old
+        id: age
+        if: steps.latest.outputs.version != steps.current.outputs.version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag_date=$(
+            gh api "repos/openclaw/openclaw/git/refs/tags/v${{ steps.latest.outputs.version }}" \
+              --jq '.object.url' \
+            | xargs gh api --jq '.tagger.date // .author.date'
+          )
+          tag_epoch=$(date -d "$tag_date" +%s)
+          now_epoch=$(date +%s)
+          age_hours=$(( (now_epoch - tag_epoch) / 3600 ))
+          echo "Tag created $age_hours hours ago ($tag_date)"
+          if [ "$age_hours" -lt 24 ]; then
+            echo "recent=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "recent=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping — release is older than 24 hours"
+          fi
+
+      - name: Notify webhook of new release
+        if: steps.age.outputs.recent == 'true'
+        env:
+          WEBHOOK_SECRET: ${{ secrets.KILOCLAW_GITHUB_WEBHOOK_TRIGGER_TOKEN }}
+        run: |
+          new_version="${{ steps.latest.outputs.version }}"
+          echo "New openclaw version available: $new_version (current: ${{ steps.current.outputs.version }})"
+          curl -sf -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-webhook-secret: $WEBHOOK_SECRET" \
+            -d "{\"new_openclaw_version\": \"$new_version\"}" \
+            "https://hooks.kilosessions.ai/inbound/org/9d278969-5453-4ae3-a51f-a8d2274a7b56/openclaw-bump"
+
+      - name: Notify Slack
+        if: steps.age.outputs.recent == 'true'
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.DEPLOY_NOTIFY_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "New OpenClaw Release Available"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Current Version:*\n${{ steps.current.outputs.version }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*New Version:*\n${{ steps.latest.outputs.version }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "<https://github.com/openclaw/openclaw/releases/tag/v${{ steps.latest.outputs.version }}|View release notes>"
+                  }
+                }
+              ]
+            }
