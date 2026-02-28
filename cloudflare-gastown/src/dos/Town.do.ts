@@ -1076,16 +1076,23 @@ export class TownDO extends DurableObject<Env> {
         `[Escalation:${input.severity}] rig=${input.source_rig_id} ${input.message}`
       ).catch(err => {
         console.warn(`${TOWN_LOG} routeEscalation: failed to notify mayor:`, err);
-        beadOps.logBeadEvent(this.sql, {
-          beadId,
-          agentId: input.source_agent_id ?? null,
-          eventType: 'notification_failed',
-          metadata: {
-            target: 'mayor',
-            reason: err instanceof Error ? err.message : String(err),
-            severity: input.severity,
-          },
-        });
+        try {
+          beadOps.logBeadEvent(this.sql, {
+            beadId,
+            agentId: input.source_agent_id ?? null,
+            eventType: 'notification_failed',
+            metadata: {
+              target: 'mayor',
+              reason: err instanceof Error ? err.message : String(err),
+              severity: input.severity,
+            },
+          });
+        } catch (logErr) {
+          console.error(
+            `${TOWN_LOG} routeEscalation: failed to log notification_failed event:`,
+            logErr
+          );
+        }
       });
     }
 
@@ -1555,17 +1562,24 @@ export class TownDO extends DurableObject<Env> {
           `[Re-Escalation:${newSeverity}] rig=${esc.source_rig_id} ${esc.message}`
         ).catch(err => {
           console.warn(`${TOWN_LOG} re-escalation: failed to notify mayor:`, err);
-          beadOps.logBeadEvent(this.sql, {
-            beadId: esc.id,
-            agentId: null,
-            eventType: 'notification_failed',
-            metadata: {
-              target: 'mayor',
-              reason: err instanceof Error ? err.message : String(err),
-              severity: newSeverity,
-              re_escalation: true,
-            },
-          });
+          try {
+            beadOps.logBeadEvent(this.sql, {
+              beadId: esc.id,
+              agentId: null,
+              eventType: 'notification_failed',
+              metadata: {
+                target: 'mayor',
+                reason: err instanceof Error ? err.message : String(err),
+                severity: newSeverity,
+                re_escalation: true,
+              },
+            });
+          } catch (logErr) {
+            console.error(
+              `${TOWN_LOG} re-escalation: failed to log notification_failed event:`,
+              logErr
+            );
+          }
         });
       }
     }

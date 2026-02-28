@@ -26,7 +26,7 @@ const MAX_TICKETS = 1000;
 const streamTickets = new Map<string, { agentId: string; expiresAt: number }>();
 
 // Minimal Zod schema for the town config delivered via X-Town-Config header.
-// Uses .passthrough() so unknown keys from future schema changes are preserved.
+// Uses z.record() so any string-keyed object is accepted and future keys are preserved.
 const TownConfigHeader = z.record(z.string(), z.unknown());
 
 // Last-known-good town config. Updated on every request that carries the header.
@@ -40,7 +40,7 @@ export function getCurrentTownConfig(): Record<string, unknown> | null {
 
 type ContainerEnv = {
   Variables: {
-    townConfig: Record<string, unknown>;
+    townConfig?: Record<string, unknown>;
   };
 };
 

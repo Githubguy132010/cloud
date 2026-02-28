@@ -13,6 +13,10 @@ import { reportAgentCompleted } from './completion-reporter';
 
 const MANAGER_LOG = '[process-manager]';
 
+// Validates the shape returned by client.session.create() so we fail fast
+// if the SDK changes its return type.
+const SessionResponse = z.object({ id: z.string().min(1) }).passthrough();
+
 type SDKInstance = {
   client: OpencodeClient;
   server: { url: string; close(): void };
@@ -297,9 +301,7 @@ export async function startAgent(
       sessionCounted = true;
     }
 
-    // 2. Create a session — validate the response shape so we fail fast
-    //    if the SDK changes its return type.
-    const SessionResponse = z.object({ id: z.string().min(1) }).passthrough();
+    // 2. Create a session
     const sessionResult = await client.session.create({ body: {} });
     const rawSession: unknown = sessionResult.data ?? sessionResult;
     const parsed = SessionResponse.safeParse(rawSession);
