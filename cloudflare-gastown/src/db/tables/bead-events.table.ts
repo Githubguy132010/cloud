@@ -9,6 +9,7 @@ export const BeadEventType = z.enum([
   'status_changed',
   'closed',
   'escalated',
+  'notification_failed',
   'mail_sent',
   'review_submitted',
   'review_completed',

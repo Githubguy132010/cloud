@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getTownDOStub } from '../dos/Town.do';
 import { resSuccess, resError } from '../util/res.util';
 import { parseJsonBody } from '../util/parse-json-body.util';
-import { getEnforcedAgentId, getTownId } from '../middleware/auth.middleware';
+import { getEnforcedAgentId, resolveTownId } from '../middleware/auth.middleware';
 import { BeadType, BeadPriority, BeadStatus } from '../types';
 import type { GastownEnv } from '../gastown.worker';
 
@@ -43,8 +43,13 @@ export async function handleCreateBead(c: Context<GastownEnv>, params: { rigId: 
   console.log(
     `${HANDLER_LOG} handleCreateBead: rigId=${params.rigId} type=${parsed.data.type} title="${parsed.data.title?.slice(0, 80)}" assignee=${parsed.data.assignee_agent_id ?? 'none'}`
   );
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const bead = await town.createBead({ ...parsed.data, rig_id: params.rigId });
   console.log(
@@ -70,8 +75,13 @@ export async function handleListBeads(c: Context<GastownEnv>, params: { rigId: s
     return c.json(resError('Invalid status or type filter'), 400);
   }
 
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const beads = await town.listBeads({
     status: status?.data,
@@ -89,8 +99,13 @@ export async function handleGetBead(
   c: Context<GastownEnv>,
   params: { rigId: string; beadId: string }
 ) {
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const bead = await town.getBeadAsync(params.beadId);
   if (!bead || bead.rig_id !== params.rigId) return c.json(resError('Bead not found'), 404);
@@ -112,8 +127,13 @@ export async function handleUpdateBeadStatus(
   if (enforced && enforced !== parsed.data.agent_id) {
     return c.json(resError('agent_id does not match authenticated agent'), 403);
   }
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const bead = await town.updateBeadStatus(params.beadId, parsed.data.status, parsed.data.agent_id);
   return c.json(resSuccess(bead));
@@ -134,8 +154,13 @@ export async function handleCloseBead(
   if (enforced && enforced !== parsed.data.agent_id) {
     return c.json(resError('agent_id does not match authenticated agent'), 403);
   }
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const bead = await town.closeBead(params.beadId, parsed.data.agent_id);
   return c.json(resSuccess(bead));
@@ -159,8 +184,13 @@ export async function handleSlingBead(c: Context<GastownEnv>, params: { rigId: s
   console.log(
     `${HANDLER_LOG} handleSlingBead: rigId=${params.rigId} title="${parsed.data.title?.slice(0, 80)}" metadata=${JSON.stringify(parsed.data.metadata)}`
   );
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const result = await town.slingBead({ ...parsed.data, rigId: params.rigId });
   console.log(
@@ -173,8 +203,13 @@ export async function handleDeleteBead(
   c: Context<GastownEnv>,
   params: { rigId: string; beadId: string }
 ) {
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const bead = await town.getBeadAsync(params.beadId);
   if (!bead || bead.rig_id !== params.rigId) return c.json(resError('Bead not found'), 404);

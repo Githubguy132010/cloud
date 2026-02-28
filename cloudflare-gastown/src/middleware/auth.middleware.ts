@@ -76,20 +76,38 @@ export function getEnforcedAgentId(c: Context<GastownEnv>): string | null {
   return jwt.agentId;
 }
 
+type TownIdResult =
+  | { townId: string; error?: undefined }
+  | { townId?: undefined; error: 'missing'; status: 400 }
+  | { townId?: undefined; error: 'forbidden'; status: 403 };
+
 /**
  * Resolve townId from the route param `:townId`, falling back to the JWT's
  * `townId`. When both are present, verifies they match to prevent an agent
  * authenticated for town A from accessing town B's data via URL manipulation.
  *
- * Returns null if no townId is available.
+ * Returns a discriminated result: either the resolved townId, a 400 (no
+ * townId available), or a 403 (cross-town access attempt).
  */
-export function getTownId(c: Context<GastownEnv>): string | null {
+export function resolveTownId(c: Context<GastownEnv>): TownIdResult {
   const fromParam = c.req.param('townId');
   const jwt = c.get('agentJWT');
 
   if (fromParam && jwt?.townId && fromParam !== jwt.townId) {
-    return null;
+    return { error: 'forbidden', status: 403 };
   }
 
-  return fromParam ?? jwt?.townId ?? null;
+  const townId = fromParam ?? jwt?.townId;
+  if (!townId) return { error: 'missing', status: 400 };
+  return { townId };
+}
+
+/**
+ * Convenience wrapper: resolve townId or return null.
+ * Preserves backward compatibility — callers that don't need to distinguish
+ * 400 vs 403 can keep using this.
+ */
+export function getTownId(c: Context<GastownEnv>): string | null {
+  const result = resolveTownId(c);
+  return result.townId ?? null;
 }

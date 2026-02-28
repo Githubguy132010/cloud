@@ -7,6 +7,7 @@
  */
 
 import { createOpencode, type OpencodeClient } from '@kilocode/sdk';
+import { z } from 'zod';
 import type { ManagedAgent, StartAgentRequest, KiloSSEEvent, KiloSSEEventData } from './types';
 import { reportAgentCompleted } from './completion-reporter';
 
@@ -296,11 +297,21 @@ export async function startAgent(
       sessionCounted = true;
     }
 
-    // 2. Create a session
+    // 2. Create a session — validate the response shape so we fail fast
+    //    if the SDK changes its return type.
+    const SessionResponse = z.object({ id: z.string().min(1) }).passthrough();
     const sessionResult = await client.session.create({ body: {} });
-    const session = sessionResult.data ?? sessionResult;
-    const sessionId =
-      typeof session === 'object' && session && 'id' in session ? String(session.id) : '';
+    const rawSession: unknown = sessionResult.data ?? sessionResult;
+    const parsed = SessionResponse.safeParse(rawSession);
+    if (!parsed.success) {
+      console.error(
+        `${MANAGER_LOG} SDK session.create returned unexpected shape:`,
+        JSON.stringify(rawSession).slice(0, 200),
+        parsed.error.issues
+      );
+      throw new Error('SDK session.create response missing required "id" field');
+    }
+    const sessionId = parsed.data.id;
     agent.sessionId = sessionId;
 
     // 3. Subscribe to events (async, runs in background)

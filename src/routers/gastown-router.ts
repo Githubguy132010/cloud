@@ -195,24 +195,38 @@ export const gastownRouter = createTRPCRouter({
 
       // Resolve git credentials from the platform integration and store
       // them in the town config so agents can clone and push.
+      // This is a best-effort write: if it fails, the rig exists without
+      // git credentials. The container-side resolveGitCredentialsIfMissing
+      // and the refreshTownGitCredentials helper serve as recovery mechanisms.
       if (platformIntegrationId) {
-        const gitCredentials = await resolveGitCredentialsFromIntegration(platformIntegrationId);
-        if (gitCredentials) {
-          console.log(
-            `${LOG_PREFIX} createRig: resolved git credentials for integration=${platformIntegrationId} hasGithub=${!!gitCredentials.github_token} hasGitlab=${!!gitCredentials.gitlab_token}`
-          );
-          await withGastownError(() =>
-            gastown.updateTownConfig(input.townId, {
-              git_auth: {
-                ...gitCredentials,
-                // Store the integration ID so we can refresh tokens later
-                platform_integration_id: platformIntegrationId,
-              },
-            })
-          );
-        } else {
-          console.warn(
-            `${LOG_PREFIX} createRig: could not resolve git credentials for integration=${platformIntegrationId}`
+        try {
+          const gitCredentials = await resolveGitCredentialsFromIntegration(platformIntegrationId);
+          if (gitCredentials) {
+            console.log(
+              `${LOG_PREFIX} createRig: resolved git credentials for integration=${platformIntegrationId} hasGithub=${!!gitCredentials.github_token} hasGitlab=${!!gitCredentials.gitlab_token}`
+            );
+            await withGastownError(() =>
+              gastown.updateTownConfig(input.townId, {
+                git_auth: {
+                  ...gitCredentials,
+                  // Store the integration ID so we can refresh tokens later
+                  platform_integration_id: platformIntegrationId,
+                },
+              })
+            );
+          } else {
+            console.warn(
+              `${LOG_PREFIX} createRig: could not resolve git credentials for integration=${platformIntegrationId}`
+            );
+          }
+        } catch (credErr) {
+          // Rig was created successfully but git credentials could not be
+          // written. Log the error clearly — agents can still resolve
+          // credentials on-demand via the container's credential API, and
+          // refreshTownGitCredentials can retry later.
+          console.error(
+            `${LOG_PREFIX} createRig: rig=${rig.id} created but git credential write FAILED for integration=${platformIntegrationId}:`,
+            credErr
           );
         }
       }

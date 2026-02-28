@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getTownDOStub } from '../dos/Town.do';
 import { resSuccess, resError } from '../util/res.util';
 import { parseJsonBody } from '../util/parse-json-body.util';
-import { getTownId } from '../middleware/auth.middleware';
+import { resolveTownId } from '../middleware/auth.middleware';
 import { BeadPriority } from '../types';
 import type { GastownEnv } from '../gastown.worker';
 
@@ -22,8 +22,13 @@ export async function handleCreateEscalation(c: Context<GastownEnv>, params: { r
       400
     );
   }
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const escalation = await town.routeEscalation({
     townId,

@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import { getTownDOStub } from '../dos/Town.do';
 import { resSuccess, resError } from '../util/res.util';
-import { getTownId } from '../middleware/auth.middleware';
+import { resolveTownId } from '../middleware/auth.middleware';
 import type { GastownEnv } from '../gastown.worker';
 
 export async function handleListBeadEvents(c: Context<GastownEnv>, params: { rigId: string }) {
@@ -14,8 +14,13 @@ export async function handleListBeadEvents(c: Context<GastownEnv>, params: { rig
       ? parsedLimit
       : undefined;
 
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const events = await town.listBeadEvents({ beadId, since, limit });
   return c.json(resSuccess(events));

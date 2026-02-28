@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getTownDOStub } from '../dos/Town.do';
 import { resSuccess, resError } from '../util/res.util';
 import { parseJsonBody } from '../util/parse-json-body.util';
-import { getEnforcedAgentId, getTownId } from '../middleware/auth.middleware';
+import { getEnforcedAgentId, resolveTownId } from '../middleware/auth.middleware';
 import type { GastownEnv } from '../gastown.worker';
 
 const AppendEventBody = z.object({
@@ -34,8 +34,13 @@ export async function handleAppendAgentEvent(c: Context<GastownEnv>, params: { r
     return c.json(resError('agent_id does not match authenticated agent'), 403);
   }
 
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   await town.appendAgentEvent(parsed.data.agent_id, parsed.data.event_type, parsed.data.data);
   return c.json(resSuccess({ appended: true }), 201);
@@ -58,8 +63,13 @@ export async function handleGetAgentEvents(
     return c.json(resError('Invalid query parameters'), 400);
   }
 
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townIdResult = resolveTownId(c);
+  if (townIdResult.error)
+    return c.json(
+      resError(townIdResult.error === 'forbidden' ? 'Cross-town access denied' : 'Missing townId'),
+      townIdResult.status
+    );
+  const townId = townIdResult.townId;
   const town = getTownDOStub(c.env, townId);
   const events = await town.getAgentEvents(
     params.agentId,
