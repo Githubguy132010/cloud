@@ -17,7 +17,7 @@
 		"wrangler": "catalog:"
 	},
 	"dependencies": {
-		"@hono/zod-validator": "^0.7.6",
+		"@kilocode/worker-utils": "workspace:*",
 		"hono": "catalog:",
 		"zod": "catalog:"
 	}

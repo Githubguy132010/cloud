@@ -59,20 +59,20 @@ const patchChannelsSchema = z.object({
  * Build the worker provision payload from plaintext channel tokens.
  * The worker expects the flat encrypted envelope shape for channels.
  */
-function buildWorkerChannels(channels: z.infer<typeof updateConfigSchema>['channels']) {
+async function buildWorkerChannels(channels: z.infer<typeof updateConfigSchema>['channels']) {
   if (!channels) return undefined;
   return {
     telegramBotToken: channels.telegramBotToken
-      ? encryptKiloClawSecret(channels.telegramBotToken)
+      ? await encryptKiloClawSecret(channels.telegramBotToken)
       : undefined,
     discordBotToken: channels.discordBotToken
-      ? encryptKiloClawSecret(channels.discordBotToken)
+      ? await encryptKiloClawSecret(channels.discordBotToken)
       : undefined,
     slackBotToken: channels.slackBotToken
-      ? encryptKiloClawSecret(channels.slackBotToken)
+      ? await encryptKiloClawSecret(channels.slackBotToken)
       : undefined,
     slackAppToken: channels.slackAppToken
-      ? encryptKiloClawSecret(channels.slackAppToken)
+      ? await encryptKiloClawSecret(channels.slackAppToken)
       : undefined,
   };
 }
@@ -80,12 +80,15 @@ function buildWorkerChannels(channels: z.infer<typeof updateConfigSchema>['chann
 /**
  * Encrypt channel tokens for a PATCH (supports null for removal).
  */
-function buildWorkerChannelsPatch(channels: z.infer<typeof patchChannelsSchema>) {
-  const result: Record<string, ReturnType<typeof encryptKiloClawSecret> | null | undefined> = {};
+async function buildWorkerChannelsPatch(channels: z.infer<typeof patchChannelsSchema>) {
+  const result: Record<
+    string,
+    Awaited<ReturnType<typeof encryptKiloClawSecret>> | null | undefined
+  > = {};
 
   for (const [key, value] of Object.entries(channels)) {
     if (value === undefined) continue;
-    result[key] = value === null ? null : encryptKiloClawSecret(value);
+    result[key] = value === null ? null : await encryptKiloClawSecret(value);
   }
 
   return result;
@@ -113,7 +116,9 @@ async function provisionInstance(
 
   const encryptedSecrets = input.secrets
     ? Object.fromEntries(
-        Object.entries(input.secrets).map(([k, v]) => [k, encryptKiloClawSecret(v)])
+        await Promise.all(
+          Object.entries(input.secrets).map(async ([k, v]) => [k, await encryptKiloClawSecret(v)])
+        )
       )
     : undefined;
 
@@ -127,7 +132,7 @@ async function provisionInstance(
   return client.provision(user.id, {
     envVars: input.envVars,
     encryptedSecrets,
-    channels: buildWorkerChannels(input.channels),
+    channels: await buildWorkerChannels(input.channels),
     kilocodeApiKey,
     kilocodeApiKeyExpiresAt,
     kilocodeDefaultModel: input.kilocodeDefaultModel ?? undefined,
@@ -257,7 +262,7 @@ export const kiloclawRouter = createTRPCRouter({
   patchChannels: baseProcedure.input(patchChannelsSchema).mutation(async ({ ctx, input }) => {
     const client = new KiloClawInternalClient();
     return client.patchChannels(ctx.user.id, {
-      channels: buildWorkerChannelsPatch(input),
+      channels: await buildWorkerChannelsPatch(input),
     });
   }),
 

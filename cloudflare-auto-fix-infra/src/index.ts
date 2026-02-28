@@ -8,6 +8,7 @@ import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { bearerAuth } from 'hono/bearer-auth';
 import type { Env, FixRequest, FixResponse } from './types';
+import { createErrorHandler, createNotFoundHandler } from '@kilocode/worker-utils';
 import { AutoFixOrchestrator } from './fix-orchestrator';
 
 // Export the Durable Object class
@@ -143,22 +144,11 @@ app.post('/fix/:ticketId/cancel', async c => {
 /**
  * 404 handler
  */
-app.notFound(c => {
-  return c.json({ error: 'Not found' }, 404);
-});
+app.notFound(createNotFoundHandler());
 
 /**
  * Error handler
  */
-app.onError((err, c) => {
-  console.error('[AutoFixWorker] Unhandled error:', err);
-  return c.json(
-    {
-      error: 'Internal server error',
-      message: err.message,
-    },
-    500
-  );
-});
+app.onError(createErrorHandler());
 
 export default app;

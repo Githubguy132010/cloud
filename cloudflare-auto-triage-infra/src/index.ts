@@ -10,6 +10,7 @@ import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { bearerAuth } from 'hono/bearer-auth';
 import type { Env, TriageRequest, TriageResponse } from './types';
+import { createErrorHandler, createNotFoundHandler } from '@kilocode/worker-utils';
 
 // Import base Durable Object
 import { TriageOrchestrator as TriageOrchestratorBase } from './triage-orchestrator';
@@ -140,20 +141,9 @@ app.get('/health', (c: Context<HonoEnv>) => {
 });
 
 // Global error handler
-app.onError((err: Error, c: Context<HonoEnv>) => {
-  console.error('[Worker] Error:', err);
-  return c.json(
-    {
-      error: 'Internal server error',
-      message: err.message || 'Unknown error',
-    },
-    500
-  );
-});
+app.onError(createErrorHandler());
 
 // 404 handler
-app.notFound((c: Context<HonoEnv>) => {
-  return c.json({ error: 'Not found' }, 404);
-});
+app.notFound(createNotFoundHandler());
 
 export default app;

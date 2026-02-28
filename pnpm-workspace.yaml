@@ -17,6 +17,7 @@ catalog:
 
 packages:
   - 'packages/db'
+  - 'packages/worker-utils'
   - 'storybook'
   - 'cloudflare-deploy-infra/builder'
   - 'cloudflare-deploy-infra/dispatcher'

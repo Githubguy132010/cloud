@@ -1,7 +1,3 @@
-/**
- * Response helpers for consistent API responses
- */
-
 export type SuccessResponse<T> = {
   success: true;
   data: T;
@@ -12,16 +8,12 @@ export type ErrorResponse = {
   error: string;
 };
 
+export type ApiResponse<T> = SuccessResponse<T> | ErrorResponse;
+
 export function resSuccess<T>(data: T): SuccessResponse<T> {
-  return {
-    success: true,
-    data,
-  };
+  return { success: true, data };
 }
 
 export function resError(error: string): ErrorResponse {
-  return {
-    success: false,
-    error,
-  };
+  return { success: false, error };
 }

@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { bearerAuth } from 'hono/bearer-auth';
 import type { Env, DeployRequest, DeployResponse, StatusResponse } from './types';
+import { createErrorHandler, createNotFoundHandler } from '@kilocode/worker-utils';
 import { CloudflareAPI } from './cloudflare-api';
 import { validateWorkerName } from './utils';
 import * as Sentry from '@sentry/cloudflare';
@@ -287,7 +288,8 @@ app.delete('/worker/:slug', async (c: Context<HonoEnv>) => {
 });
 
 // Global error handler
-app.onError((err: Error, c: Context<HonoEnv>) => {
+const errorHandler = createErrorHandler();
+app.onError((err, c) => {
   Sentry.captureException(err, {
     extra: {
       path: c.req.path,
@@ -295,13 +297,11 @@ app.onError((err: Error, c: Context<HonoEnv>) => {
     },
   });
 
-  return c.json({ error: 'Internal server error' }, 500);
+  return errorHandler(err, c);
 });
 
 // 404 handler
-app.notFound((c: Context<HonoEnv>) => {
-  return c.json({ error: 'Not found' }, 404);
-});
+app.notFound(createNotFoundHandler());
 
 export default Sentry.withSentry((env: Env) => {
   const { id: versionId } = env.CF_VERSION_METADATA;

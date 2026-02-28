@@ -3,7 +3,7 @@ import type { MiddlewareHandler } from 'hono';
 import { useWorkersLogger } from 'workers-tagged-logger';
 import { TriggerDO } from './dos/TriggerDO';
 import { logger } from './util/logger';
-import { resError, resSuccess } from './util/res';
+import { resError, resSuccess } from '@kilocode/worker-utils';
 import { inbound } from './routes/inbound';
 import { api } from './routes/api';
 import { callbacks } from './routes/callbacks';
