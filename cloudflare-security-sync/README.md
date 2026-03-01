@@ -5,7 +5,7 @@ Cloudflare Worker that receives security sync dispatch requests from the Vercel 
 ## Endpoints
 
 - `GET /health` - health check
-- `POST /dispatch` - authenticated + signed dispatch endpoint used by Vercel
+- Cron trigger (`0 */6 * * *`) — queries enabled owners from DB and enqueues sync messages
 
 ## Queue
 
@@ -13,4 +13,4 @@ Cloudflare Worker that receives security sync dispatch requests from the Vercel 
 - Consumer queue: `security-sync-jobs` (`security-sync-jobs-dev` in dev)
 - DLQ: `security-sync-jobs-dlq`
 
-Current consumer implementation validates messages and emits structured logs. Worker-native sync execution is the next phase.
+The consumer calls `syncOwner` which fetches Dependabot alerts from GitHub, upserts findings into the database, and prunes stale repos from the config.
