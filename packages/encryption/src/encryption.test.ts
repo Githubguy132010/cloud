@@ -255,7 +255,7 @@ describe('mergeEnvVarsWithSecrets', () => {
       API_KEY: encryptWithPublicKey('secret', publicKey),
     };
     expect(() => mergeEnvVarsWithSecrets({}, secrets, undefined)).toThrow(
-      'AGENT_ENV_VARS_PRIVATE_KEY is required'
+      'Private key is required'
     );
   });
 });

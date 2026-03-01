@@ -14,6 +14,5 @@ export {
 
 export type { EncryptedEnvelope as EncryptedSecretEnvelope } from '@kilocode/encryption';
 
-export type { EncryptedEnvelope } from '@kilocode/encryption';
-
-export type EncryptedSecrets = Record<string, import('@kilocode/encryption').EncryptedEnvelope>;
+import type { EncryptedEnvelope } from '@kilocode/encryption';
+export type EncryptedSecrets = Record<string, EncryptedEnvelope>;

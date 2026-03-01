@@ -257,7 +257,7 @@ export function mergeEnvVarsWithSecrets(
   if (encryptedSecrets && Object.keys(encryptedSecrets).length > 0) {
     if (!privateKeyPem) {
       throw new EncryptionConfigurationError(
-        'AGENT_ENV_VARS_PRIVATE_KEY is required to decrypt encrypted secrets'
+        'Private key is required to decrypt encrypted secrets'
       );
     }
 
