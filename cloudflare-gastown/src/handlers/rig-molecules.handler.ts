@@ -3,15 +3,13 @@ import { z } from 'zod';
 import { getTownDOStub } from '../dos/Town.do';
 import { resSuccess, resError } from '../util/res.util';
 import { parseJsonBody } from '../util/parse-json-body.util';
-import { getTownId } from '../middleware/auth.middleware';
 import type { GastownEnv } from '../gastown.worker';
 
 export async function handleGetMoleculeCurrentStep(
   c: Context<GastownEnv>,
   params: { rigId: string; agentId: string }
 ) {
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townId = c.get('townId');
   const town = getTownDOStub(c.env, townId);
   const step = await town.getMoleculeCurrentStep(params.agentId);
   if (!step) return c.json(resError('No active molecule for this agent'), 404);
@@ -35,8 +33,7 @@ export async function handleAdvanceMoleculeStep(
     );
   }
 
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townId = c.get('townId');
   const town = getTownDOStub(c.env, townId);
   const result = await town.advanceMoleculeStep(params.agentId, parsed.data.summary);
   return c.json(resSuccess(result));
@@ -66,8 +63,7 @@ export async function handleCreateMolecule(c: Context<GastownEnv>, params: { rig
     );
   }
 
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townId = c.get('townId');
   const town = getTownDOStub(c.env, townId);
   const mol = await town.createMolecule(parsed.data.bead_id, parsed.data.formula);
   return c.json(resSuccess(mol), 201);

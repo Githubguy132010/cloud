@@ -597,7 +597,9 @@ export class TownDO extends DurableObject<Env> {
 
     // Fire-and-forget dispatch so the sling call returns immediately.
     // The alarm loop retries if this fails.
-    void this.dispatchAgent(hookedAgent, bead);
+    this.dispatchAgent(hookedAgent, bead).catch(err =>
+      console.error(`${TOWN_LOG} slingBead: fire-and-forget dispatchAgent failed:`, err)
+    );
     await this.armAlarmIfNeeded();
     return { bead, agent: hookedAgent };
   }
@@ -1072,7 +1074,26 @@ export class TownDO extends DurableObject<Env> {
     if (input.severity !== 'low') {
       this.sendMayorMessage(
         `[Escalation:${input.severity}] rig=${input.source_rig_id} ${input.message}`
-      ).catch(err => console.warn(`${TOWN_LOG} routeEscalation: failed to notify mayor:`, err));
+      ).catch(err => {
+        console.warn(`${TOWN_LOG} routeEscalation: failed to notify mayor:`, err);
+        try {
+          beadOps.logBeadEvent(this.sql, {
+            beadId,
+            agentId: input.source_agent_id ?? null,
+            eventType: 'notification_failed',
+            metadata: {
+              target: 'mayor',
+              reason: err instanceof Error ? err.message : String(err),
+              severity: input.severity,
+            },
+          });
+        } catch (logErr) {
+          console.error(
+            `${TOWN_LOG} routeEscalation: failed to log notification_failed event:`,
+            logErr
+          );
+        }
+      });
     }
 
     return escalation;
@@ -1425,8 +1446,14 @@ export class TownDO extends DurableObject<Env> {
     const entry = reviewQueue.popReviewQueue(this.sql);
     if (!entry) return;
 
-    const rigList = rigs.listRigs(this.sql);
-    const rigId = rigList[0]?.id ?? '';
+    // Resolve rig from the merge_request bead — not rigList[0] which would
+    // pick the wrong rig in multi-rig towns.
+    const rigId = entry.rig_id;
+    if (!rigId) {
+      console.error(`${TOWN_LOG} processReviewQueue: entry ${entry.id} has no rig_id, skipping`);
+      reviewQueue.completeReview(this.sql, entry.id, 'failed');
+      return;
+    }
     const rigConfig = await this.getRigConfig(rigId);
     if (!rigConfig) {
       reviewQueue.completeReview(this.sql, entry.id, 'failed');
@@ -1450,7 +1477,10 @@ export class TownDO extends DurableObject<Env> {
         polecatAgentId: entry.agent_id,
       });
 
-      agents.hookBead(this.sql, refineryAgent.id, entry.bead_id);
+      // Hook the refinery to the MR bead (entry.id), not the source bead
+      // (entry.bead_id). The source bead stays closed with its original
+      // polecat assignee preserved.
+      agents.hookBead(this.sql, refineryAgent.id, entry.id);
 
       const started = await dispatch.startAgentInContainer(this.env, this.ctx.storage, {
         townId: this.townId,
@@ -1460,7 +1490,7 @@ export class TownDO extends DurableObject<Env> {
         agentName: refineryAgent.name,
         role: 'refinery',
         identity: refineryAgent.identity,
-        beadId: entry.bead_id,
+        beadId: entry.id,
         beadTitle: `Review merge: ${entry.branch} → ${rigConfig.defaultBranch}`,
         beadBody: entry.summary ?? '',
         checkpoint: null,
@@ -1539,7 +1569,27 @@ export class TownDO extends DurableObject<Env> {
       if (newSeverity !== 'low') {
         this.sendMayorMessage(
           `[Re-Escalation:${newSeverity}] rig=${esc.source_rig_id} ${esc.message}`
-        ).catch(() => {});
+        ).catch(err => {
+          console.warn(`${TOWN_LOG} re-escalation: failed to notify mayor:`, err);
+          try {
+            beadOps.logBeadEvent(this.sql, {
+              beadId: esc.id,
+              agentId: null,
+              eventType: 'notification_failed',
+              metadata: {
+                target: 'mayor',
+                reason: err instanceof Error ? err.message : String(err),
+                severity: newSeverity,
+                re_escalation: true,
+              },
+            });
+          } catch (logErr) {
+            console.error(
+              `${TOWN_LOG} re-escalation: failed to log notification_failed event:`,
+              logErr
+            );
+          }
+        });
       }
     }
   }

@@ -106,6 +106,31 @@ describe('TownDO', () => {
       expect(retrieved).toMatchObject({ id: agent.id, name: 'Polecat-1' });
     });
 
+    it('should store rig_id when provided', async () => {
+      const rigId = `rig-${crypto.randomUUID()}`;
+      const agent = await town.registerAgent({
+        role: 'polecat',
+        name: 'Polecat-RigTest',
+        identity: `polecat-rig-${townName}`,
+        rig_id: rigId,
+      });
+
+      expect(agent.rig_id).toBe(rigId);
+
+      const retrieved = await town.getAgentAsync(agent.id);
+      expect(retrieved?.rig_id).toBe(rigId);
+    });
+
+    it('should store null rig_id when not provided', async () => {
+      const agent = await town.registerAgent({
+        role: 'polecat',
+        name: 'Polecat-NoRig',
+        identity: `polecat-norig-${townName}`,
+      });
+
+      expect(agent.rig_id).toBeNull();
+    });
+
     it('should return null for non-existent agent', async () => {
       const result = await town.getAgentAsync('non-existent');
       expect(result).toBeNull();
@@ -342,6 +367,7 @@ describe('TownDO', () => {
       await town.submitToReviewQueue({
         agent_id: agent.id,
         bead_id: bead.id,
+        rig_id: 'test-rig',
         branch: 'feature/fix-widget',
         pr_url: 'https://github.com/org/repo/pull/1',
         summary: 'Fixed the widget',
@@ -369,6 +395,7 @@ describe('TownDO', () => {
       await town.submitToReviewQueue({
         agent_id: agent.id,
         bead_id: bead.id,
+        rig_id: 'test-rig',
         branch: 'feature/fix',
       });
 
@@ -393,6 +420,7 @@ describe('TownDO', () => {
       await town.submitToReviewQueue({
         agent_id: agent.id,
         bead_id: bead.id,
+        rig_id: 'test-rig',
         branch: 'feature/merge-test',
       });
 
@@ -427,6 +455,7 @@ describe('TownDO', () => {
       await town.submitToReviewQueue({
         agent_id: agent.id,
         bead_id: bead.id,
+        rig_id: 'test-rig',
         branch: 'feature/conflict-test',
       });
 
@@ -726,6 +755,7 @@ describe('TownDO', () => {
       await town.submitToReviewQueue({
         agent_id: agent.id,
         bead_id: bead.id,
+        rig_id: 'test-rig',
         branch: 'feature/test',
       });
 
