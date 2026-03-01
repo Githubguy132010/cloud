@@ -276,12 +276,13 @@ export function SettingsTab({
       <Separator />
 
       <div>
-        <h3 className="text-foreground mb-1 text-sm font-medium">KiloCode Configuration</h3>
-        <p className="text-muted-foreground mb-4 text-xs">
-          API key is platform-managed and refreshed during save.
-        </p>
+        <h2 className="text-foreground mb-4 text-lg font-semibold">KiloCode Configuration</h2>
 
         <div className="space-y-4">
+          <div>
+            <h3 className="text-foreground mb-1 text-sm font-medium">Default Model</h3>
+          </div>
+
           <ModelCombobox
             label=""
             models={modelOptions}
@@ -294,7 +295,7 @@ export function SettingsTab({
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={handleSave} disabled={isSaving}>
               <Save className="h-4 w-4" />
-              {isSaving ? 'Saving...' : 'Save & Provision'}
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </div>
 
