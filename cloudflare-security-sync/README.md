@@ -1,6 +1,6 @@
 # cloudflare-security-sync
 
-Cloudflare Worker that receives security sync dispatch requests from the Vercel cron route and enqueues one queue message per owner config.
+Cloudflare Worker that syncs security alerts on a cron schedule, enqueuing one queue message per enabled owner config.
 
 ## Endpoints
 
