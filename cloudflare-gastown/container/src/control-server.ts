@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import { runAgent } from './agent-runner';
 import {
   stopAgent,
@@ -24,29 +25,45 @@ import type {
 const MAX_TICKETS = 1000;
 const streamTickets = new Map<string, { agentId: string; expiresAt: number }>();
 
-export const app = new Hono();
+// Minimal Zod schema for the town config delivered via X-Town-Config header.
+// Uses z.record() so any string-keyed object is accepted and future keys are preserved.
+const TownConfigHeader = z.record(z.string(), z.unknown());
 
-// Apply town config from X-Town-Config header (sent by TownDO on every request)
-let currentTownConfig: Record<string, unknown> | null = null;
+// Last-known-good town config. Updated on every request that carries the header.
+// Used as a fallback by code that runs outside a request context (e.g. background tasks).
+let lastKnownTownConfig: Record<string, unknown> | null = null;
 
 /** Get the latest town config delivered via X-Town-Config header. */
 export function getCurrentTownConfig(): Record<string, unknown> | null {
-  return currentTownConfig;
+  return lastKnownTownConfig;
 }
 
+export const app = new Hono();
+
+// Parse and validate town config from X-Town-Config header (sent by TownDO on
+// every request). The validated config is stored in a module-level cache
+// accessible via getCurrentTownConfig().
 app.use('*', async (c, next) => {
   const configHeader = c.req.header('X-Town-Config');
   if (configHeader) {
     try {
-      const parsed = JSON.parse(configHeader);
-      currentTownConfig = parsed;
-      const hasToken =
-        typeof parsed.kilocode_token === 'string' && parsed.kilocode_token.length > 0;
-      console.log(
-        `[control-server] X-Town-Config received: hasKilocodeToken=${hasToken} keys=${Object.keys(parsed).join(',')}`
-      );
+      const raw: unknown = JSON.parse(configHeader);
+      const result = TownConfigHeader.safeParse(raw);
+      if (result.success) {
+        lastKnownTownConfig = result.data;
+        const hasToken =
+          typeof result.data.kilocode_token === 'string' && result.data.kilocode_token.length > 0;
+        console.log(
+          `[control-server] X-Town-Config received: hasKilocodeToken=${hasToken} keys=${Object.keys(result.data).join(',')}`
+        );
+      } else {
+        console.warn(
+          '[control-server] X-Town-Config header failed validation:',
+          result.error.issues
+        );
+      }
     } catch {
-      console.warn('[control-server] X-Town-Config header malformed');
+      console.warn('[control-server] X-Town-Config header malformed (invalid JSON)');
     }
   }
   await next();

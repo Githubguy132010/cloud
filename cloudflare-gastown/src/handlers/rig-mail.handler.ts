@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getTownDOStub } from '../dos/Town.do';
 import { resSuccess, resError } from '../util/res.util';
 import { parseJsonBody } from '../util/parse-json-body.util';
-import { getEnforcedAgentId, getTownId } from '../middleware/auth.middleware';
+import { getEnforcedAgentId } from '../middleware/auth.middleware';
 import type { GastownEnv } from '../gastown.worker';
 
 const SendMailBody = z.object({
@@ -25,8 +25,7 @@ export async function handleSendMail(c: Context<GastownEnv>, params: { rigId: st
   if (enforced && enforced !== parsed.data.from_agent_id) {
     return c.json(resError('from_agent_id does not match authenticated agent'), 403);
   }
-  const townId = getTownId(c);
-  if (!townId) return c.json(resError('Missing townId'), 400);
+  const townId = c.get('townId');
   const town = getTownDOStub(c.env, townId);
   await town.sendMail(parsed.data);
   return c.json(resSuccess({ sent: true }), 201);
