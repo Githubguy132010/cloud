@@ -9,7 +9,7 @@
 
 import { describe, test, expect, beforeAll } from 'vitest';
 import { generateKeyPairSync } from 'crypto';
-import { encryptWithPublicKey } from '../../../src/lib/encryption.js';
+import { encryptWithPublicKey } from '@kilocode/encryption';
 import {
   decryptWithPrivateKey,
   decryptSecrets,
