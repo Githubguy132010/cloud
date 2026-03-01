@@ -28,23 +28,11 @@ export { formatError } from './format-error.js';
 // 9. Extract bearer token
 export { extractBearerToken } from './extract-bearer-token.js';
 
-// 10. Encryption
-export {
-  encryptWithPublicKey,
-  decryptWithPrivateKey,
-  decryptSecrets,
-  mergeEnvVarsWithSecrets,
-  EncryptionConfigurationError,
-  EncryptionFormatError,
-  bytesToBase64,
-} from './encryption.js';
-export type { EncryptedEnvelope } from './encryption.js';
-
-// 11. Error handler
+// 10. Error handler
 export { createErrorHandler } from './error-handler.js';
 
-// 12. Not-found handler
+// 11. Not-found handler
 export { createNotFoundHandler } from './not-found-handler.js';
 
-// 13-14. Shared types
+// 12-13. Shared types
 export type { Owner, MCPServerConfig } from './types.js';
