@@ -22,14 +22,6 @@ export function createR2Client(config: R2ClientConfig): R2Client {
   });
 
   return {
-    /**
-     * Generate a presigned URL for downloading an object from R2.
-     *
-     * @param bucket - The R2 bucket name
-     * @param path - The object key/path within the bucket
-     * @param expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
-     * @returns Presigned URL for GET access to the object
-     */
     async getSignedURL(bucket: string, path: string, expiresIn: number = 3600): Promise<string> {
       const url = new URL(`/${bucket}/${path}`, config.endpoint);
       url.searchParams.set('X-Amz-Expires', String(expiresIn));
