@@ -395,6 +395,7 @@ describe('withDORetry', () => {
         operation: 'myOp',
         attempt: 1,
         error: 'app error',
+        retryable: false,
       });
     });
 

@@ -100,6 +100,7 @@ export async function withDORetry<TStub, TResult>(
           operation: operationName,
           attempt: attempt + 1,
           error: lastError.message,
+          retryable: false,
         });
         throw lastError;
       }
