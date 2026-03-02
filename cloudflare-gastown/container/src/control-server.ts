@@ -347,7 +347,7 @@ app.post('/agents/:agentId/pty', async c => {
     const listResp = await fetch(listUrl);
     if (listResp.ok) {
       const raw: unknown = await listResp.json();
-      const sessions = Array.isArray(raw) ? raw : [];
+      const sessions: unknown[] = Array.isArray(raw) ? raw : [];
       const running = sessions.find(
         (s): s is { id: string; status: string } =>
           typeof s === 'object' &&

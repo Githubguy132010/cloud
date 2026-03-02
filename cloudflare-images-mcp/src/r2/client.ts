@@ -38,12 +38,14 @@ function parseListObjectsV2Response(xml: string): R2ListResult {
   const raw = result.Contents;
   const entries: unknown[] = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fast-xml-parser returns untyped data
-  const objects: R2ListEntry[] = entries.map((entry: any) => ({
-    key: String(entry.Key),
-    size: Number(entry.Size),
-    lastModified: String(entry.LastModified),
-  }));
+  const objects: R2ListEntry[] = entries.map(entry => {
+    const e = entry as Record<string, unknown>;
+    return {
+      key: String(e.Key),
+      size: Number(e.Size),
+      lastModified: String(e.LastModified),
+    };
+  });
 
   return { objects, isTruncated, nextContinuationToken };
 }

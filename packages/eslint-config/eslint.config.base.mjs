@@ -45,7 +45,7 @@ export default function baseConfig(tsconfigRootDir) {
 
         '@typescript-eslint/no-unsafe-assignment': 'error',
         // Disabled rules — too noisy to enable across the monorepo today.
-        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'error',
         '@typescript-eslint/no-unsafe-argument': 'off',
         '@typescript-eslint/no-base-to-string': 'off',
         '@typescript-eslint/no-unsafe-call': 'off',

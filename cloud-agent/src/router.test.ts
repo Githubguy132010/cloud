@@ -55,9 +55,14 @@ import { appRouter } from './router.js';
 import type { TRPCContext, SessionId } from './types.js';
 import type { CloudAgentSessionState } from './persistence/types.js';
 
+type MockSessionStub = {
+  deleteSession: ReturnType<typeof vi.fn>;
+  markAsInterrupted: ReturnType<typeof vi.fn>;
+};
+
 type MockCAS = {
   idFromName: ReturnType<typeof vi.fn>;
-  get: ReturnType<typeof vi.fn>;
+  get: ReturnType<typeof vi.fn<() => MockSessionStub>>;
 };
 
 // Note: Balance validation is now handled in the worker entry point (index.ts)
