@@ -46,6 +46,7 @@ const config: Config = {
     '<rootDir>/packages/worker-utils/',
     '<rootDir>/.worktrees/',
   ],
+  modulePathIgnorePatterns: ['<rootDir>/.worktrees/'],
   transformIgnorePatterns: [
     'node_modules/.pnpm/(?!(@octokit|universal-user-agent|before-after-hook|bottleneck))',
   ],
