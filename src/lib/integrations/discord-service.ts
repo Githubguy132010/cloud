@@ -188,7 +188,7 @@ export async function upsertDiscordInstallation(
 
   if (existing) {
     // Preserve existing model_slug when re-authorizing
-    const existingMetadata = (existing.metadata || {}) as Record<string, unknown>;
+    const existingMetadata = existing.metadata || {};
     const updatedMetadata = {
       ...existingMetadata,
       guild_icon: oauthResponse.guild.icon,
