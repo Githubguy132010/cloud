@@ -141,12 +141,8 @@
           "name": "agent_configs_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "agent_configs",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -154,12 +150,8 @@
           "name": "agent_configs_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "agent_configs",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -169,20 +161,12 @@
         "UQ_agent_configs_org_agent_platform": {
           "name": "UQ_agent_configs_org_agent_platform",
           "nullsNotDistinct": false,
-          "columns": [
-            "owned_by_organization_id",
-            "agent_type",
-            "platform"
-          ]
+          "columns": ["owned_by_organization_id", "agent_type", "platform"]
         },
         "UQ_agent_configs_user_agent_platform": {
           "name": "UQ_agent_configs_user_agent_platform",
           "nullsNotDistinct": false,
-          "columns": [
-            "owned_by_user_id",
-            "agent_type",
-            "platform"
-          ]
+          "columns": ["owned_by_user_id", "agent_type", "platform"]
         }
       },
       "policies": {},
@@ -257,12 +241,8 @@
           "name": "agent_environment_profile_commands_profile_id_agent_environment_profiles_id_fk",
           "tableFrom": "agent_environment_profile_commands",
           "tableTo": "agent_environment_profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -272,10 +252,7 @@
         "UQ_agent_env_profile_commands_profile_sequence": {
           "name": "UQ_agent_env_profile_commands_profile_sequence",
           "nullsNotDistinct": false,
-          "columns": [
-            "profile_id",
-            "sequence"
-          ]
+          "columns": ["profile_id", "sequence"]
         }
       },
       "policies": {},
@@ -355,12 +332,8 @@
           "name": "agent_environment_profile_vars_profile_id_agent_environment_profiles_id_fk",
           "tableFrom": "agent_environment_profile_vars",
           "tableTo": "agent_environment_profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -370,10 +343,7 @@
         "UQ_agent_env_profile_vars_profile_key": {
           "name": "UQ_agent_env_profile_vars_profile_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "profile_id",
-            "key"
-          ]
+          "columns": ["profile_id", "key"]
         }
       },
       "policies": {},
@@ -550,12 +520,8 @@
           "name": "agent_environment_profiles_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "agent_environment_profiles",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -563,12 +529,8 @@
           "name": "agent_environment_profiles_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "agent_environment_profiles",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -793,12 +755,8 @@
           "name": "app_builder_feedback_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "app_builder_feedback",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -806,12 +764,8 @@
           "name": "app_builder_feedback_project_id_app_builder_projects_id_fk",
           "tableFrom": "app_builder_feedback",
           "tableTo": "app_builder_projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -894,12 +848,8 @@
           "name": "app_builder_project_sessions_project_id_app_builder_projects_id_fk",
           "tableFrom": "app_builder_project_sessions",
           "tableTo": "app_builder_projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -909,9 +859,7 @@
         "UQ_app_builder_project_sessions_cloud_agent_session_id": {
           "name": "UQ_app_builder_project_sessions_cloud_agent_session_id",
           "nullsNotDistinct": false,
-          "columns": [
-            "cloud_agent_session_id"
-          ]
+          "columns": ["cloud_agent_session_id"]
         }
       },
       "policies": {},
@@ -1098,12 +1046,8 @@
           "name": "app_builder_projects_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "app_builder_projects",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1111,12 +1055,8 @@
           "name": "app_builder_projects_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "app_builder_projects",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1124,12 +1064,8 @@
           "name": "app_builder_projects_deployment_id_deployments_id_fk",
           "tableFrom": "app_builder_projects",
           "tableTo": "deployments",
-          "columnsFrom": [
-            "deployment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deployment_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1137,12 +1073,8 @@
           "name": "app_builder_projects_git_platform_integration_id_platform_integrations_id_fk",
           "tableFrom": "app_builder_projects",
           "tableTo": "platform_integrations",
-          "columnsFrom": [
-            "git_platform_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["git_platform_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1219,12 +1151,8 @@
           "name": "app_reported_messages_cli_session_id_cli_sessions_session_id_fk",
           "tableFrom": "app_reported_messages",
           "tableTo": "cli_sessions",
-          "columnsFrom": [
-            "cli_session_id"
-          ],
-          "columnsTo": [
-            "session_id"
-          ],
+          "columnsFrom": ["cli_session_id"],
+          "columnsTo": ["session_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1532,12 +1460,8 @@
           "name": "auto_fix_tickets_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "auto_fix_tickets",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1545,12 +1469,8 @@
           "name": "auto_fix_tickets_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "auto_fix_tickets",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1558,12 +1478,8 @@
           "name": "auto_fix_tickets_platform_integration_id_platform_integrations_id_fk",
           "tableFrom": "auto_fix_tickets",
           "tableTo": "platform_integrations",
-          "columnsFrom": [
-            "platform_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["platform_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1571,12 +1487,8 @@
           "name": "auto_fix_tickets_triage_ticket_id_auto_triage_tickets_id_fk",
           "tableFrom": "auto_fix_tickets",
           "tableTo": "auto_triage_tickets",
-          "columnsFrom": [
-            "triage_ticket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["triage_ticket_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1584,12 +1496,8 @@
           "name": "auto_fix_tickets_cli_session_id_cli_sessions_session_id_fk",
           "tableFrom": "auto_fix_tickets",
           "tableTo": "cli_sessions",
-          "columnsFrom": [
-            "cli_session_id"
-          ],
-          "columnsTo": [
-            "session_id"
-          ],
+          "columnsFrom": ["cli_session_id"],
+          "columnsTo": ["session_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1772,12 +1680,8 @@
           "name": "auto_top_up_configs_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "auto_top_up_configs",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1785,12 +1689,8 @@
           "name": "auto_top_up_configs_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "auto_top_up_configs",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2189,12 +2089,8 @@
           "name": "auto_triage_tickets_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "auto_triage_tickets",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2202,12 +2098,8 @@
           "name": "auto_triage_tickets_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "auto_triage_tickets",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2215,12 +2107,8 @@
           "name": "auto_triage_tickets_platform_integration_id_platform_integrations_id_fk",
           "tableFrom": "auto_triage_tickets",
           "tableTo": "platform_integrations",
-          "columnsFrom": [
-            "platform_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["platform_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2228,12 +2116,8 @@
           "name": "auto_triage_tickets_duplicate_of_ticket_id_auto_triage_tickets_id_fk",
           "tableFrom": "auto_triage_tickets",
           "tableTo": "auto_triage_tickets",
-          "columnsFrom": [
-            "duplicate_of_ticket_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["duplicate_of_ticket_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2388,12 +2272,8 @@
           "name": "byok_api_keys_organization_id_organizations_id_fk",
           "tableFrom": "byok_api_keys",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2401,12 +2281,8 @@
           "name": "byok_api_keys_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "byok_api_keys",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2416,18 +2292,12 @@
         "UQ_byok_api_keys_org_provider": {
           "name": "UQ_byok_api_keys_org_provider",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "provider_id"
-          ]
+          "columns": ["organization_id", "provider_id"]
         },
         "UQ_byok_api_keys_user_provider": {
           "name": "UQ_byok_api_keys_user_provider",
           "nullsNotDistinct": false,
-          "columns": [
-            "kilo_user_id",
-            "provider_id"
-          ]
+          "columns": ["kilo_user_id", "provider_id"]
         }
       },
       "policies": {},
@@ -2645,12 +2515,8 @@
           "name": "cli_sessions_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "cli_sessions",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2658,12 +2524,8 @@
           "name": "cli_sessions_forked_from_cli_sessions_session_id_fk",
           "tableFrom": "cli_sessions",
           "tableTo": "cli_sessions",
-          "columnsFrom": [
-            "forked_from"
-          ],
-          "columnsTo": [
-            "session_id"
-          ],
+          "columnsFrom": ["forked_from"],
+          "columnsTo": ["session_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2671,12 +2533,8 @@
           "name": "cli_sessions_parent_session_id_cli_sessions_session_id_fk",
           "tableFrom": "cli_sessions",
           "tableTo": "cli_sessions",
-          "columnsFrom": [
-            "parent_session_id"
-          ],
-          "columnsTo": [
-            "session_id"
-          ],
+          "columnsFrom": ["parent_session_id"],
+          "columnsTo": ["session_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2684,12 +2542,8 @@
           "name": "cli_sessions_organization_id_organizations_id_fk",
           "tableFrom": "cli_sessions",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2699,9 +2553,7 @@
         "cli_sessions_cloud_agent_session_id_unique": {
           "name": "cli_sessions_cloud_agent_session_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "cloud_agent_session_id"
-          ]
+          "columns": ["cloud_agent_session_id"]
         }
       },
       "policies": {},
@@ -2921,12 +2773,8 @@
           "name": "cli_sessions_v2_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "cli_sessions_v2",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2934,12 +2782,8 @@
           "name": "cli_sessions_v2_organization_id_organizations_id_fk",
           "tableFrom": "cli_sessions_v2",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -2947,14 +2791,8 @@
           "name": "cli_sessions_v2_parent_session_id_kilo_user_id_fk",
           "tableFrom": "cli_sessions_v2",
           "tableTo": "cli_sessions_v2",
-          "columnsFrom": [
-            "parent_session_id",
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "session_id",
-            "kilo_user_id"
-          ],
+          "columnsFrom": ["parent_session_id", "kilo_user_id"],
+          "columnsTo": ["session_id", "kilo_user_id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2962,10 +2800,7 @@
       "compositePrimaryKeys": {
         "cli_sessions_v2_session_id_kilo_user_id_pk": {
           "name": "cli_sessions_v2_session_id_kilo_user_id_pk",
-          "columns": [
-            "session_id",
-            "kilo_user_id"
-          ]
+          "columns": ["session_id", "kilo_user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3327,12 +3162,8 @@
           "name": "cloud_agent_code_reviews_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "cloud_agent_code_reviews",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3340,12 +3171,8 @@
           "name": "cloud_agent_code_reviews_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "cloud_agent_code_reviews",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3353,12 +3180,8 @@
           "name": "cloud_agent_code_reviews_platform_integration_id_platform_integrations_id_fk",
           "tableFrom": "cloud_agent_code_reviews",
           "tableTo": "platform_integrations",
-          "columnsFrom": [
-            "platform_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["platform_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -3366,12 +3189,8 @@
           "name": "cloud_agent_code_reviews_cli_session_id_cli_sessions_session_id_fk",
           "tableFrom": "cloud_agent_code_reviews",
           "tableTo": "cli_sessions",
-          "columnsFrom": [
-            "cli_session_id"
-          ],
-          "columnsTo": [
-            "session_id"
-          ],
+          "columnsFrom": ["cli_session_id"],
+          "columnsTo": ["session_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -3512,12 +3331,8 @@
           "name": "cloud_agent_feedback_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "cloud_agent_feedback",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -3525,12 +3340,8 @@
           "name": "cloud_agent_feedback_organization_id_organizations_id_fk",
           "tableFrom": "cloud_agent_feedback",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -3715,12 +3526,8 @@
           "name": "cloud_agent_webhook_triggers_user_id_kilocode_users_id_fk",
           "tableFrom": "cloud_agent_webhook_triggers",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3728,12 +3535,8 @@
           "name": "cloud_agent_webhook_triggers_organization_id_organizations_id_fk",
           "tableFrom": "cloud_agent_webhook_triggers",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3741,12 +3544,8 @@
           "name": "cloud_agent_webhook_triggers_profile_id_agent_environment_profiles_id_fk",
           "tableFrom": "cloud_agent_webhook_triggers",
           "tableTo": "agent_environment_profiles",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3932,12 +3731,8 @@
           "name": "code_indexing_manifest_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "code_indexing_manifest",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -3947,13 +3742,7 @@
         "UQ_code_indexing_manifest_org_user_project_hash_branch": {
           "name": "UQ_code_indexing_manifest_org_user_project_hash_branch",
           "nullsNotDistinct": true,
-          "columns": [
-            "organization_id",
-            "kilo_user_id",
-            "project_id",
-            "file_path",
-            "git_branch"
-          ]
+          "columns": ["organization_id", "kilo_user_id", "project_id", "file_path", "git_branch"]
         }
       },
       "policies": {},
@@ -4082,12 +3871,8 @@
           "name": "code_indexing_search_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "code_indexing_search",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -4536,12 +4321,8 @@
           "name": "deployment_builds_deployment_id_deployments_id_fk",
           "tableFrom": "deployment_builds",
           "tableTo": "deployments",
-          "columnsFrom": [
-            "deployment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deployment_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4625,12 +4406,8 @@
           "name": "deployment_env_vars_deployment_id_deployments_id_fk",
           "tableFrom": "deployment_env_vars",
           "tableTo": "deployments",
-          "columnsFrom": [
-            "deployment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deployment_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4640,10 +4417,7 @@
         "UQ_deployment_env_vars_deployment_key": {
           "name": "UQ_deployment_env_vars_deployment_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "deployment_id",
-            "key"
-          ]
+          "columns": ["deployment_id", "key"]
         }
       },
       "policies": {},
@@ -4738,12 +4512,8 @@
           "name": "deployment_events_build_id_deployment_builds_id_fk",
           "tableFrom": "deployment_events",
           "tableTo": "deployment_builds",
-          "columnsFrom": [
-            "build_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4751,10 +4521,7 @@
       "compositePrimaryKeys": {
         "deployment_events_build_id_event_id_pk": {
           "name": "deployment_events_build_id_event_id_pk",
-          "columns": [
-            "build_id",
-            "event_id"
-          ]
+          "columns": ["build_id", "event_id"]
         }
       },
       "uniqueConstraints": {},
@@ -4836,12 +4603,8 @@
           "name": "deployment_threat_detections_deployment_id_deployments_id_fk",
           "tableFrom": "deployment_threat_detections",
           "tableTo": "deployments",
-          "columnsFrom": [
-            "deployment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deployment_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4849,12 +4612,8 @@
           "name": "deployment_threat_detections_build_id_deployment_builds_id_fk",
           "tableFrom": "deployment_threat_detections",
           "tableTo": "deployment_builds",
-          "columnsFrom": [
-            "build_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -5064,12 +4823,8 @@
           "name": "deployments_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "deployments",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -5077,12 +4832,8 @@
           "name": "deployments_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "deployments",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5092,9 +4843,7 @@
         "UQ_deployments_deployment_slug": {
           "name": "UQ_deployments_deployment_slug",
           "nullsNotDistinct": false,
-          "columns": [
-            "deployment_slug"
-          ]
+          "columns": ["deployment_slug"]
         }
       },
       "policies": {},
@@ -5246,12 +4995,8 @@
           "name": "device_auth_requests_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "device_auth_requests",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5375,12 +5120,8 @@
           "name": "enrichment_data_user_id_kilocode_users_id_fk",
           "tableFrom": "enrichment_data",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -5390,9 +5131,7 @@
         "UQ_enrichment_data_user_id": {
           "name": "UQ_enrichment_data_user_id",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         }
       },
       "policies": {},
@@ -5944,12 +5683,8 @@
           "name": "kilo_pass_audit_log_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "kilo_pass_audit_log",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -5957,12 +5692,8 @@
           "name": "kilo_pass_audit_log_kilo_pass_subscription_id_kilo_pass_subscriptions_id_fk",
           "tableFrom": "kilo_pass_audit_log",
           "tableTo": "kilo_pass_subscriptions",
-          "columnsFrom": [
-            "kilo_pass_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_pass_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -5970,12 +5701,8 @@
           "name": "kilo_pass_audit_log_related_credit_transaction_id_credit_transactions_id_fk",
           "tableFrom": "kilo_pass_audit_log",
           "tableTo": "credit_transactions",
-          "columnsFrom": [
-            "related_credit_transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["related_credit_transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -5983,12 +5710,8 @@
           "name": "kilo_pass_audit_log_related_monthly_issuance_id_kilo_pass_issuances_id_fk",
           "tableFrom": "kilo_pass_audit_log",
           "tableTo": "kilo_pass_issuances",
-          "columnsFrom": [
-            "related_monthly_issuance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["related_monthly_issuance_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -6101,12 +5824,8 @@
           "name": "kilo_pass_issuance_items_kilo_pass_issuance_id_kilo_pass_issuances_id_fk",
           "tableFrom": "kilo_pass_issuance_items",
           "tableTo": "kilo_pass_issuances",
-          "columnsFrom": [
-            "kilo_pass_issuance_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_pass_issuance_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -6114,12 +5833,8 @@
           "name": "kilo_pass_issuance_items_credit_transaction_id_credit_transactions_id_fk",
           "tableFrom": "kilo_pass_issuance_items",
           "tableTo": "credit_transactions",
-          "columnsFrom": [
-            "credit_transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["credit_transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -6129,17 +5844,12 @@
         "kilo_pass_issuance_items_credit_transaction_id_unique": {
           "name": "kilo_pass_issuance_items_credit_transaction_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "credit_transaction_id"
-          ]
+          "columns": ["credit_transaction_id"]
         },
         "UQ_kilo_pass_issuance_items_issuance_kind": {
           "name": "UQ_kilo_pass_issuance_items_issuance_kind",
           "nullsNotDistinct": false,
-          "columns": [
-            "kilo_pass_issuance_id",
-            "kind"
-          ]
+          "columns": ["kilo_pass_issuance_id", "kind"]
         }
       },
       "policies": {},
@@ -6262,12 +5972,8 @@
           "name": "kilo_pass_issuances_kilo_pass_subscription_id_kilo_pass_subscriptions_id_fk",
           "tableFrom": "kilo_pass_issuances",
           "tableTo": "kilo_pass_subscriptions",
-          "columnsFrom": [
-            "kilo_pass_subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_pass_subscription_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6277,10 +5983,7 @@
         "UQ_kilo_pass_issuances_subscription_issue_month": {
           "name": "UQ_kilo_pass_issuances_subscription_issue_month",
           "nullsNotDistinct": false,
-          "columns": [
-            "kilo_pass_subscription_id",
-            "issue_month"
-          ]
+          "columns": ["kilo_pass_subscription_id", "issue_month"]
         }
       },
       "policies": {},
@@ -6480,12 +6183,8 @@
           "name": "kilo_pass_scheduled_changes_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "kilo_pass_scheduled_changes",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -6493,12 +6192,8 @@
           "name": "kilo_pass_scheduled_changes_stripe_subscription_id_kilo_pass_subscriptions_stripe_subscription_id_fk",
           "tableFrom": "kilo_pass_scheduled_changes",
           "tableTo": "kilo_pass_subscriptions",
-          "columnsFrom": [
-            "stripe_subscription_id"
-          ],
-          "columnsTo": [
-            "stripe_subscription_id"
-          ],
+          "columnsFrom": ["stripe_subscription_id"],
+          "columnsTo": ["stripe_subscription_id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6670,12 +6365,8 @@
           "name": "kilo_pass_subscriptions_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "kilo_pass_subscriptions",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -6685,9 +6376,7 @@
         "kilo_pass_subscriptions_stripe_subscription_id_unique": {
           "name": "kilo_pass_subscriptions_stripe_subscription_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "stripe_subscription_id"
-          ]
+          "columns": ["stripe_subscription_id"]
         }
       },
       "policies": {},
@@ -6816,12 +6505,8 @@
           "name": "kiloclaw_access_codes_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "kiloclaw_access_codes",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6953,9 +6638,7 @@
         "kiloclaw_image_catalog_image_tag_unique": {
           "name": "kiloclaw_image_catalog_image_tag_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "image_tag"
-          ]
+          "columns": ["image_tag"]
         }
       },
       "policies": {},
@@ -7028,12 +6711,8 @@
           "name": "kiloclaw_instances_user_id_kilocode_users_id_fk",
           "tableFrom": "kiloclaw_instances",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -7210,9 +6889,7 @@
         "UQ_b1afacbcf43f2c7c4cb9f7e7faa": {
           "name": "UQ_b1afacbcf43f2c7c4cb9f7e7faa",
           "nullsNotDistinct": false,
-          "columns": [
-            "google_user_email"
-          ]
+          "columns": ["google_user_email"]
         }
       },
       "policies": {},
@@ -7716,12 +7393,8 @@
           "name": "microdollar_usage_metadata_http_user_agent_id_http_user_agent_http_user_agent_id_fk",
           "tableFrom": "microdollar_usage_metadata",
           "tableTo": "http_user_agent",
-          "columnsFrom": [
-            "http_user_agent_id"
-          ],
-          "columnsTo": [
-            "http_user_agent_id"
-          ],
+          "columnsFrom": ["http_user_agent_id"],
+          "columnsTo": ["http_user_agent_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7729,12 +7402,8 @@
           "name": "microdollar_usage_metadata_http_ip_id_http_ip_http_ip_id_fk",
           "tableFrom": "microdollar_usage_metadata",
           "tableTo": "http_ip",
-          "columnsFrom": [
-            "http_ip_id"
-          ],
-          "columnsTo": [
-            "http_ip_id"
-          ],
+          "columnsFrom": ["http_ip_id"],
+          "columnsTo": ["http_ip_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7742,12 +7411,8 @@
           "name": "microdollar_usage_metadata_vercel_ip_city_id_vercel_ip_city_vercel_ip_city_id_fk",
           "tableFrom": "microdollar_usage_metadata",
           "tableTo": "vercel_ip_city",
-          "columnsFrom": [
-            "vercel_ip_city_id"
-          ],
-          "columnsTo": [
-            "vercel_ip_city_id"
-          ],
+          "columnsFrom": ["vercel_ip_city_id"],
+          "columnsTo": ["vercel_ip_city_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7755,12 +7420,8 @@
           "name": "microdollar_usage_metadata_vercel_ip_country_id_vercel_ip_country_vercel_ip_country_id_fk",
           "tableFrom": "microdollar_usage_metadata",
           "tableTo": "vercel_ip_country",
-          "columnsFrom": [
-            "vercel_ip_country_id"
-          ],
-          "columnsTo": [
-            "vercel_ip_country_id"
-          ],
+          "columnsFrom": ["vercel_ip_country_id"],
+          "columnsTo": ["vercel_ip_country_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7768,12 +7429,8 @@
           "name": "microdollar_usage_metadata_ja4_digest_id_ja4_digest_ja4_digest_id_fk",
           "tableFrom": "microdollar_usage_metadata",
           "tableTo": "ja4_digest",
-          "columnsFrom": [
-            "ja4_digest_id"
-          ],
-          "columnsTo": [
-            "ja4_digest_id"
-          ],
+          "columnsFrom": ["ja4_digest_id"],
+          "columnsTo": ["ja4_digest_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -7781,12 +7438,8 @@
           "name": "microdollar_usage_metadata_system_prompt_prefix_id_system_prompt_prefix_system_prompt_prefix_id_fk",
           "tableFrom": "microdollar_usage_metadata",
           "tableTo": "system_prompt_prefix",
-          "columnsFrom": [
-            "system_prompt_prefix_id"
-          ],
-          "columnsTo": [
-            "system_prompt_prefix_id"
-          ],
+          "columnsFrom": ["system_prompt_prefix_id"],
+          "columnsTo": ["system_prompt_prefix_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -8113,16 +7766,12 @@
         "model_stats_openrouter_id_unique": {
           "name": "model_stats_openrouter_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "openrouter_id"
-          ]
+          "columns": ["openrouter_id"]
         },
         "model_stats_slug_unique": {
           "name": "model_stats_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -8522,10 +8171,7 @@
         "UQ_organization_memberships_org_user": {
           "name": "UQ_organization_memberships_org_user",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "kilo_user_id"
-          ]
+          "columns": ["organization_id", "kilo_user_id"]
         }
       },
       "policies": {},
@@ -8698,9 +8344,7 @@
         "UQ_organization_seats_idempotency_key": {
           "name": "UQ_organization_seats_idempotency_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "idempotency_key"
-          ]
+          "columns": ["idempotency_key"]
         }
       },
       "policies": {},
@@ -8795,11 +8439,7 @@
         "UQ_organization_user_limits_org_user": {
           "name": "UQ_organization_user_limits_org_user",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "kilo_user_id",
-            "limit_type"
-          ]
+          "columns": ["organization_id", "kilo_user_id", "limit_type"]
         }
       },
       "policies": {},
@@ -8900,12 +8540,7 @@
         "UQ_organization_user_daily_usage_org_user_date": {
           "name": "UQ_organization_user_daily_usage_org_user_date",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "kilo_user_id",
-            "limit_type",
-            "usage_date"
-          ]
+          "columns": ["organization_id", "kilo_user_id", "limit_type", "usage_date"]
         }
       },
       "policies": {},
@@ -9151,10 +8786,7 @@
         "UQ_organization_modes_org_id_slug": {
           "name": "UQ_organization_modes_org_id_slug",
           "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "slug"
-          ]
+          "columns": ["organization_id", "slug"]
         }
       },
       "policies": {},
@@ -9409,10 +9041,7 @@
         "UQ_29df1b0403df5792c96bbbfdbe6": {
           "name": "UQ_29df1b0403df5792c96bbbfdbe6",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "stripe_id"
-          ]
+          "columns": ["user_id", "stripe_id"]
         }
       },
       "policies": {},
@@ -9807,12 +9436,8 @@
           "name": "platform_integrations_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "platform_integrations",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -9820,12 +9445,8 @@
           "name": "platform_integrations_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "platform_integrations",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -9920,10 +9541,7 @@
         "UQ_referral_code_usages_redeeming_user_id_code": {
           "name": "UQ_referral_code_usages_redeeming_user_id_code",
           "nullsNotDistinct": false,
-          "columns": [
-            "redeeming_kilo_user_id",
-            "referring_kilo_user_id"
-          ]
+          "columns": ["redeeming_kilo_user_id", "referring_kilo_user_id"]
         }
       },
       "policies": {},
@@ -10211,12 +9829,8 @@
           "name": "security_audit_log_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "security_audit_log",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -10224,12 +9838,8 @@
           "name": "security_audit_log_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "security_audit_log",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -10645,12 +10255,8 @@
           "name": "security_findings_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "security_findings",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -10658,12 +10264,8 @@
           "name": "security_findings_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "security_findings",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -10671,12 +10273,8 @@
           "name": "security_findings_platform_integration_id_platform_integrations_id_fk",
           "tableFrom": "security_findings",
           "tableTo": "platform_integrations",
-          "columnsFrom": [
-            "platform_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["platform_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -10686,11 +10284,7 @@
         "uq_security_findings_source": {
           "name": "uq_security_findings_source",
           "nullsNotDistinct": false,
-          "columns": [
-            "repo_full_name",
-            "source",
-            "source_id"
-          ]
+          "columns": ["repo_full_name", "source", "source_id"]
         }
       },
       "policies": {},
@@ -10808,12 +10402,8 @@
           "name": "shared_cli_sessions_session_id_cli_sessions_session_id_fk",
           "tableFrom": "shared_cli_sessions",
           "tableTo": "cli_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "session_id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["session_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -10821,12 +10411,8 @@
           "name": "shared_cli_sessions_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "shared_cli_sessions",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -11081,12 +10667,8 @@
           "name": "slack_bot_requests_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "slack_bot_requests",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -11094,12 +10676,8 @@
           "name": "slack_bot_requests_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "slack_bot_requests",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -11107,12 +10685,8 @@
           "name": "slack_bot_requests_platform_integration_id_platform_integrations_id_fk",
           "tableFrom": "slack_bot_requests",
           "tableTo": "platform_integrations",
-          "columnsFrom": [
-            "platform_integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["platform_integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -11355,12 +10929,8 @@
           "name": "source_embeddings_organization_id_organizations_id_fk",
           "tableFrom": "source_embeddings",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -11368,12 +10938,8 @@
           "name": "source_embeddings_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "source_embeddings",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -11907,10 +11473,7 @@
       "compositePrimaryKeys": {
         "user_auth_provider_provider_provider_account_id_pk": {
           "name": "user_auth_provider_provider_provider_account_id_pk",
-          "columns": [
-            "provider",
-            "provider_account_id"
-          ]
+          "columns": ["provider", "provider_account_id"]
         }
       },
       "uniqueConstraints": {},
@@ -12058,12 +11621,8 @@
           "name": "user_feedback_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "user_feedback",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -12240,12 +11799,8 @@
           "name": "user_period_cache_kilo_user_id_kilocode_users_id_fk",
           "tableFrom": "user_period_cache",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "kilo_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kilo_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -12518,12 +12073,8 @@
           "name": "webhook_events_owned_by_organization_id_organizations_id_fk",
           "tableFrom": "webhook_events",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "owned_by_organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -12531,12 +12082,8 @@
           "name": "webhook_events_owned_by_user_id_kilocode_users_id_fk",
           "tableFrom": "webhook_events",
           "tableTo": "kilocode_users",
-          "columnsFrom": [
-            "owned_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owned_by_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -12546,9 +12093,7 @@
         "UQ_webhook_events_signature": {
           "name": "UQ_webhook_events_signature",
           "nullsNotDistinct": false,
-          "columns": [
-            "event_signature"
-          ]
+          "columns": ["event_signature"]
         }
       },
       "policies": {},
