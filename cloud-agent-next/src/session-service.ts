@@ -1275,7 +1275,6 @@ export class SessionService {
         `Session ${sessionId} has no kiloSessionId in metadata. Cannot restore snapshot.`
       );
     }
-
     // Clone first so .git exists when `kilo import` runs — the CLI derives the
     // project ID from the repo's root commit hash; without a repo the FK on
     // session.project_id fails.
