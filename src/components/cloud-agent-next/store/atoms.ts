@@ -125,22 +125,18 @@ export const messagesListAtom = atom(get => {
 });
 
 /**
- * Static messages - all complete messages that can be memoized.
+ * Split messages into static (complete, contiguous from the start) and dynamic (everything after).
  * A message is complete when its info.time.completed is set (for assistant messages)
  * and all parts have their time.end set.
  */
-export const staticMessagesAtom = atom(get => {
+const splitMessagesAtom = atom(get => {
   const messages = get(messagesListAtom);
-  return splitByContiguousPrefix(messages, msg => !isMessageStreaming(msg)).staticItems;
+  return splitByContiguousPrefix(messages, msg => !isMessageStreaming(msg));
 });
 
-/**
- * Dynamic messages - messages that are still streaming.
- */
-export const dynamicMessagesAtom = atom(get => {
-  const messages = get(messagesListAtom);
-  return splitByContiguousPrefix(messages, msg => !isMessageStreaming(msg)).dynamicItems;
-});
+export const staticMessagesAtom = atom(get => get(splitMessagesAtom).staticItems);
+
+export const dynamicMessagesAtom = atom(get => get(splitMessagesAtom).dynamicItems);
 
 // Matches CLI's getApiMetrics logic
 export const totalCostAtom = atom(get => {

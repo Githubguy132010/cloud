@@ -27,15 +27,14 @@ export const filteredMessagesAtom = atom(get => {
   return messages.filter(msg => shouldDisplayMessage(msg));
 });
 
-export const staticMessagesAtom = atom(get => {
+const splitMessagesAtom = atom(get => {
   const messages = get(filteredMessagesAtom);
-  return splitByContiguousPrefix(messages, isMessageComplete).staticItems;
+  return splitByContiguousPrefix(messages, isMessageComplete);
 });
 
-export const dynamicMessagesAtom = atom(get => {
-  const messages = get(filteredMessagesAtom);
-  return splitByContiguousPrefix(messages, isMessageComplete).dynamicItems;
-});
+export const staticMessagesAtom = atom(get => get(splitMessagesAtom).staticItems);
+
+export const dynamicMessagesAtom = atom(get => get(splitMessagesAtom).dynamicItems);
 
 // Matches CLI's getApiMetrics logic
 export const totalCostAtom = atom(get => {
