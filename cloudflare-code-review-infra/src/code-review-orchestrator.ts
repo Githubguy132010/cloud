@@ -1001,7 +1001,8 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
 
                 if (payload.ask === 'command' && typeof payload.text === 'string') {
                   const riskyPattern = findRiskyPattern(payload.text);
-                  console.warn('[CodeReviewOrchestrator] Command request observed', {
+                  const logFn = riskyPattern ? console.warn : console.log;
+                  logFn('[CodeReviewOrchestrator] Command request observed', {
                     reviewId: this.state.reviewId,
                     sessionId: this.state.sessionId,
                     eventNumber: totalEventsReceived,
