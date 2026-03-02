@@ -107,6 +107,7 @@ const CODE_REVIEW_DENIED_COMMAND_PATTERNS = [
   'npm test',
   'pnpm test',
   'bun test',
+  'yarn test',
   'pytest',
   'vitest',
 ];
