@@ -44,11 +44,12 @@ runtime.post('/:appId/query', async c => {
   // Execute query
   logger.setTags({ operation: 'query' });
   try {
-    const result = db.executeQuery(
+    // eslint-disable-next-line @typescript-eslint/await-thenable -- DO RPC stub wraps return in Rpc.Promisified
+    const result = (await db.executeQuery(
       parsed.data.sql,
       parsed.data.params,
       parsed.data.method
-    ) as QuerySuccessResponse;
+    )) as QuerySuccessResponse;
     return c.json(result);
   } catch (error) {
     logger.error('Query execution failed', formatError(error));
@@ -94,7 +95,8 @@ runtime.post('/:appId/batch', async c => {
   // Execute batch
   logger.setTags({ operation: 'batch' });
   try {
-    const results = db.executeBatch(parsed.data.queries) as BatchSuccessResponse;
+    // eslint-disable-next-line @typescript-eslint/await-thenable -- DO RPC stub wraps return in Rpc.Promisified
+    const results = (await db.executeBatch(parsed.data.queries)) as BatchSuccessResponse;
     return c.json(results);
   } catch (error) {
     logger.error('Batch execution failed', formatError(error));

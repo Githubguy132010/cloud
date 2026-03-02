@@ -1,4 +1,5 @@
 import { parseSSEStream } from '@cloudflare/sandbox';
+import type { ExecEvent } from '@cloudflare/sandbox';
 import { stripVTControlCharacters } from 'node:util';
 import type {
   ExecutionSession,
@@ -216,7 +217,7 @@ export async function* streamKilocodeExecution(
 
   try {
     // Create async iterator from parseSSEStream
-    const streamIterator = parseSSEStream(stream)[Symbol.asyncIterator]();
+    const streamIterator = parseSSEStream<ExecEvent>(stream)[Symbol.asyncIterator]();
 
     while (true) {
       // Race between getting the next event, interrupt detection, and server-side timeout
@@ -237,7 +238,7 @@ export async function* streamKilocodeExecution(
 
       const rawEvent = result.value;
       if (typeof rawEvent !== 'object' || !rawEvent) continue;
-      const event = rawEvent as Record<string, unknown>;
+      const event = rawEvent as ExecEvent;
       if (typeof event.type !== 'string') continue;
 
       const timestamp = new Date().toISOString();
