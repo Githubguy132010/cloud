@@ -4,7 +4,7 @@
  * Handles HTTP requests to dispatch and manage auto-fix sessions
  */
 
-import { Hono, type Context } from 'hono';
+import { Hono } from 'hono';
 import type { Env, FixRequest, FixResponse } from './types';
 import {
   backendAuthMiddleware,
@@ -108,12 +108,9 @@ app.post('/fix/:ticketId/cancel', async c => {
   try {
     const ticketId = c.req.param('ticketId');
 
-    // Get Durable Object instance
+    // Get Durable Object instance — cancel is not yet implemented in the DO
     const id = c.env.AUTO_FIX_ORCHESTRATOR.idFromName(ticketId);
-    const stub = c.env.AUTO_FIX_ORCHESTRATOR.get(id);
-
-    // Cancel would need to be implemented in the DO
-    // For now, just return success
+    const _stub = c.env.AUTO_FIX_ORCHESTRATOR.get(id);
     return c.json({ ticketId, status: 'cancelled' });
   } catch (error) {
     console.error('[AutoFixWorker] Cancel error:', error);

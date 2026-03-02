@@ -561,7 +561,7 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
         throw new Error(`prepareSession failed (${prepareResponse.status}): ${errorText}`);
       }
 
-      const prepareResult = (await prepareResponse.json()) as Record<string, unknown>;
+      const prepareResult: Record<string, unknown> = await prepareResponse.json();
       const prepareData = (prepareResult?.result as Record<string, unknown>)?.data as
         | Record<string, unknown>
         | undefined;
@@ -622,7 +622,7 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
         );
       }
 
-      const initiateResult = (await initiateResponse.json()) as Record<string, unknown>;
+      const initiateResult: Record<string, unknown> = await initiateResponse.json();
       const initiateData = (initiateResult?.result as Record<string, unknown>)?.data as
         | Record<string, unknown>
         | undefined;

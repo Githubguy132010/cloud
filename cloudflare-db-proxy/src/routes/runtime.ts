@@ -44,11 +44,11 @@ runtime.post('/:appId/query', async c => {
   // Execute query
   logger.setTags({ operation: 'query' });
   try {
-    const result = (await db.executeQuery(
+    const result = db.executeQuery(
       parsed.data.sql,
       parsed.data.params,
       parsed.data.method
-    )) as QuerySuccessResponse;
+    ) as QuerySuccessResponse;
     return c.json(result);
   } catch (error) {
     logger.error('Query execution failed', formatError(error));
@@ -94,7 +94,7 @@ runtime.post('/:appId/batch', async c => {
   // Execute batch
   logger.setTags({ operation: 'batch' });
   try {
-    const results = (await db.executeBatch(parsed.data.queries)) as BatchSuccessResponse;
+    const results = db.executeBatch(parsed.data.queries) as BatchSuccessResponse;
     return c.json(results);
   } catch (error) {
     logger.error('Batch execution failed', formatError(error));

@@ -14,7 +14,7 @@ import {
 } from './process-manager';
 import { startHeartbeat, stopHeartbeat } from './heartbeat';
 import { mergeBranch } from './git-manager';
-import { StartAgentRequest, StopAgentRequest, SendMessageRequest, MergeRequest } from './types';
+import { StartAgentRequest, SendMessageRequest, MergeRequest } from './types';
 import type {
   AgentStatusResponse,
   HealthResponse,
@@ -487,7 +487,7 @@ export function startControlServer(): void {
   process.on('SIGINT', () => void shutdown());
 
   // Track connected WebSocket clients with optional agent filter
-  type WSClient = import('bun').ServerWebSocket<WSData>;
+  type WSClient = import('bun').ServerWebSocket<WSData>; // eslint-disable-line @typescript-eslint/consistent-type-imports
   const wsClients = new Set<WSClient>();
 
   // Agent stream URL patterns (the container receives the full path from the worker)
