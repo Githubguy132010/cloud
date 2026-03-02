@@ -253,6 +253,13 @@
       "when": 1772195925655,
       "tag": "0035_third_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1772457937366,
+      "tag": "0036_early_bastion",
+      "breakpoints": true
     }
   ]
 }

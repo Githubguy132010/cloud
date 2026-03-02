@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import type { Provider } from '@/lib/providers';
+import { PROVIDERS, type Provider } from '@/lib/providers';
+import { getEnvVariable } from '@/lib/dotenvx';
 
 /**
  * Generates a service-specific SHA256 hash.
@@ -20,4 +21,15 @@ export function generateProviderSpecificHash(payload: string, provider: Provider
     .createHash('sha256')
     .update(salt + pepper + payload)
     .digest('base64');
+}
+
+export function generateOpenRouterUpstreamSafetyIdentifier(userId: string): string {
+  const orgId = getEnvVariable('OPENROUTER_ORG_ID');
+  if (!orgId) {
+    throw new Error('OPENROUTER_ORG_ID is not set, please run vercel env pull');
+  }
+  return crypto
+    .createHash('sha256')
+    .update(orgId + '-' + generateProviderSpecificHash(userId, PROVIDERS.OPENROUTER))
+    .digest('hex');
 }
