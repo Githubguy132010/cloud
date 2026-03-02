@@ -187,11 +187,15 @@ export const kilocode_users = pgTable(
     completed_welcome_form: boolean().default(false).notNull(),
     linkedin_url: text(),
     github_url: text(),
+    openrouter_upstream_safety_identifier: text(),
   },
   table => [
     unique('UQ_b1afacbcf43f2c7c4cb9f7e7faa').on(table.google_user_email),
     // Prevent empty strings
     check('blocked_reason_not_empty', sql`length(blocked_reason) > 0`),
+    uniqueIndex('UQ_kilocode_users_openrouter_upstream_safety_identifier')
+      .on(table.openrouter_upstream_safety_identifier)
+      .where(sql`${table.openrouter_upstream_safety_identifier} IS NOT NULL`),
   ]
 );
 
@@ -3156,3 +3160,21 @@ export const kiloclaw_image_catalog = pgTable(
 );
 
 export type KiloClawImageCatalogEntry = typeof kiloclaw_image_catalog.$inferSelect;
+
+// Discord Gateway Listener coordination
+// Single-row table that tracks the currently active Gateway listener.
+// Used to ensure only one Gateway WebSocket connection is active at a time
+// across multiple serverless instances. New listeners atomically claim the
+// active slot, and existing listeners poll to detect they've been superseded.
+export const discord_gateway_listener = pgTable('discord_gateway_listener', {
+  // Singleton: always id = 1
+  id: integer().primaryKey().default(1),
+  // Unique identifier for the currently active listener instance
+  listener_id: text().notNull(),
+  // When this listener started
+  started_at: timestamp({ withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  // When this listener is expected to stop (started_at + duration)
+  expires_at: timestamp({ withTimezone: true, mode: 'string' }).notNull(),
+});
+
+export type DiscordGatewayListener = typeof discord_gateway_listener.$inferSelect;
