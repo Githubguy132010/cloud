@@ -1189,11 +1189,17 @@ describe('SessionService', () => {
           execute?: {
             denied?: string[];
           };
+          write?: {
+            enabled?: boolean;
+            protected?: boolean;
+          };
         };
       };
 
       expect(configContent.autoApproval?.execute?.denied).toContain('git commit');
       expect(configContent.autoApproval?.execute?.denied).toContain('gh pr merge');
+      expect(configContent.autoApproval?.write?.enabled).toBe(false);
+      expect(configContent.autoApproval?.write?.protected).toBe(true);
     });
   });
 
