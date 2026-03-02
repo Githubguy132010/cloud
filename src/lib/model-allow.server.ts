@@ -52,6 +52,9 @@ export async function createDenyLists(
   model_allow_list: string[] | undefined,
   provider_allow_list: string[] | undefined
 ) {
+  if (!model_allow_list && !provider_allow_list) {
+    return undefined;
+  }
   const data = await fetchLatestModelsByProviderSnapshotFromDb();
   if (!data) {
     return undefined;
