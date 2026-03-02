@@ -20,7 +20,9 @@ export function getAvailableThinkingEfforts(modelSlug: string): string[] {
   return [];
 }
 
+const VARIANT_LABELS: Record<string, string> = { xhigh: 'Extra High' };
+
 /** Human-readable label for a variant name. */
 export function thinkingEffortLabel(variant: string): string {
-  return variant.charAt(0).toUpperCase() + variant.slice(1);
+  return VARIANT_LABELS[variant] ?? variant.charAt(0).toUpperCase() + variant.slice(1);
 }

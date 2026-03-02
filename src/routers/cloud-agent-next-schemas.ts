@@ -72,7 +72,11 @@ export const basePrepareSessionNextSchema = z
     prompt: z.string().min(1).max(100_000),
     mode: agentModeNextSchema,
     model: z.string().min(1),
-    variant: z.string().max(50).optional(),
+    variant: z
+      .string()
+      .max(50)
+      .regex(/^[a-zA-Z]+$/)
+      .optional(),
 
     // Optional environment profile name (resolved server-side)
     profileName: z.string().max(100).optional(),
@@ -113,7 +117,11 @@ export const baseSendMessageNextSchema = z.object({
   prompt: z.string().min(1),
   mode: agentModeSendMessageSchema,
   model: z.string().min(1),
-  variant: z.string().max(50).optional(),
+  variant: z
+    .string()
+    .max(50)
+    .regex(/^[a-zA-Z]+$/)
+    .optional(),
   autoCommit: z.boolean().optional().default(false),
 });
 

@@ -48,7 +48,12 @@ const SaveReviewConfigInputSchema = OrganizationIdInputSchema.extend({
   customInstructions: z.string().optional(),
   maxReviewTimeMinutes: z.number().min(5).max(30),
   modelSlug: z.string(),
-  thinkingEffort: z.string().nullable().optional(),
+  thinkingEffort: z
+    .string()
+    .max(50)
+    .regex(/^[a-zA-Z]+$/)
+    .nullable()
+    .optional(),
   repositorySelectionMode: z.enum(['all', 'selected']).optional(),
   selectedRepositoryIds: z.array(z.number()).optional(),
   manuallyAddedRepositories: z.array(ManuallyAddedRepositoryInputSchema).optional(),
