@@ -27,10 +27,6 @@ const RISKY_COMMAND_PATTERNS = [
   'git switch',
   'gh pr merge',
   'gh pr review',
-  'npm install',
-  'pnpm install',
-  'bun install',
-  'yarn install',
   'pytest',
   'vitest',
 ];
