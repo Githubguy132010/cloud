@@ -635,6 +635,7 @@ export class CloudAgentSession extends DurableObject {
     prompt: string;
     mode: string;
     model: string;
+    variant?: string;
     kilocodeToken?: string;
     githubRepo?: string;
     githubToken?: string;
@@ -701,6 +702,7 @@ export class CloudAgentSession extends DurableObject {
   async tryUpdate(updates: {
     mode?: string | null;
     model?: string | null;
+    variant?: string | null;
     githubToken?: string | null;
     gitToken?: string | null;
     autoCommit?: boolean | null;
@@ -1215,6 +1217,7 @@ export class CloudAgentSession extends DurableObject {
     mode: ExecutionMode;
     prompt: string;
     model?: string;
+    variant?: string;
     autoCommit?: boolean;
     condenseOnComplete?: boolean;
     initContext?: InitializeContext;
@@ -1281,6 +1284,7 @@ export class CloudAgentSession extends DurableObject {
         model: params.model ? { modelID: params.model.replace(/^kilo\//, '') } : undefined,
         autoCommit: params.autoCommit,
         condenseOnComplete: params.condenseOnComplete,
+        variant: params.variant,
       },
     };
   }
@@ -1574,6 +1578,7 @@ export class CloudAgentSession extends DurableObject {
 
       const mode = (request.mode ?? metadata.mode ?? 'code') as ExecutionMode;
       const model = normalizeKilocodeModel(request.model ?? metadata.model);
+      const variant = request.variant ?? metadata.variant;
       if (!model) {
         return this.buildStartError(
           'BAD_REQUEST',
@@ -1614,6 +1619,7 @@ export class CloudAgentSession extends DurableObject {
         mode,
         prompt: request.prompt,
         model,
+        variant,
         autoCommit: request.autoCommit ?? metadata.autoCommit,
         condenseOnComplete: request.condenseOnComplete ?? metadata.condenseOnComplete,
         resumeContext,
