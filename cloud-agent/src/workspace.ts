@@ -114,6 +114,7 @@ type CommandPolicy = {
   allowed: string[];
   denied: string[];
   policyName: string;
+  isReadOnly: boolean;
 };
 
 function getCommandPolicy(createdOnPlatform?: string): CommandPolicy {
@@ -122,6 +123,7 @@ function getCommandPolicy(createdOnPlatform?: string): CommandPolicy {
       allowed: CODE_REVIEW_ALLOWED_COMMANDS,
       denied: [...DEFAULT_DENIED_COMMAND_PATTERNS, ...CODE_REVIEW_DENIED_COMMAND_PATTERNS],
       policyName: 'code-review-read-only',
+      isReadOnly: true,
     };
   }
 
@@ -129,6 +131,7 @@ function getCommandPolicy(createdOnPlatform?: string): CommandPolicy {
     allowed: DEFAULT_ALLOWED_COMMANDS,
     denied: DEFAULT_DENIED_COMMAND_PATTERNS,
     policyName: 'default',
+    isReadOnly: false,
   };
 }
 
@@ -196,7 +199,7 @@ function buildKilocodeConfig(
   kilocodeModel: string,
   commandPolicy: CommandPolicy
 ) {
-  const isReadOnly = commandPolicy.policyName === 'code-review-read-only';
+  const isReadOnly = commandPolicy.isReadOnly;
 
   const providerConfig: {
     id: string;
