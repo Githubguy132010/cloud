@@ -246,9 +246,9 @@ export function createConnectionManager(
               );
               config.kiloClient
                 .answerPermission(props.id, 'reject')
-                .catch(err =>
+                .catch((err: unknown) =>
                   logToFile(
-                    `failed to auto-reject permission ${props.id}: ${err instanceof Error ? err.message : String(err)}`
+                    `failed to auto-reject permission ${String(props.id)}: ${err instanceof Error ? err.message : String(err)}`
                   )
                 );
             }
