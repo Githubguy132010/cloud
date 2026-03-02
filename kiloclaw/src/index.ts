@@ -324,7 +324,7 @@ app.all('*', async c => {
     // Client -> Container relay
     serverWs.addEventListener('message', event => {
       if (containerWs.readyState === WebSocket.OPEN) {
-        containerWs.send(event.data);
+        containerWs.send(event.data as string | ArrayBuffer);
       }
     });
 
