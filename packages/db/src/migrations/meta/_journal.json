@@ -260,6 +260,13 @@
       "when": 1772457937366,
       "tag": "0036_early_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1772462713010,
+      "tag": "0037_needy_sunfire",
+      "breakpoints": true
     }
   ]
 }
