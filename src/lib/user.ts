@@ -454,6 +454,7 @@ export async function softDeleteUser(userId: string) {
         completed_welcome_form: false,
         cohorts: {},
         is_admin: false,
+        openrouter_upstream_safety_identifier: null,
       })
       .where(eq(kilocode_users.id, userId));
 
