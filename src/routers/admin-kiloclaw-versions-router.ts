@@ -1,7 +1,7 @@
 import { adminProcedure, createTRPCRouter } from '@/lib/trpc/init';
 import { db } from '@/lib/drizzle';
 import { kiloclaw_image_catalog, kiloclaw_version_pins, kilocode_users } from '@kilocode/db/schema';
-import { eq, desc, sql, or, ilike } from 'drizzle-orm';
+import { eq, desc, sql, or, ilike, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { TRPCError } from '@trpc/server';
 import { KiloClawInternalClient } from '@/lib/kiloclaw/kiloclaw-internal-client';
@@ -76,11 +76,24 @@ export const adminKiloclawVersionsRouter = createTRPCRouter({
       // Prevent disabling the :latest version — it would break all unpinned users
       if (input.status === 'disabled') {
         const client = new KiloClawInternalClient();
-        const latestTag = (await client.getLatestVersion())?.imageTag;
-        if (latestTag === input.imageTag) {
+        try {
+          const latestTag = (await client.getLatestVersion())?.imageTag;
+          if (latestTag === input.imageTag) {
+            throw new TRPCError({
+              code: 'PRECONDITION_FAILED',
+              message: 'Cannot disable the current :latest version. Push a new image first.',
+            });
+          }
+        } catch (err) {
+          // If it's already a TRPCError, re-throw it
+          if (err instanceof TRPCError) {
+            throw err;
+          }
+          // Only catch unexpected errors (network, service unavailable, etc.)
           throw new TRPCError({
-            code: 'PRECONDITION_FAILED',
-            message: 'Cannot disable the current :latest version. Push a new image first.',
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to verify latest version status',
+            cause: err,
           });
         }
       }
@@ -229,41 +242,61 @@ export const adminKiloclawVersionsRouter = createTRPCRouter({
 
   getLatestTag: adminProcedure.query(async () => {
     const client = new KiloClawInternalClient();
-    const latest = await client.getLatestVersion();
-    return latest?.imageTag ?? null;
+    try {
+      const latest = await client.getLatestVersion();
+      return latest?.imageTag ?? null;
+    } catch (err) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch latest version',
+        cause: err,
+      });
+    }
   }),
 
   syncCatalog: adminProcedure.mutation(async () => {
     const client = new KiloClawInternalClient();
-    const kvVersions = await client.listVersions();
-
-    let synced = 0;
-    let skipped = 0;
-
-    for (const entry of kvVersions) {
-      const [existing] = await db
-        .select({ image_tag: kiloclaw_image_catalog.image_tag })
-        .from(kiloclaw_image_catalog)
-        .where(eq(kiloclaw_image_catalog.image_tag, entry.imageTag))
-        .limit(1);
-
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      await db.insert(kiloclaw_image_catalog).values({
-        openclaw_version: entry.openclawVersion,
-        variant: entry.variant,
-        image_tag: entry.imageTag,
-        image_digest: entry.imageDigest,
-        status: 'available',
-        published_at: entry.publishedAt,
+    let kvVersions;
+    try {
+      kvVersions = await client.listVersions();
+    } catch (err) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch versions from KiloClaw service',
+        cause: err,
       });
-      synced++;
     }
 
-    return { synced, skipped, total: kvVersions.length };
+    // Fetch only existing tags that match KV versions (more memory-efficient)
+    const kvTags = kvVersions.map(v => v.imageTag);
+    const existingTags = new Set(
+      (
+        await db
+          .select({ image_tag: kiloclaw_image_catalog.image_tag })
+          .from(kiloclaw_image_catalog)
+          .where(inArray(kiloclaw_image_catalog.image_tag, kvTags))
+      ).map(row => row.image_tag)
+    );
+
+    // Filter out entries that already exist
+    const newEntries = kvVersions.filter(entry => !existingTags.has(entry.imageTag));
+    const skipped = kvVersions.length - newEntries.length;
+
+    // Bulk insert new entries
+    if (newEntries.length > 0) {
+      await db.insert(kiloclaw_image_catalog).values(
+        newEntries.map(entry => ({
+          openclaw_version: entry.openclawVersion,
+          variant: entry.variant,
+          image_tag: entry.imageTag,
+          image_digest: entry.imageDigest,
+          status: 'available' as const,
+          published_at: entry.publishedAt,
+        }))
+      );
+    }
+
+    return { synced: newEntries.length, skipped, total: kvVersions.length };
   }),
 
   searchUsers: adminProcedure

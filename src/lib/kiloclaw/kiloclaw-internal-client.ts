@@ -84,8 +84,13 @@ export class KiloClawInternalClient {
   async getLatestVersion(): Promise<ImageVersionEntry | null> {
     try {
       return await this.request('/api/platform/versions/latest');
-    } catch {
-      return null;
+    } catch (err) {
+      // Only return null for 404 (no latest version set)
+      // Re-throw other errors (network, auth, server errors) so callers can handle them
+      if (err instanceof KiloClawApiError && err.statusCode === 404) {
+        return null;
+      }
+      throw err;
     }
   }
 

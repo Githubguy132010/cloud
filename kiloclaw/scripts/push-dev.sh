@@ -49,14 +49,18 @@ fi
 # Update .dev.vars
 if [ -f "$KILOCLAW_DIR/.dev.vars" ]; then
   if grep -q '^FLY_IMAGE_TAG=' "$KILOCLAW_DIR/.dev.vars"; then
-    sed -i '' "s/^FLY_IMAGE_TAG=.*/FLY_IMAGE_TAG=$TAG/" "$KILOCLAW_DIR/.dev.vars"
+    # Use temp file for cross-platform sed compatibility (macOS/Linux)
+    sed "s/^FLY_IMAGE_TAG=.*/FLY_IMAGE_TAG=$TAG/" "$KILOCLAW_DIR/.dev.vars" > "$KILOCLAW_DIR/.dev.vars.tmp"
+    mv "$KILOCLAW_DIR/.dev.vars.tmp" "$KILOCLAW_DIR/.dev.vars"
   else
     echo "FLY_IMAGE_TAG=$TAG" >> "$KILOCLAW_DIR/.dev.vars"
   fi
 
   if [ -n "$DIGEST" ]; then
     if grep -q '^FLY_IMAGE_DIGEST=' "$KILOCLAW_DIR/.dev.vars"; then
-      sed -i '' "s|^FLY_IMAGE_DIGEST=.*|FLY_IMAGE_DIGEST=$DIGEST|" "$KILOCLAW_DIR/.dev.vars"
+      # Use temp file for cross-platform sed compatibility (macOS/Linux)
+      sed "s|^FLY_IMAGE_DIGEST=.*|FLY_IMAGE_DIGEST=$DIGEST|" "$KILOCLAW_DIR/.dev.vars" > "$KILOCLAW_DIR/.dev.vars.tmp"
+      mv "$KILOCLAW_DIR/.dev.vars.tmp" "$KILOCLAW_DIR/.dev.vars"
     else
       echo "FLY_IMAGE_DIGEST=$DIGEST" >> "$KILOCLAW_DIR/.dev.vars"
     fi

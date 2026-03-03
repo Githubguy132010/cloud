@@ -507,14 +507,29 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
             config.pinnedImageTag
           );
           if (catalogEntry) {
-            pinned = {
-              openclawVersion: catalogEntry.openclawVersion,
-              variant: catalogEntry.variant as ImageVariant,
-              imageTag: catalogEntry.imageTag,
-              imageDigest: catalogEntry.imageDigest,
-              publishedAt: catalogEntry.publishedAt,
-            };
-            console.log('[DO] Resolved pinned tag from Postgres catalog:', config.pinnedImageTag);
+            // Validate variant from Postgres catalog against known variants
+            const variantParse = ImageVariantSchema.safeParse(catalogEntry.variant);
+            if (!variantParse.success) {
+              // Log error but treat as cache miss rather than failing provision
+              console.error(
+                '[DO] Invalid variant from Postgres catalog, skipping:',
+                catalogEntry.variant,
+                'for tag:',
+                config.pinnedImageTag,
+                'error:',
+                variantParse.error.flatten()
+              );
+              // Continue without setting pinned - will fall through to error handling below
+            } else {
+              pinned = {
+                openclawVersion: catalogEntry.openclawVersion,
+                variant: variantParse.data,
+                imageTag: catalogEntry.imageTag,
+                imageDigest: catalogEntry.imageDigest,
+                publishedAt: catalogEntry.publishedAt,
+              };
+              console.log('[DO] Resolved pinned tag from Postgres catalog:', config.pinnedImageTag);
+            }
           }
         } catch (err) {
           console.warn('[DO] Failed to look up pinned tag in Postgres:', err instanceof Error ? err.message : err);
