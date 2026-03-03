@@ -18,7 +18,7 @@ if (!CRON_SECRET) {
   process.exit(1);
 }
 
-const URL = 'http://localhost:3000/api/discord/gateway';
+const GATEWAY_URL = 'http://localhost:3000/api/discord/gateway';
 const INTERVAL_MS = 9 * 60 * 1000;
 
 function timestamp() {
@@ -31,12 +31,12 @@ function sleep(ms: number) {
 
 async function loop() {
   console.log(`Starting discord gateway cron (every ${INTERVAL_MS / 1000}s)`);
-  console.log(`URL: ${URL}`);
+  console.log(`URL: ${GATEWAY_URL}`);
 
   while (true) {
     console.log(`[${timestamp()}] Sending request to gateway...`);
 
-    const fetchDone = fetch(URL, {
+    const fetchDone = fetch(GATEWAY_URL, {
       headers: { Authorization: `Bearer ${CRON_SECRET}` },
     })
       .then(res => console.log(`[${timestamp()}]   -> HTTP ${res.status}`))
