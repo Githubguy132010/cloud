@@ -134,8 +134,10 @@ export class ExecutionOrchestrator {
     // Derive the wrapper's per-message timeout from CLI_TIMEOUT_SECONDS (with 60s headroom
     // for post-completion tasks like log uploads). Falls back to undefined so the wrapper
     // uses its own default (DEFAULT_INFLIGHT_TIMEOUT_MS = 20 min).
-    const cliTimeoutSeconds = Number(this.deps.env.CLI_TIMEOUT_SECONDS);
-    const maxRuntimeMs = cliTimeoutSeconds > 0 ? (cliTimeoutSeconds + 60) * 1000 : undefined;
+    const raw = this.deps.env.CLI_TIMEOUT_SECONDS;
+    const cliTimeoutSeconds = raw ? Number(raw) : undefined;
+    const maxRuntimeMs =
+      cliTimeoutSeconds && cliTimeoutSeconds > 0 ? (cliTimeoutSeconds + 60) * 1000 : undefined;
 
     let wrapperClient: WrapperClient;
     try {
