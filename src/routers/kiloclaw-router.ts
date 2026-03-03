@@ -18,7 +18,7 @@ import {
   kiloclaw_image_catalog,
   kiloclaw_earlybird_purchases,
 } from '@kilocode/db/schema';
-import { eq, desc, sql } from 'drizzle-orm';
+import { and, eq, desc, sql } from 'drizzle-orm';
 import { sentryLogger } from '@/lib/utils.server';
 import type { KiloClawDashboardStatus, KiloCodeConfigResponse } from '@/lib/kiloclaw/types';
 import {
@@ -612,26 +612,33 @@ export const kiloclawRouter = createTRPCRouter({
     }),
 
   removeMyPin: baseProcedure.mutation(async ({ ctx }) => {
-    // Check if the pin was set by an admin — users cannot remove admin-set pins
-    const [existingPin] = await db
-      .select({ pinned_by: kiloclaw_version_pins.pinned_by })
-      .from(kiloclaw_version_pins)
-      .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))
-      .limit(1);
-
-    if (existingPin && existingPin.pinned_by !== ctx.user.id) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Your version is pinned by an admin. Contact your Kilo admin to remove the pin.',
-      });
-    }
-
+    // Atomically delete only self-set pins — the WHERE clause enforces the admin-pin guard
+    // so there's no TOCTOU race between checking pinned_by and deleting.
     const [deleted] = await db
       .delete(kiloclaw_version_pins)
-      .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))
+      .where(
+        and(
+          eq(kiloclaw_version_pins.user_id, ctx.user.id),
+          eq(kiloclaw_version_pins.pinned_by, ctx.user.id)
+        )
+      )
       .returning();
 
     if (!deleted) {
+      // Check if a pin exists at all — if so, it's admin-set
+      const [existingPin] = await db
+        .select({ pinned_by: kiloclaw_version_pins.pinned_by })
+        .from(kiloclaw_version_pins)
+        .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))
+        .limit(1);
+
+      if (existingPin) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Your version is pinned by an admin. Contact your Kilo admin to remove the pin.',
+        });
+      }
+
       throw new TRPCError({ code: 'NOT_FOUND', message: 'No pin found for your account' });
     }
 

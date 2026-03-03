@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 
 let userA: User;
 let userB: User;
+let adminUser: User;
 
 const availableVersion = {
   openclaw_version: '2026.2.9',
@@ -35,6 +36,10 @@ beforeAll(async () => {
   userB = await insertTestUser({
     google_user_email: 'user-b-kiloclaw-pin@example.com',
     is_admin: false,
+  });
+  adminUser = await insertTestUser({
+    google_user_email: 'admin-kiloclaw-pin@example.com',
+    is_admin: true,
   });
 
   await db.insert(kiloclaw_image_catalog).values([availableVersion, disabledVersion]);
@@ -248,7 +253,7 @@ describe('Authorization', () => {
     expect(resultB?.user_id).toBe(userB.id);
   });
 
-  it('removeMyPin only removes the current user pin', async () => {
+  it('removeMyPin only removes the current user pin (self-set)', async () => {
     const callerA = await createCallerForUser(userA.id);
     await callerA.kiloclaw.removeMyPin();
 
@@ -265,5 +270,67 @@ describe('Authorization', () => {
       .from(kiloclaw_version_pins)
       .where(eq(kiloclaw_version_pins.user_id, userB.id));
     expect(pinsB.length).toBe(1);
+  });
+});
+
+describe('Admin-pin guard', () => {
+  afterEach(async () => {
+    await db.delete(kiloclaw_version_pins).where(eq(kiloclaw_version_pins.user_id, userA.id));
+  });
+
+  it('setMyPin throws FORBIDDEN when an admin has pinned the user', async () => {
+    // Admin pins userA
+    await db.insert(kiloclaw_version_pins).values({
+      user_id: userA.id,
+      image_tag: availableVersion.image_tag,
+      pinned_by: adminUser.id,
+      reason: 'Admin override',
+    });
+
+    const caller = await createCallerForUser(userA.id);
+    await expect(
+      caller.kiloclaw.setMyPin({
+        imageTag: availableVersion.image_tag,
+        reason: 'User trying to override',
+      })
+    ).rejects.toThrow('pinned by an admin');
+  });
+
+  it('removeMyPin throws FORBIDDEN when an admin has pinned the user', async () => {
+    // Admin pins userA
+    await db.insert(kiloclaw_version_pins).values({
+      user_id: userA.id,
+      image_tag: availableVersion.image_tag,
+      pinned_by: adminUser.id,
+    });
+
+    const caller = await createCallerForUser(userA.id);
+    await expect(caller.kiloclaw.removeMyPin()).rejects.toThrow('pinned by an admin');
+
+    // Verify pin is still there
+    const pins = await db
+      .select()
+      .from(kiloclaw_version_pins)
+      .where(eq(kiloclaw_version_pins.user_id, userA.id));
+    expect(pins.length).toBe(1);
+    expect(pins[0].pinned_by).toBe(adminUser.id);
+  });
+
+  it('setMyPin succeeds when user has self-set pin', async () => {
+    // User pins themselves first
+    await db.insert(kiloclaw_version_pins).values({
+      user_id: userA.id,
+      image_tag: availableVersion.image_tag,
+      pinned_by: userA.id,
+    });
+
+    const caller = await createCallerForUser(userA.id);
+    const result = await caller.kiloclaw.setMyPin({
+      imageTag: availableVersion.image_tag,
+      reason: 'Updated by user',
+    });
+
+    expect(result.reason).toBe('Updated by user');
+    expect(result.pinned_by).toBe(userA.id);
   });
 });
