@@ -786,11 +786,8 @@ describe('createEventProcessor', () => {
 
       // Message should be force-completed
       expect(callbacks.onMessageCompleted).toHaveBeenCalledTimes(1);
-      // onError should fire
-      expect(callbacks.onError).toHaveBeenCalledWith(
-        'The model failed to generate a response',
-        'child-1'
-      );
+      // No ErrorBanner — the session is still alive
+      expect(callbacks.onError).not.toHaveBeenCalled();
       // streaming should still be true (only 1 call: the busy=true)
       expect(callbacks.onStreamingChanged).toHaveBeenCalledTimes(1);
     });
@@ -990,12 +987,8 @@ describe('createEventProcessor', () => {
         null
       );
 
-      // Should stop streaming and fire error
-      expect(callbacks.onStreamingChanged).toHaveBeenLastCalledWith(false);
-      expect(callbacks.onError).toHaveBeenCalledWith(
-        'The model failed to generate a response',
-        'session-123'
-      );
+      // No ErrorBanner — the session is still alive, user can retry
+      expect(callbacks.onError).not.toHaveBeenCalled();
     });
 
     it('should not force-complete messages when reason is not error', () => {
@@ -1278,6 +1271,196 @@ describe('createEventProcessor', () => {
 
       expect(callbacks.onQuestionAsked).not.toHaveBeenCalled();
       expect(callbacks.onStandaloneQuestionAsked).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('termination events (interrupted, wrapper_disconnected, error)', () => {
+    it('interrupted should stop streaming and force-complete messages without calling onError', () => {
+      const callbacks: EventProcessorCallbacks = {
+        onMessageUpdated: jest.fn(),
+        onMessageCompleted: jest.fn(),
+        onStreamingChanged: jest.fn(),
+        onError: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      // Start streaming
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      // Create an in-flight assistant message
+      processor.processEvent(
+        createKilocodeEvent('message.updated', {
+          info: createAssistantInfo('msg-1'),
+        })
+      );
+
+      // Interrupted event (top-level streamEventType, not kilocode-wrapped)
+      processor.processEvent(createEvent('interrupted', { reason: 'Session stopped' }));
+
+      expect(callbacks.onError).not.toHaveBeenCalled();
+      expect(callbacks.onStreamingChanged).toHaveBeenLastCalledWith(false);
+      expect(callbacks.onMessageCompleted).toHaveBeenCalledTimes(1);
+    });
+
+    it('wrapper_disconnected should stop streaming and force-complete messages without calling onError', () => {
+      const callbacks: EventProcessorCallbacks = {
+        onMessageUpdated: jest.fn(),
+        onMessageCompleted: jest.fn(),
+        onStreamingChanged: jest.fn(),
+        onError: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      // Start streaming
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      // Create an in-flight assistant message
+      processor.processEvent(
+        createKilocodeEvent('message.updated', {
+          info: createAssistantInfo('msg-1'),
+        })
+      );
+
+      // Wrapper disconnected event
+      processor.processEvent(createEvent('wrapper_disconnected', { reason: 'container died' }));
+
+      expect(callbacks.onError).not.toHaveBeenCalled();
+      expect(callbacks.onStreamingChanged).toHaveBeenLastCalledWith(false);
+      expect(callbacks.onMessageCompleted).toHaveBeenCalledTimes(1);
+    });
+
+    it('bare error (fatal) should stop streaming and force-complete messages without calling onError', () => {
+      const callbacks: EventProcessorCallbacks = {
+        onMessageUpdated: jest.fn(),
+        onMessageCompleted: jest.fn(),
+        onStreamingChanged: jest.fn(),
+        onError: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      // Start streaming
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      // Create an in-flight assistant message
+      processor.processEvent(
+        createKilocodeEvent('message.updated', {
+          info: createAssistantInfo('msg-1'),
+        })
+      );
+
+      // Fatal error event
+      processor.processEvent(createEvent('error', { error: 'Process killed', fatal: true }));
+
+      expect(callbacks.onError).not.toHaveBeenCalled();
+      expect(callbacks.onStreamingChanged).toHaveBeenLastCalledWith(false);
+      expect(callbacks.onMessageCompleted).toHaveBeenCalledTimes(1);
+    });
+
+    it('session.error after interrupted should be silently dropped', () => {
+      const callbacks: EventProcessorCallbacks = {
+        onStreamingChanged: jest.fn(),
+        onError: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      // Start streaming
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      // Interrupted event
+      processor.processEvent(createEvent('interrupted', { reason: 'Session stopped' }));
+
+      // session.error arrives as an aftershock (CLI dying)
+      processor.processEvent(
+        createKilocodeEvent('session.error', {
+          sessionID: 'session-123',
+          error: 'MessageAbortedError',
+        })
+      );
+
+      // onError should NOT have been called — the session.error is an aftershock
+      expect(callbacks.onError).not.toHaveBeenCalled();
+    });
+
+    it('session.error without prior termination should still call onError', () => {
+      const callbacks: EventProcessorCallbacks = {
+        onStreamingChanged: jest.fn(),
+        onError: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      // Start streaming
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      // session.error without any prior termination event
+      processor.processEvent(
+        createKilocodeEvent('session.error', {
+          sessionID: 'session-123',
+          error: 'Something went wrong',
+        })
+      );
+
+      expect(callbacks.onError).toHaveBeenCalledWith('Something went wrong', 'session-123');
+    });
+
+    it('clear() should reset terminated state', () => {
+      const callbacks: EventProcessorCallbacks = {
+        onStreamingChanged: jest.fn(),
+        onError: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      // Start streaming, then interrupt
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+      processor.processEvent(createEvent('interrupted', { reason: 'Session stopped' }));
+
+      // Clear and start fresh
+      processor.clear();
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      // session.error should now trigger onError again (terminated was reset)
+      processor.processEvent(
+        createKilocodeEvent('session.error', {
+          sessionID: 'session-123',
+          error: 'Real error',
+        })
+      );
+
+      expect(callbacks.onError).toHaveBeenCalledWith('Real error', 'session-123');
     });
   });
 

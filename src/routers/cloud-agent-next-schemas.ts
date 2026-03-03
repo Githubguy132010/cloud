@@ -82,7 +82,7 @@ export const basePrepareSessionNextSchema = z
     setupCommands: z.array(z.string().max(500)).max(20).optional(),
     mcpServers: z.record(z.string(), mcpServerConfigNextSchema).optional(),
     upstreamBranch: z.string().optional(),
-    autoCommit: z.boolean().optional().default(false),
+    autoCommit: z.boolean().optional(),
   })
   .refine(
     data => (data.githubRepo || data.gitlabProject) && !(data.githubRepo && data.gitlabProject),
@@ -114,7 +114,7 @@ export const baseSendMessageNextSchema = z.object({
   mode: agentModeSendMessageSchema,
   model: z.string().min(1),
   variant: z.string().max(50).optional(),
-  autoCommit: z.boolean().optional().default(false),
+  autoCommit: z.boolean().optional(),
 });
 
 // Schema for interrupting a session
