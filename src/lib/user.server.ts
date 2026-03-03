@@ -58,6 +58,7 @@ import {
   NEXTAUTH_SECRET,
   GITLAB_CLIENT_ID,
   GITLAB_CLIENT_SECRET,
+  BLACKLIST_TLDS,
 } from '@/lib/config.server';
 import jwt from 'jsonwebtoken';
 import type { UUID } from 'node:crypto';
@@ -83,12 +84,6 @@ const warnInSentry = sentryLogger('user.server', 'warning');
 const blacklistDomainsEnv = getEnvVariable('BLACKLIST_DOMAINS');
 const BLACKLIST_DOMAINS = blacklistDomainsEnv
   ? blacklistDomainsEnv.split('|').map((domain: string) => domain.trim())
-  : [];
-
-// Pipe-delimited list of TLDs to block, each with a leading dot (e.g. ".shop|.top|.co.uk")
-const blacklistTldsEnv = getEnvVariable('BLACKLIST_TLDS');
-const BLACKLIST_TLDS = blacklistTldsEnv
-  ? blacklistTldsEnv.split('|').map((tld: string) => tld.trim().toLowerCase())
   : [];
 
 function createGoogleAccountInfo(
