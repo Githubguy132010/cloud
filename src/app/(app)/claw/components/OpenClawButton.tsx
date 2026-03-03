@@ -29,7 +29,7 @@ export function OpenClawButton({ canShow, gatewayUrl }: { canShow: boolean; gate
       }
     } catch {
       win?.close();
-      toast.error('Failed to generate access code for auto-login');
+      toast.error('Failed to open KiloClaw — invalid gateway URL');
     } finally {
       setIsOpening(false);
     }
