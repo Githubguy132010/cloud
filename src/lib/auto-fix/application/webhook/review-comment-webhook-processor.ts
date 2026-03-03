@@ -29,7 +29,7 @@ import type {
 } from '@/lib/integrations/platforms/github/webhook-schemas';
 
 const KILO_MENTION_PATTERN = /@kilo\b/i;
-const FIX_KEYWORD_PATTERN = /\b(fix|resolve|address|patch|correct)\b/i;
+const FIX_KEYWORD_PATTERN = /\b(fix|patch)\b/i;
 
 /**
  * author_association values that imply write access.

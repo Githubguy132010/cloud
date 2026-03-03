@@ -13,7 +13,7 @@ import { AUTO_FIX_CONSTANTS, type AutoFixAgentConfig } from './schemas';
  */
 export const DEFAULT_AUTO_FIX_CONFIG: AutoFixAgentConfig = {
   enabled_for_issues: false,
-  enabled_for_review_comments: true,
+  enabled_for_review_comments: false,
   repository_selection_mode: 'all',
   selected_repository_ids: [],
   skip_labels: [],

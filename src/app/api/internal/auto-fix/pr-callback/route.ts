@@ -280,11 +280,7 @@ async function createIssueFixPullRequest(
   if (!configResponse.ok) {
     const configError = await configResponse.text();
     const message = `Failed to load auto-fix config for PR creation: ${configResponse.status} ${configResponse.statusText} - ${configError}`;
-
-    if (configResponse.status >= 400 && configResponse.status < 500) {
-      await markIssueTicketFailed(params.ticketId, message);
-    }
-
+    await markIssueTicketFailed(params.ticketId, message);
     throw new Error(message);
   }
 
@@ -318,11 +314,7 @@ async function createIssueFixPullRequest(
   if (!createPrResponse.ok) {
     const createPrError = await createPrResponse.text();
     const message = `Failed to create PR from callback: ${createPrResponse.status} ${createPrResponse.statusText} - ${createPrError}`;
-
-    if (createPrResponse.status >= 400 && createPrResponse.status < 500) {
-      await markIssueTicketFailed(params.ticketId, message);
-    }
-
+    await markIssueTicketFailed(params.ticketId, message);
     throw new Error(message);
   }
 
