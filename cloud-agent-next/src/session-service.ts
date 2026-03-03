@@ -556,19 +556,12 @@ export class SessionService {
       createdOnPlatform === 'app-builder';
     const commandGuardPolicy = getCommandGuardPolicy(createdOnPlatform);
 
-    const configContent: Record<string, unknown> = {
-      permission: {
-        external_directory: {
-          [`/tmp/attachments/${sessionId}/**`]: 'allow',
-          [`${workspacePath}/**`]: 'allow',
-        },
-        ...(!isInteractive && { question: 'deny' }),
+    const permission: Record<string, unknown> = {
+      external_directory: {
+        [`/tmp/attachments/${sessionId}/**`]: 'allow',
+        [`${workspacePath}/**`]: 'allow',
       },
-      provider: {
-        kilo: {
-          options: providerOptions,
-        },
-      },
+      ...(!isInteractive && { question: 'deny' }),
     };
 
     if (commandGuardPolicy) {
@@ -582,10 +575,7 @@ export class SessionService {
         bashPermissions[`${cmd} *`] = 'allow';
       }
 
-      // Merge guard policy permissions into the existing permission block
-      const existingPermission = configContent.permission as Record<string, unknown>;
-      configContent.permission = {
-        ...existingPermission,
+      Object.assign(permission, {
         read: 'allow',
         edit: 'deny',
         bash: bashPermissions,
@@ -594,7 +584,7 @@ export class SessionService {
         codesearch: 'deny',
         todowrite: 'allow',
         todoread: 'allow',
-      };
+      });
 
       logger
         .withFields({
@@ -604,6 +594,15 @@ export class SessionService {
         })
         .info('Enabled read-only command guard policy');
     }
+
+    const configContent: Record<string, unknown> = {
+      permission,
+      provider: {
+        kilo: {
+          options: providerOptions,
+        },
+      },
+    };
     // MCP configs are already in CLI-native format — pass through directly
     if (mcpServers && Object.keys(mcpServers).length > 0) {
       configContent.mcp = mcpServers;
