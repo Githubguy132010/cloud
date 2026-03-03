@@ -606,7 +606,7 @@ export function CloudSessionsPage({ organizationId }: CloudSessionsPageProps) {
 
   const subtitleContent = (
     <p className="text-muted-foreground">
-      Start a new cloud agent session{' '}
+      Start a new cloud agent session.{' '}
       <a
         href="https://kilo.ai/docs/advanced-usage/cloud-agent"
         className="inline-flex items-center gap-1 text-blue-400 underline hover:text-blue-300"
