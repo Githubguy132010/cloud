@@ -77,7 +77,7 @@ export default function EarlybirdPage() {
               <Button
                 className="bg-brand-primary hover:text-brand-primary hover:ring-brand-primary w-full text-black hover:bg-black hover:ring-2"
                 size="lg"
-                disabled={checkoutMutation.isPending}
+                disabled={checkoutMutation.isPending || !earlybirdStatus}
                 onClick={() => checkoutMutation.mutate()}
               >
                 {checkoutMutation.isPending
