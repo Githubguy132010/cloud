@@ -8,12 +8,7 @@ import {
   organization_memberships,
 } from '@kilocode/db/schema';
 import { and, asc, count, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
-import type {
-  AnalysisMode,
-  QueueOwner,
-  SecurityAgentConfig,
-  SecurityFindingAnalysis,
-} from '../types.js';
+import type { QueueOwner, SecurityAgentConfig, SecurityFindingAnalysis } from '../types.js';
 import {
   AUTO_ANALYSIS_OWNER_CAP,
   DEFAULT_SECURITY_AGENT_CONFIG,
@@ -507,6 +502,7 @@ export async function setFindingPending(
       analysis_completed_at: null,
       session_id: null,
       cli_session_id: null,
+      updated_at: sql`now()`.mapWith(String),
     })
     .where(eq(security_findings.id, findingId));
 }
@@ -526,6 +522,7 @@ export async function setFindingRunning(
       analysis_started_at: sql`coalesce(${security_findings.analysis_started_at}, now())`.mapWith(
         String
       ),
+      updated_at: sql`now()`.mapWith(String),
     })
     .where(eq(security_findings.id, findingId));
 }
@@ -542,6 +539,7 @@ export async function setFindingCompleted(
       analysis: sql`${JSON.stringify(analysis)}::jsonb`,
       analysis_error: null,
       analysis_completed_at: sql`now()`.mapWith(String),
+      updated_at: sql`now()`.mapWith(String),
     })
     .where(eq(security_findings.id, findingId));
 }
@@ -557,10 +555,7 @@ export async function setFindingFailed(
       analysis_status: 'failed',
       analysis_error: errorMessage,
       analysis_completed_at: sql`now()`.mapWith(String),
+      updated_at: sql`now()`.mapWith(String),
     })
     .where(eq(security_findings.id, findingId));
-}
-
-export function sanitizeAnalysisMode(mode: AnalysisMode | undefined): AnalysisMode {
-  return mode ?? DEFAULT_SECURITY_AGENT_CONFIG.analysis_mode;
 }
