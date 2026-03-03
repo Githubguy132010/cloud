@@ -1,4 +1,3 @@
-import { isModelAllowedProviderAwareClient } from '@/lib/model-allow.client';
 import { normalizeModelId } from '@/lib/model-utils';
 
 export type OpenRouterModelSlugSnapshot = {
@@ -93,7 +92,7 @@ export function computeEnabledProviderSlugs(
 export function computeAllowedModelIds(
   draftModelAllowList: ReadonlyArray<string>,
   openRouterModels: ReadonlyArray<OpenRouterModelSlugSnapshot>,
-  openRouterProviders: OpenRouterProviderModelsSnapshot
+  _openRouterProviders: OpenRouterProviderModelsSnapshot
 ): Set<string> {
   const allowed = new Set<string>();
 
@@ -107,12 +106,7 @@ export function computeAllowedModelIds(
   const allowListArray = [...draftModelAllowList];
   for (const model of openRouterModels) {
     const normalizedModelId = normalizeModelId(model.slug);
-    const isAllowed = isModelAllowedProviderAwareClient(
-      normalizedModelId,
-      allowListArray,
-      openRouterProviders
-    );
-    if (isAllowed) {
+    if (allowListArray.includes(normalizedModelId)) {
       allowed.add(normalizedModelId);
     }
   }

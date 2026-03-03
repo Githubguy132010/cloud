@@ -13,7 +13,7 @@ import { AvailableModelsDialog } from './providers-and-models/AvailableModelsDia
 import { useOrganizationConfiguration } from './providers-and-models/useOrganizationConfiguration';
 import { useOpenRouterModelsAndProviders } from '@/app/api/openrouter/hooks';
 import type { ProviderSelection } from '@/components/models/util';
-import { isModelAllowedProviderAwareClient } from '@/lib/model-allow.client';
+import { normalizeModelId } from '@/lib/model-utils';
 
 type OrganizationProvidersAndModelsConfigurationCardProps = {
   organizationId: string;
@@ -67,8 +67,7 @@ export function computeProviderSelectionsForSummaryCard(params: {
         .filter(model => {
           if (!model.endpoint) return false;
           return (
-            modelAllowList.length === 0 ||
-            isModelAllowedProviderAwareClient(model.slug, modelAllowList, openRouterProviders)
+            modelAllowList.length === 0 || modelAllowList.includes(normalizeModelId(model.slug))
           );
         })
         .map(model => model.slug);
@@ -86,7 +85,7 @@ export function computeProviderSelectionsForSummaryCard(params: {
       const selectedModels = provider.models
         .filter(model => {
           if (!model.endpoint) return false;
-          return isModelAllowedProviderAwareClient(model.slug, modelAllowList, openRouterProviders);
+          return modelAllowList.includes(normalizeModelId(model.slug));
         })
         .map(model => model.slug);
 

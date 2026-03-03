@@ -7,7 +7,7 @@ import {
   useOpenRouterProviders,
 } from '@/app/api/openrouter/hooks';
 import type { OpenRouterProvider } from '@/lib/organizations/organization-types';
-import { isModelAllowedProviderAwareClient } from '@/lib/model-allow.client';
+import { normalizeModelId } from '@/lib/model-utils';
 
 export type ConfigurationData = {
   allModelsSelected: boolean;
@@ -23,8 +23,7 @@ export function useOrganizationConfiguration(organizationId: string) {
     useOrganizationWithMembers(organizationId);
   const { data: modelsData, isLoading: modelsLoading } = useOpenRouterModels();
   const { data: providersData, isLoading: providersLoading } = useOpenRouterProviders();
-  const { providers: openRouterProviders, isLoading: providersSnapshotLoading } =
-    useOpenRouterModelsAndProviders();
+  const { isLoading: providersSnapshotLoading } = useOpenRouterModelsAndProviders();
 
   const isLoading = orgLoading || modelsLoading || providersLoading || providersSnapshotLoading;
 
@@ -55,14 +54,14 @@ export function useOrganizationConfiguration(organizationId: string) {
     displayModelAllowList = []; // No exclusions
   } else {
     const allowedModelCount = allModelIds.filter(modelId =>
-      isModelAllowedProviderAwareClient(modelId, savedModelAllowList, openRouterProviders)
+      savedModelAllowList.includes(normalizeModelId(modelId))
     ).length;
     const modelAllowRatio = allowedModelCount / allModelIds.length;
     // If more than 50% are allowed, treat as "all selected" mode with exclusions
     if (modelAllowRatio > 0.5) {
       allModelsSelected = true;
       displayModelAllowList = allModelIds.filter(
-        id => !isModelAllowedProviderAwareClient(id, savedModelAllowList, openRouterProviders)
+        id => !savedModelAllowList.includes(normalizeModelId(id))
       );
     } else {
       allModelsSelected = false;
