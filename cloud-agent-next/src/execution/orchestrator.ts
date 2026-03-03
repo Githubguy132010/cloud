@@ -131,6 +131,12 @@ export class ExecutionOrchestrator {
     }
 
     // 5. Ensure wrapper is running (may throw WRAPPER_START_FAILED)
+    // Derive the wrapper's per-message timeout from CLI_TIMEOUT_SECONDS (with 60s headroom
+    // for post-completion tasks like log uploads). Falls back to undefined so the wrapper
+    // uses its own default (DEFAULT_INFLIGHT_TIMEOUT_MS = 20 min).
+    const cliTimeoutSeconds = Number(this.deps.env.CLI_TIMEOUT_SECONDS);
+    const maxRuntimeMs = cliTimeoutSeconds > 0 ? (cliTimeoutSeconds + 60) * 1000 : undefined;
+
     let wrapperClient: WrapperClient;
     try {
       wrapperClient = await WrapperClient.ensureWrapper(
@@ -144,6 +150,7 @@ export class ExecutionOrchestrator {
           condenseOnComplete: wrapper.condenseOnComplete,
           upstreamBranch: prepared.context.upstreamBranch,
           model: wrapper.model?.modelID,
+          maxRuntimeMs,
         }
       );
     } catch (error) {

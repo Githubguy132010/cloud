@@ -22,7 +22,7 @@ import type { Images } from './router/schemas.js';
 
 const uuidSchema = z.uuid();
 
-const DEFAULT_CLI_TIMEOUT_SECONDS = 900;
+const DEFAULT_CLI_TIMEOUT_SECONDS = 1800;
 const STREAM_TIMEOUT_BUFFER_SECONDS = 60;
 
 function emitKilocodeEvent(
