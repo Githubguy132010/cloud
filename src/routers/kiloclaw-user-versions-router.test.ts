@@ -66,9 +66,7 @@ describe('kiloclaw.listAvailableVersions', () => {
     }
 
     // Available version should be in the list
-    const hasAvailable = result.items.some(
-      item => item.image_tag === availableVersion.image_tag
-    );
+    const hasAvailable = result.items.some(item => item.image_tag === availableVersion.image_tag);
     expect(hasAvailable).toBe(true);
   });
 

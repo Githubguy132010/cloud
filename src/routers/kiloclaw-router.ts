@@ -13,9 +13,12 @@ import {
   STRIPE_KILOCLAW_EARLYBIRD_COUPON_ID,
 } from '@/lib/config.server';
 import { db } from '@/lib/drizzle';
-import { kiloclaw_version_pins, kiloclaw_image_catalog, kilocode_users, kiloclaw_earlybird_purchases } from '@kilocode/db/schema';
+import {
+  kiloclaw_version_pins,
+  kiloclaw_image_catalog,
+  kiloclaw_earlybird_purchases,
+} from '@kilocode/db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 import { sentryLogger } from '@/lib/utils.server';
 import type { KiloClawDashboardStatus, KiloCodeConfigResponse } from '@/lib/kiloclaw/types';
 import {
@@ -499,20 +502,18 @@ export const kiloclawRouter = createTRPCRouter({
     }),
 
   getMyPin: baseProcedure.query(async ({ ctx }) => {
-    const pinnedByUser = alias(kilocode_users, 'pinned_by_user');
     const [result] = await db
       .select({
         pin: kiloclaw_version_pins,
         openclaw_version: kiloclaw_image_catalog.openclaw_version,
         variant: kiloclaw_image_catalog.variant,
-        pinned_by_email: pinnedByUser.google_user_email,
       })
       .from(kiloclaw_version_pins)
       .leftJoin(
         kiloclaw_image_catalog,
         eq(kiloclaw_version_pins.image_tag, kiloclaw_image_catalog.image_tag)
       )
-      .leftJoin(pinnedByUser, eq(kiloclaw_version_pins.pinned_by, pinnedByUser.id))
+      // Intentionally not joining pinned_by user — avoid leaking admin email to end users
       .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))
       .limit(1);
 
@@ -522,7 +523,6 @@ export const kiloclawRouter = createTRPCRouter({
       ...result.pin,
       openclaw_version: result.openclaw_version,
       variant: result.variant,
-      pinned_by_email: result.pinned_by_email,
     };
   }),
 
@@ -555,6 +555,21 @@ export const kiloclawRouter = createTRPCRouter({
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: `Cannot pin to version with status '${version.status}'. Only 'available' versions can be pinned.`,
+        });
+      }
+
+      // Prevent users from overwriting admin-set pins
+      const [existingPin] = await db
+        .select({ pinned_by: kiloclaw_version_pins.pinned_by })
+        .from(kiloclaw_version_pins)
+        .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))
+        .limit(1);
+
+      if (existingPin && existingPin.pinned_by !== ctx.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message:
+            'Your version is pinned by an admin. Contact your Kilo admin to change or remove the pin.',
         });
       }
 
@@ -597,6 +612,20 @@ export const kiloclawRouter = createTRPCRouter({
     }),
 
   removeMyPin: baseProcedure.mutation(async ({ ctx }) => {
+    // Check if the pin was set by an admin — users cannot remove admin-set pins
+    const [existingPin] = await db
+      .select({ pinned_by: kiloclaw_version_pins.pinned_by })
+      .from(kiloclaw_version_pins)
+      .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))
+      .limit(1);
+
+    if (existingPin && existingPin.pinned_by !== ctx.user.id) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Your version is pinned by an admin. Contact your Kilo admin to remove the pin.',
+      });
+    }
+
     const [deleted] = await db
       .delete(kiloclaw_version_pins)
       .where(eq(kiloclaw_version_pins.user_id, ctx.user.id))

@@ -409,7 +409,7 @@ export function PinsTab() {
               </Select>
             </div>
             <div className="flex-1">
-              <p className="flex items-center gap-1 text-xs text-red-400 mb-1">
+              <p className="mb-1 flex items-center gap-1 text-xs text-red-400">
                 <AlertTriangle className="h-3 w-3 shrink-0" />
                 Reason is visible to the end user.
               </p>

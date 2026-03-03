@@ -207,9 +207,12 @@ export function useKiloClawServiceDegraded() {
 export function useKiloClawAvailableVersions(offset = 0, limit = 25) {
   const trpc = useTRPC();
   return useQuery(
-    trpc.kiloclaw.listAvailableVersions.queryOptions({ offset, limit }, {
-      staleTime: 5 * 60_000, // versions don't change frequently
-    })
+    trpc.kiloclaw.listAvailableVersions.queryOptions(
+      { offset, limit },
+      {
+        staleTime: 5 * 60_000, // versions don't change frequently
+      }
+    )
   );
 }
 
