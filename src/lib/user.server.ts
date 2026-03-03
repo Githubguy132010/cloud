@@ -85,6 +85,7 @@ const BLACKLIST_DOMAINS = blacklistDomainsEnv
   ? blacklistDomainsEnv.split('|').map((domain: string) => domain.trim())
   : [];
 
+// Pipe-delimited list of TLDs to block, each with a leading dot (e.g. ".shop|.top|.co.uk")
 const blacklistTldsEnv = getEnvVariable('BLACKLIST_TLDS');
 const BLACKLIST_TLDS = blacklistTldsEnv
   ? blacklistTldsEnv.split('|').map((tld: string) => tld.trim().toLowerCase())
@@ -824,12 +825,8 @@ export const isEmailBlacklistedByDomain = (
       email.toLowerCase().endsWith('.' + domain.toLowerCase())
   );
 
-export const isBlockedTLD = (email: string, blacklisted_tlds = BLACKLIST_TLDS) => {
-  const domain = getLowerDomainFromEmail(email);
-  if (!domain) return false;
-  const tld = domain.split('.').pop();
-  return tld !== undefined && blacklisted_tlds.includes(tld);
-};
+export const isBlockedTLD = (email: string, blacklisted_tlds = BLACKLIST_TLDS) =>
+  blacklisted_tlds.some(tld => email.toLowerCase().endsWith(tld));
 
 export function report_blocked_user(kiloUserId: string) {
   return authError(403, 'Access denied (R1)', kiloUserId);

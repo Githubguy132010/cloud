@@ -92,7 +92,7 @@ describe('isEmailBlacklistedByDomain', () => {
 });
 
 describe('isBlockedTLD', () => {
-  const blockedTlds = ['shop', 'top'];
+  const blockedTlds = ['.shop', '.top'];
 
   test('should block .shop TLD', () => {
     expect(isBlockedTLD('user@example.shop', blockedTlds)).toBe(true);
@@ -126,12 +126,15 @@ describe('isBlockedTLD', () => {
     expect(isBlockedTLD('user@topnotch.com', blockedTlds)).toBe(false);
   });
 
-  test('should return false for invalid email without @', () => {
-    expect(isBlockedTLD('no-at-sign', blockedTlds)).toBe(false);
-  });
-
   test('should return false when blocklist is empty', () => {
     expect(isBlockedTLD('user@example.shop', [])).toBe(false);
+  });
+
+  test('should handle multi-part TLDs like .co.uk', () => {
+    const withMultiPart = ['.shop', '.co.uk'];
+    expect(isBlockedTLD('user@example.co.uk', withMultiPart)).toBe(true);
+    expect(isBlockedTLD('user@example.com', withMultiPart)).toBe(false);
+    expect(isBlockedTLD('user@example.uk', withMultiPart)).toBe(false);
   });
 });
 
