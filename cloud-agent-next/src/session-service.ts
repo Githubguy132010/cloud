@@ -572,22 +572,28 @@ export class SessionService {
     };
 
     if (commandGuardPolicy) {
-      configContent.autoApproval = {
-        enabled: true,
-        read: { enabled: true, outside: false },
-        write: { enabled: false, outside: false, protected: true },
-        browser: { enabled: false },
-        retry: { enabled: false, delay: 10 },
-        mcp: { enabled: true },
-        mode: { enabled: true },
-        subtasks: { enabled: true },
-        execute: {
-          enabled: true,
-          allowed: commandGuardPolicy.allowed,
-          denied: commandGuardPolicy.denied,
-        },
-        question: { enabled: false, timeout: 60 },
-        todo: { enabled: true },
+      // Build bash permission rules from guard policy: allowed commands get "allow",
+      // denied commands get "deny". Patterns use glob-style matching (e.g. "ls *").
+      const bashPermissions: Record<string, string> = {};
+      for (const cmd of commandGuardPolicy.denied) {
+        bashPermissions[`${cmd} *`] = 'deny';
+      }
+      for (const cmd of commandGuardPolicy.allowed) {
+        bashPermissions[`${cmd} *`] = 'allow';
+      }
+
+      // Merge guard policy permissions into the existing permission block
+      const existingPermission = configContent.permission as Record<string, unknown>;
+      configContent.permission = {
+        ...existingPermission,
+        read: 'allow',
+        edit: 'deny',
+        bash: bashPermissions,
+        webfetch: 'deny',
+        websearch: 'deny',
+        codesearch: 'deny',
+        todowrite: 'allow',
+        todoread: 'allow',
       };
 
       logger
