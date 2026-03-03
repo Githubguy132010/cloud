@@ -57,7 +57,7 @@ export function isDataCollectionRequiredOnKiloCodeOnly(model: string): boolean {
 }
 
 export const kiloFreeModels = [
-  // Please do not remove models from this list immediatly.
+  // Please do not remove models from this list immediately.
   // Instead, set is_enabled to false first
   // and only remove when very few users are requesting it.
   corethink_free_model,
