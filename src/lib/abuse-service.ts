@@ -10,6 +10,7 @@ import {
 } from '@/lib/config.server';
 import { getFraudDetectionHeaders } from '@/lib/utils';
 import type { OpenRouterChatCompletionRequest } from '@/lib/providers/openrouter/types';
+import type { AuthProviderId } from '@/lib/auth/provider-metadata';
 import 'server-only';
 
 /**
@@ -311,6 +312,57 @@ export async function reportCost(payload: CostUpdatePayload): Promise<CostUpdate
     // Log but don't throw - this shouldn't affect user experience
     console.error('[Abuse] Failed to report cost:', error);
     return null;
+  }
+}
+
+/**
+ * Payload for the auth event tracking endpoint.
+ * Tracks signup/signin patterns for abuse detection.
+ */
+export type AuthEventPayload = {
+  kilo_user_id: string;
+  event_type: 'signup' | 'signin';
+  email: string;
+  account_created_at: string; // ISO 8601
+  ip_address?: string | null;
+  geo_city?: string | null;
+  geo_country?: string | null;
+  ja4_digest?: string | null;
+  user_agent?: string | null;
+  auth_method: AuthProviderId;
+  stytch_session_id?: string | null;
+};
+
+/**
+ * Report an auth event (signup or signin) to the abuse service.
+ * Fire-and-forget: catches all errors, never throws, never blocks auth.
+ */
+export async function reportAuthEvent(payload: AuthEventPayload): Promise<void> {
+  if (!ABUSE_SERVICE_URL) {
+    return;
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (ABUSE_SERVICE_CF_ACCESS_CLIENT_ID && ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET) {
+      headers['CF-Access-Client-Id'] = ABUSE_SERVICE_CF_ACCESS_CLIENT_ID;
+      headers['CF-Access-Client-Secret'] = ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET;
+    }
+
+    const response = await fetch(`${ABUSE_SERVICE_URL}/api/auth-event`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.error(`[Abuse] Auth event failed (${response.status}): ${await response.text()}`);
+    }
+  } catch (error) {
+    console.error('[Abuse] Failed to report auth event:', error);
   }
 }
 

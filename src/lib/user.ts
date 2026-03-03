@@ -7,6 +7,7 @@ import { db } from '@/lib/drizzle';
 import { WORKOS_API_KEY } from '@/lib/config.server';
 import { WorkOS } from '@workos-inc/node';
 import type { User } from '@kilocode/db/schema';
+import { reportAuthEvent } from '@/lib/abuse-service';
 import {
   payment_methods,
   kilocode_users,
@@ -158,10 +159,27 @@ export async function findUserByEmail(email: string): Promise<User | undefined> 
 export async function createOrUpdateUser(
   args: CreateOrUpdateUserArgs,
   turnstile_guid: UUID | undefined,
-  autoLinkToExistingUser: boolean = false
+  autoLinkToExistingUser: boolean = false,
+  requestHeaders?: Headers
 ): Promise<Result<{ user: User; isNew: boolean }, AuthErrorType>> {
   const existingUser = await findAndSyncExistingUser(args);
   if (existingUser) {
+    // Fire-and-forget auth event for signin
+    if (requestHeaders) {
+      void reportAuthEvent({
+        kilo_user_id: existingUser.id,
+        event_type: 'signin',
+        email: existingUser.google_user_email,
+        account_created_at: existingUser.created_at,
+        ip_address: requestHeaders.get('x-forwarded-for'),
+        geo_city: requestHeaders.get('x-vercel-ip-city'),
+        geo_country: requestHeaders.get('x-vercel-ip-country'),
+        ja4_digest: requestHeaders.get('x-vercel-ja4-digest'),
+        user_agent: requestHeaders.get('user-agent'),
+        auth_method: args.provider,
+      });
+    }
+
     // User signed in or is being updated
     posthogClient.capture({
       distinctId: existingUser.google_user_email,
@@ -283,6 +301,22 @@ export async function createOrUpdateUser(
 
     return savedUser;
   });
+
+  // Fire-and-forget auth event for signup
+  if (requestHeaders) {
+    void reportAuthEvent({
+      kilo_user_id: savedUser.id,
+      event_type: 'signup',
+      email: savedUser.google_user_email,
+      account_created_at: savedUser.created_at,
+      ip_address: requestHeaders.get('x-forwarded-for'),
+      geo_city: requestHeaders.get('x-vercel-ip-city'),
+      geo_country: requestHeaders.get('x-vercel-ip-country'),
+      ja4_digest: requestHeaders.get('x-vercel-ja4-digest'),
+      user_agent: requestHeaders.get('user-agent'),
+      auth_method: args.provider,
+    });
+  }
 
   // User created event in PostHog
   posthogClient.capture({
