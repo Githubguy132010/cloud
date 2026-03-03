@@ -82,6 +82,8 @@ export type LifecycleManager = {
   signalCompletion: () => void;
   /** Set the aborted flag to prevent post-completion tasks from running */
   setAborted: () => void;
+  /** Reset lifecycle state for a new execution (clears isAborted, isDraining, etc.) */
+  reset: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -99,6 +101,10 @@ export function createLifecycleManager(
   let drainTimeout: ReturnType<typeof setTimeout> | null = null;
   let isDraining = false;
   let isAborted = false;
+
+  // Incremented on reset() so in-flight triggerDrainAndClose chains from
+  // a previous execution can detect they are stale and bail out.
+  let generation = 0;
 
   // Completion waiter for post-processing tasks (auto-commit, condense)
   let postProcessingResolve: (() => void) | null = null;
@@ -375,6 +381,10 @@ export function createLifecycleManager(
     if (isDraining) return;
     isDraining = true;
 
+    // Capture generation so the async chain can detect if reset() was called
+    // (which starts a new execution) before it reaches the finally block.
+    const drainGeneration = generation;
+
     logToFile(`starting drain period (isAborted=${isAborted})`);
 
     // Run post-completion tasks first (auto-commit, condense), THEN send the complete event.
@@ -401,6 +411,14 @@ export function createLifecycleManager(
         }
       })
       .finally(() => {
+        // If reset() was called while post-completion tasks were running,
+        // a new execution has started — bail out to avoid sending a spurious
+        // complete event or tearing down the new execution's connection.
+        if (drainGeneration !== generation) {
+          logToFile('drain chain cancelled - lifecycle was reset');
+          return;
+        }
+
         // Send complete event to ingest so DO can update execution status and trigger callbacks
         // BUT only if not aborted - fatal errors already sent their own terminal event
         const job = state.currentJob;
@@ -488,5 +506,17 @@ export function createLifecycleManager(
     },
 
     getMaxRuntimeMs: () => config.maxRuntimeMs,
+
+    reset: () => {
+      generation++;
+      isAborted = false;
+      isDraining = false;
+      postProcessingCompleted = false;
+      postProcessingResolve = null;
+      if (drainTimeout) {
+        clearTimeout(drainTimeout);
+        drainTimeout = null;
+      }
+    },
   };
 }
