@@ -8,9 +8,7 @@ const AccessCodeResponse = z.object({
 });
 
 export function useAccessCode() {
-  const [accessCode, setAccessCode] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
 
   const generateAccessCode = useCallback(async (): Promise<string | null> => {
     setIsGenerating(true);
@@ -18,8 +16,6 @@ export function useAccessCode() {
       const res = await fetch('/api/kiloclaw/access-code', { method: 'POST' });
       if (!res.ok) throw new Error('Failed to generate access code');
       const data = AccessCodeResponse.parse(await res.json());
-      setAccessCode(data.code);
-      setIsCopied(false);
       return data.code;
     } catch (err) {
       const message =
@@ -33,30 +29,8 @@ export function useAccessCode() {
     }
   }, []);
 
-  const copyAccessCode = useCallback(async () => {
-    if (!accessCode) return;
-    if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
-      setIsCopied(false);
-      toast.error('Clipboard is not available in this environment');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(accessCode);
-      setIsCopied(true);
-      toast.success('Access code copied');
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch {
-      setIsCopied(false);
-      toast.error('Failed to copy access code');
-    }
-  }, [accessCode]);
-
   return {
-    accessCode,
     isGenerating,
-    isCopied,
     generateAccessCode,
-    copyAccessCode,
   };
 }
