@@ -86,7 +86,11 @@ type ResumeConfigState =
   | { status: 'persisted'; config: ResumeConfig }
   | { status: 'failed'; config: ResumeConfig; error: Error };
 
-export function CloudChatContainer({ organizationId, sessions, refetchSessions }: CloudChatContainerProps) {
+export function CloudChatContainer({
+  organizationId,
+  sessions,
+  refetchSessions,
+}: CloudChatContainerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();

@@ -1,9 +1,9 @@
 /**
  * Cloud Chat Page
  *
- * Owns the sidebar session query so it runs in a stable component that does not
- * re-render during the session-loading lifecycle, eliminating redundant
- * unifiedSessions.list invocations that would otherwise be batched by tRPC.
+ * Owns the sidebar session query so it runs outside CloudChatContainer,
+ * whose frequent internal state changes would otherwise cause redundant
+ * unifiedSessions.list invocations batched by tRPC.
  */
 
 'use client';

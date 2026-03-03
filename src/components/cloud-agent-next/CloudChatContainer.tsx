@@ -73,7 +73,11 @@ type CloudChatContainerProps = {
   refetchSessions: () => void;
 };
 
-export function CloudChatContainer({ organizationId, sessions, refetchSessions }: CloudChatContainerProps) {
+export function CloudChatContainer({
+  organizationId,
+  sessions,
+  refetchSessions,
+}: CloudChatContainerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
