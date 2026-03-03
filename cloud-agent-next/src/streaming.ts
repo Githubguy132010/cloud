@@ -22,6 +22,8 @@ import type { Images } from './router/schemas.js';
 
 const uuidSchema = z.uuid();
 
+/** 30 min — intentionally doubled from the original 15 min to accommodate multi-step
+ *  agentic workflows (e.g. orchestrator sub-tasks). Overridable via CLI_TIMEOUT_SECONDS env var. */
 const DEFAULT_CLI_TIMEOUT_SECONDS = 1800;
 const STREAM_TIMEOUT_BUFFER_SECONDS = 60;
 
