@@ -4,6 +4,10 @@
  * where the new listener takes over via leader election and the old one
  * shuts down via heartbeat detection.
  *
+ * Races the fetch against a 9-minute timer: whichever finishes first triggers
+ * the next request. This means if the endpoint returns early (e.g. error),
+ * we retry immediately instead of waiting out the full interval.
+ *
  * Usage: npx tsx dev/discord-gateway-cron.ts
  */
 import '../src/lib/load-env';
@@ -21,19 +25,27 @@ function timestamp() {
   return new Date().toLocaleTimeString('en-GB', { hour12: false });
 }
 
-function fireRequest() {
-  console.log(`[${timestamp()}] Sending request to gateway...`);
-
-  // Fire-and-forget: the endpoint runs for ~10 minutes, but we don't
-  // need to wait for it — the next request starts after 9 minutes
-  // regardless, and takes over via leader election.
-  fetch(URL, { headers: { Authorization: `Bearer ${CRON_SECRET}` } })
-    .then(res => console.log(`[${timestamp()}]   -> HTTP ${res.status}`))
-    .catch(err => console.error(`[${timestamp()}]   -> Error: ${err.message}`));
+function sleep(ms: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
-console.log(`Starting discord gateway cron (every ${INTERVAL_MS / 1000}s)`);
-console.log(`URL: ${URL}`);
+async function loop() {
+  console.log(`Starting discord gateway cron (every ${INTERVAL_MS / 1000}s)`);
+  console.log(`URL: ${URL}`);
 
-fireRequest();
-setInterval(fireRequest, INTERVAL_MS);
+  while (true) {
+    console.log(`[${timestamp()}] Sending request to gateway...`);
+
+    const fetchDone = fetch(URL, {
+      headers: { Authorization: `Bearer ${CRON_SECRET}` },
+    })
+      .then(res => console.log(`[${timestamp()}]   -> HTTP ${res.status}`))
+      .catch(err => console.error(`[${timestamp()}]   -> Error: ${err.message}`));
+
+    // Race: whichever finishes first triggers the next request.
+    // On success this is the 9-minute timer; on early failure it's immediate.
+    await Promise.race([fetchDone, sleep(INTERVAL_MS)]);
+  }
+}
+
+void loop();
