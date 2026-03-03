@@ -281,6 +281,13 @@
       "when": 1772547493233,
       "tag": "0039_naive_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1772570847749,
+      "tag": "0040_chief_vampiro",
+      "breakpoints": true
     }
   ]
 }
