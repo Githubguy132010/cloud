@@ -77,7 +77,7 @@ type FriendlyFailure = {
 function getFriendlyFailure(rawError: string): FriendlyFailure {
   const normalized = rawError.toLowerCase();
 
-  if (normalized.includes('failed to verify balance') || normalized.includes('balance')) {
+  if (normalized.includes('failed to verify balance') || normalized.includes('balance check')) {
     return {
       summary: 'I could not start this fix because the account balance check failed.',
       suggestedAction: 'Confirm your Kilo account has available credits, then retry the fix.',
