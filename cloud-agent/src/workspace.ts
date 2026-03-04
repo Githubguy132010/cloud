@@ -620,6 +620,8 @@ function ensureSafeGitBranchName(branchName: string): string {
     SAFE_GIT_BRANCH_PATTERN.test(branchName) &&
     !branchName.startsWith('/') &&
     !branchName.endsWith('/') &&
+    !branchName.endsWith('.') &&
+    !branchName.endsWith('.lock') &&
     !branchName.includes('//') &&
     !branchName.includes('..') &&
     !branchName.includes('@{');
