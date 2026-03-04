@@ -2,6 +2,10 @@
 
 Prepare a pull request description using this repository's PR template and then create or update the PR.
 
+Arguments:
+
+- `--draft` — Create the PR as a draft instead of ready for review.
+
 ## Required source of truth
 
 - Read and use `/.github/pull_request_template.md` from this repository.
@@ -50,5 +54,7 @@ Prepare a pull request description using this repository's PR template and then 
 
 1. Check whether a PR already exists for the current branch.
 2. If a PR exists, update the PR body using `gh pr edit --body`.
-3. If a PR does not exist, create it as a **draft** using `gh pr create --draft` with the generated title and body.
+3. If a PR does not exist:
+   - If `--draft` was passed as an argument, create it as a draft using `gh pr create --draft`.
+   - Otherwise, create it as ready for review using `gh pr create`.
 4. Return the PR URL.

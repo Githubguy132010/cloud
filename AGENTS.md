@@ -11,7 +11,7 @@
 
 ## Draft PRs
 
-When creating a pull request, **always create it as a draft** (`gh pr create --draft`). Let the author mark it ready for review.
+When creating a pull request, create it as **ready for review** by default. Only create it as a draft (`gh pr create --draft`) if the user explicitly requests a draft PR. Look for phrases like "draft", "WIP", or "not ready for review" in the user's prompt.
 
 ## Pull Request Descriptions
 
