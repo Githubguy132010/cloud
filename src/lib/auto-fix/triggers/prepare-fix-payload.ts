@@ -12,15 +12,15 @@ import { eq } from 'drizzle-orm';
 import { generateApiToken } from '@/lib/tokens';
 import { getFixTicketById } from '../db/fix-tickets';
 import type { Owner } from '../core/schemas';
-import type { AutoFixAgentConfig, DispatchFixRequest } from '../core/schemas';
+import type { DispatchFixRequest } from '../core/schemas';
+import { AutoFixAgentConfigSchema, AUTO_FIX_CONSTANTS } from '../core/schemas';
 import { logExceptInTest, errorExceptInTest } from '@/lib/utils.server';
-import { AUTO_FIX_CONSTANTS } from '../core/schemas';
 
 export interface PreparePayloadParams {
   ticketId: string;
   owner: Owner;
   agentConfig: {
-    config: AutoFixAgentConfig | Record<string, unknown>;
+    config: Record<string, unknown>;
     [key: string]: unknown;
   };
 }
@@ -53,8 +53,14 @@ export async function prepareFixPayload(params: PreparePayloadParams): Promise<D
     // 3. Generate auth token for cloud agent with bot identifier
     const authToken = generateApiToken(user, { botId: 'auto-fix' });
 
-    // 4. Get config values
-    const config = agentConfig.config as AutoFixAgentConfig;
+    // 4. Parse and validate config
+    const configResult = AutoFixAgentConfigSchema.safeParse(agentConfig.config);
+    if (!configResult.success) {
+      throw new Error(
+        `Invalid agent config for ticket ${ticketId}: ${configResult.error.flatten().fieldErrors}`
+      );
+    }
+    const config = configResult.data;
 
     // 5. Determine trigger source
     const triggerSource = ticket.trigger_source || 'label';
