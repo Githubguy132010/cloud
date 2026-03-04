@@ -1,33 +1,99 @@
-import { Chat, emoji, type Message, type Thread } from 'chat';
+import {
+  Actions,
+  Card,
+  Chat,
+  emoji,
+  LinkButton,
+  Section,
+  CardText,
+  type Message,
+  type Thread,
+} from 'chat';
 import { createSlackAdapter, type SlackEvent } from '@chat-adapter/slack';
 import { createRedisState } from '@chat-adapter/state-redis';
 import { getInstallationByTeamId } from '@/lib/integrations/slack-service';
+import { createLinkToken, resolveKiloUserId, type PlatformIdentity } from '@/lib/bot-identity';
+import { APP_URL } from '@/lib/constants';
 import type { PlatformIntegration } from '@kilocode/db';
 
-async function getSlackPlatformIntegration(message: Message<SlackEvent>) {
+// -- Platform helpers ---------------------------------------------------------
+
+function getSlackTeamId(message: Message<SlackEvent>): string {
   const teamId = message.raw.team_id ?? message.raw.team;
-
   if (!teamId) throw new Error('Expected a teamId in message.raw');
+  return teamId;
+}
 
-  return await getInstallationByTeamId(teamId);
+/**
+ * Extract platform identity coordinates from any adapter's message.
+ * Extend the switch for Discord / Teams / Google Chat / etc.
+ */
+function getPlatformIdentity(thread: Thread, message: Message): PlatformIdentity {
+  const platform = thread.id.split(':')[0]; // "slack", "discord", "gchat", "teams", …
+
+  switch (platform) {
+    case 'slack': {
+      const teamId = getSlackTeamId(message as Message<SlackEvent>);
+      return { platform: 'slack', teamId, userId: message.author.userId };
+    }
+    default:
+      throw new Error(`PlatformNotSupported: ${platform}`);
+  }
 }
 
 async function getPlatformIntegration(thread: Thread, message: Message) {
-  const parts = thread.id.split(':');
-  const platform = parts[0]; // "slack", "discord", "gchat", "teams", "github"
+  const platform = thread.id.split(':')[0];
 
   switch (platform) {
     case 'slack':
-      return await getSlackPlatformIntegration(message as Message<SlackEvent>);
+      return await getInstallationByTeamId(getSlackTeamId(message as Message<SlackEvent>));
     default:
-      throw new Error('PlatformNotSupported');
+      throw new Error(`PlatformNotSupported: ${platform}`);
   }
 }
+
+// -- Link-account prompt ------------------------------------------------------
+
+function buildLinkAccountUrl(identity: PlatformIdentity): string {
+  const url = new URL('/api/chat/link-account', APP_URL);
+  url.searchParams.set('token', createLinkToken(identity));
+  return url.toString();
+}
+
+function linkAccountCard(linkUrl: string) {
+  return Card({
+    title: 'Link your Kilo account',
+    children: [
+      Section([
+        CardText(
+          'To use Kilo from this workspace you first need to link your chat account. ' +
+            'Click the button below to sign in and link your account.'
+        ),
+      ]),
+      Actions([LinkButton({ label: 'Link Account', url: linkUrl, style: 'primary' })]),
+    ],
+  });
+}
+
+async function promptLinkAccount(
+  thread: Thread,
+  message: Message,
+  identity: PlatformIdentity
+): Promise<void> {
+  const linkUrl = buildLinkAccountUrl(identity);
+
+  await thread.postEphemeral(message.author, linkAccountCard(linkUrl), {
+    fallbackToDM: true,
+  });
+}
+
+// -- Message processing -------------------------------------------------------
 
 async function processMessage(
   thread: Thread,
   _message: Message,
-  _platformIntegration: PlatformIntegration
+  _platformIntegration: PlatformIntegration,
+  _kiloUserId: string
 ) {
   await thread.post('TODO');
 }
@@ -51,17 +117,26 @@ bot.onNewMention(async function handleIncomingMessage(
   thread: Thread,
   message: Message
 ): Promise<void> {
-  const platformIntegration = await getPlatformIntegration(thread, message);
+  const identity = getPlatformIdentity(thread, message);
+  const [platformIntegration, kiloUserId] = await Promise.all([
+    getPlatformIntegration(thread, message),
+    resolveKiloUserId(bot.getState(), identity),
+  ]);
 
   if (!platformIntegration) {
     throw new Error('No Active Platform Integration Found');
+  }
+
+  if (!kiloUserId) {
+    await promptLinkAccount(thread, message, identity);
+    return;
   }
 
   const received = thread.createSentMessageFromMessage(message);
   await received.addReaction(emoji.eyes);
 
   try {
-    await processMessage(thread, message, platformIntegration);
+    await processMessage(thread, message, platformIntegration, kiloUserId);
   } catch (error) {
     console.error('[Bot] Unhandled error in message handler:', error);
     await thread.post({ markdown: 'Sorry, something went wrong while processing your message.' });
