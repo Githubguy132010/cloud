@@ -8,6 +8,12 @@ Prepare a pull request description using this repository's PR template and then 
 - Preserve section headings and order exactly as they appear in the template.
 - Do not add sections that are not present in the template.
 
+## PR title
+
+- Use the format `type(scope): <description>` (e.g., `feat(auth): add SSO login`).
+- Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `style`, `perf`.
+- Keep the title under 72 characters, use imperative mood, and do not end with a period.
+
 ## Build the PR description
 
 1. Collect branch context.
@@ -44,5 +50,5 @@ Prepare a pull request description using this repository's PR template and then 
 
 1. Check whether a PR already exists for the current branch.
 2. If a PR exists, update the PR body using `gh pr edit --body`.
-3. If a PR does not exist, create it using `gh pr create` with the generated body.
+3. If a PR does not exist, create it as a **draft** using `gh pr create --draft` with the generated title and body.
 4. Return the PR URL.

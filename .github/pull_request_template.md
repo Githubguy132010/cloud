@@ -1,3 +1,6 @@
+<!-- PR title format: type(scope): description — e.g., feat(auth): add SSO login -->
+<!-- Keep the title under 72 characters, use imperative mood, no trailing period. -->
+
 ## Summary
 
 <!-- What changed and why? Keep this brief and outcome-focused. -->

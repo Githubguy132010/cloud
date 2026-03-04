@@ -1,5 +1,18 @@
 # AGENTS.md
 
+## Pull Request Titles
+
+- Use the format: `type(scope): <description>`
+  - Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `style`, `perf`
+  - Scope is optional but encouraged (e.g., `feat(auth): add SSO login`)
+- Use imperative mood (e.g., "Add feature", not "Added feature").
+- Keep titles under 72 characters.
+- Do not end the title with a period.
+
+## Draft PRs
+
+When creating a pull request, **always create it as a draft** (`gh pr create --draft`). Let the author mark it ready for review.
+
 ## Pull Request Descriptions
 
 When creating or updating a pull request, you **must** follow the PR template in `.github/pull_request_template.md`. Every PR description must include these four sections in order:
