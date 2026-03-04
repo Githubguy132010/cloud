@@ -676,10 +676,14 @@ export async function processStripePaymentEventHook(event: Stripe.Event) {
             });
             throw error;
           } finally {
-            if (processedSuccessfully) {
-              await markAutoTopUpCompleted({ type: 'user', id: user.id });
-            } else {
-              await releaseAutoTopUpAttemptLock({ type: 'user', id: user.id });
+            try {
+              if (processedSuccessfully) {
+                await markAutoTopUpCompleted({ type: 'user', id: user.id });
+              } else {
+                await releaseAutoTopUpAttemptLock({ type: 'user', id: user.id });
+              }
+            } catch (lockError) {
+              captureException(lockError);
             }
           }
         } else {
@@ -723,10 +727,14 @@ export async function processStripePaymentEventHook(event: Stripe.Event) {
             );
             throw error;
           } finally {
-            if (processedSuccessfully) {
-              await markAutoTopUpCompleted({ type: 'organization', id: organizationId });
-            } else {
-              await releaseAutoTopUpAttemptLock({ type: 'organization', id: organizationId });
+            try {
+              if (processedSuccessfully) {
+                await markAutoTopUpCompleted({ type: 'organization', id: organizationId });
+              } else {
+                await releaseAutoTopUpAttemptLock({ type: 'organization', id: organizationId });
+              }
+            } catch (lockError) {
+              captureException(lockError);
             }
           }
         }
