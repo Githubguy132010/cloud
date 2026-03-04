@@ -17,6 +17,13 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
     deployHint: 'redeploy_suggested',
   },
   {
+    date: '2026-03-04',
+    description:
+      'Added version pinning: you can now pin your KiloClaw instance to a specific OpenClaw version from the Settings tab. Choose your preferred version and variant to control when you upgrade.',
+    category: 'feature',
+    deployHint: null,
+  },
+  {
     date: '2026-03-01',
     description:
       'Fixed model picker showing unsupported models. If you encounter model-not-found errors, use Settings > Default Model to select a supported model and restart the gateway.',
