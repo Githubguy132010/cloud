@@ -81,16 +81,32 @@ function linkAccountCard(linkUrl: string) {
   });
 }
 
+/** True when the message is a top-level channel post (not a threaded reply). */
+function isChannelLevelMessage(thread: Thread, message: Message): boolean {
+  const platform = thread.id.split(':')[0];
+
+  switch (platform) {
+    case 'slack': {
+      const raw = (message as Message<SlackEvent>).raw;
+      return !raw.thread_ts || raw.thread_ts === raw.ts;
+    }
+    default:
+      return false;
+  }
+}
+
 async function promptLinkAccount(
   thread: Thread,
   message: Message,
   identity: PlatformIdentity
 ): Promise<void> {
   const linkUrl = buildLinkAccountUrl(identity);
+  const card = linkAccountCard(linkUrl);
+  const opts = { fallbackToDM: true } as const;
 
-  await thread.postEphemeral(message.author, linkAccountCard(linkUrl), {
-    fallbackToDM: true,
-  });
+  // Post to the channel when the @mention is top-level, otherwise into the thread.
+  const target = isChannelLevelMessage(thread, message) ? thread.channel : thread;
+  await target.postEphemeral(message.author, card, opts);
 }
 
 // -- Message processing -------------------------------------------------------
