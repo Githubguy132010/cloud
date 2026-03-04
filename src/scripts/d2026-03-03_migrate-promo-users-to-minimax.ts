@@ -39,7 +39,6 @@ type CandidateConfig = {
   ownerId: string;
   ownerLabel: string;
   balanceUsd: number;
-  currentConfig: Record<string, unknown>;
 };
 
 type DbOrTx = typeof db | DrizzleTransaction;
@@ -54,7 +53,6 @@ async function findCandidateConfigs(): Promise<CandidatesByOwnerType> {
     .select({
       configId: agent_configs.id,
       platform: agent_configs.platform,
-      config: agent_configs.config,
       userId: kilocode_users.id,
       email: kilocode_users.google_user_email,
       balance_musd:
@@ -75,26 +73,19 @@ async function findCandidateConfigs(): Promise<CandidatesByOwnerType> {
       )
     );
 
-  const users: CandidateConfig[] = [];
-  for (const row of userRows) {
-    const currentConfig = configAsRecord(row.config);
-    if (!currentConfig) continue;
-    users.push({
-      configId: row.configId,
-      platform: row.platform,
-      ownerType: 'user',
-      ownerId: row.userId,
-      ownerLabel: row.email,
-      balanceUsd: row.balance_musd / 1_000_000,
-      currentConfig,
-    });
-  }
+  const users: CandidateConfig[] = userRows.map(row => ({
+    configId: row.configId,
+    platform: row.platform,
+    ownerType: 'user',
+    ownerId: row.userId,
+    ownerLabel: row.email,
+    balanceUsd: row.balance_musd / 1_000_000,
+  }));
 
   const orgRows = await db
     .select({
       configId: agent_configs.id,
       platform: agent_configs.platform,
-      config: agent_configs.config,
       orgId: organizations.id,
       orgName: organizations.name,
       balance_musd:
@@ -115,20 +106,14 @@ async function findCandidateConfigs(): Promise<CandidatesByOwnerType> {
       )
     );
 
-  const orgs: CandidateConfig[] = [];
-  for (const row of orgRows) {
-    const currentConfig = configAsRecord(row.config);
-    if (!currentConfig) continue;
-    orgs.push({
-      configId: row.configId,
-      platform: row.platform,
-      ownerType: 'org',
-      ownerId: row.orgId,
-      ownerLabel: row.orgName ?? '(unnamed org)',
-      balanceUsd: row.balance_musd / 1_000_000,
-      currentConfig,
-    });
-  }
+  const orgs: CandidateConfig[] = orgRows.map(row => ({
+    configId: row.configId,
+    platform: row.platform,
+    ownerType: 'org',
+    ownerId: row.orgId,
+    ownerLabel: row.orgName ?? '(unnamed org)',
+    balanceUsd: row.balance_musd / 1_000_000,
+  }));
 
   return { users, orgs };
 }
@@ -164,7 +149,9 @@ async function migrateReviewModelsForDb(
     if (!isDryRun) {
       await dbOrTx
         .update(agent_configs)
-        .set({ config: { ...candidate.currentConfig, model_slug: TARGET_MODEL } })
+        .set({
+          config: sql`${agent_configs.config} || ${JSON.stringify({ model_slug: TARGET_MODEL })}::jsonb`,
+        })
         .where(eq(agent_configs.id, candidate.configId));
     }
     result.updated++;
