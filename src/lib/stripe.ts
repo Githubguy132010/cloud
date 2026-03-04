@@ -673,6 +673,7 @@ export async function processStripePaymentEventHook(event: Stripe.Event) {
               kilo_user_id: user.id,
               traceId,
               type: 'auto-topup',
+              error: error instanceof Error ? error.message : String(error),
             });
             throw error;
           } finally {
@@ -723,6 +724,7 @@ export async function processStripePaymentEventHook(event: Stripe.Event) {
                 organization_id: organizationId,
                 traceId,
                 type: 'org-auto-topup',
+                error: error instanceof Error ? error.message : String(error),
               }
             );
             throw error;
