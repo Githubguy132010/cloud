@@ -186,7 +186,7 @@ export async function cleanupStaleWorkspaces(
       .trim()
       .split('\n')
       .map(d => d.trim())
-      .filter(Boolean);
+      .filter(d => /^agent_[\w-]+$/.test(d));
   } catch (error) {
     logger
       .withFields({ error: error instanceof Error ? error.message : String(error) })
@@ -201,16 +201,6 @@ export async function cleanupStaleWorkspaces(
 
   for (const candidateSessionId of sessionDirs) {
     if (candidateSessionId === currentSessionId) {
-      skipped++;
-      continue;
-    }
-
-    // Only process entries that look like session IDs (agent_<uuid>) to guard
-    // against unexpected directory names breaking the rm -rf shell commands.
-    if (!/^agent_[\w-]+$/.test(candidateSessionId)) {
-      logger
-        .withFields({ candidateSessionId })
-        .warn('Skipping unexpected sessions directory entry');
       skipped++;
       continue;
     }
