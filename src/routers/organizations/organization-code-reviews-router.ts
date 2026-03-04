@@ -32,6 +32,7 @@ import {
 import { getValidGitLabToken } from '@/lib/integrations/gitlab-service';
 import { logExceptInTest } from '@/lib/utils.server';
 import { isFeatureFlagEnabled } from '@/lib/posthog-feature-flags';
+import { getBotUserId } from '@/lib/bot-users/bot-user-service';
 
 const PlatformSchema = z.enum(['github', 'gitlab']).default('github');
 
@@ -165,12 +166,15 @@ export const organizationReviewAgentRouter = createTRPCRouter({
     .input(OrganizationIdInputSchema.extend({ platform: PlatformSchema }))
     .query(async ({ input, ctx }) => {
       const platform = input.platform ?? 'github';
-      const [config, isCloudAgentNextFlagEnabled] = await Promise.all([
+      // Resolve bot user for flag evaluation — same identity used at dispatch time
+      const [config, botUserId] = await Promise.all([
         getAgentConfig(input.organizationId, 'code_review', platform),
-        isFeatureFlagEnabled('code-review-cloud-agent-next', ctx.user.id),
+        getBotUserId(input.organizationId, 'code-review'),
       ]);
+      const flagDistinctId = botUserId ?? ctx.user.id;
       const isCloudAgentNextEnabled =
-        isCloudAgentNextFlagEnabled || process.env.NODE_ENV === 'development';
+        process.env.NODE_ENV === 'development' ||
+        (await isFeatureFlagEnabled('code-review-cloud-agent-next', flagDistinctId));
 
       if (!config) {
         // Return default configuration
