@@ -998,7 +998,8 @@ export async function* autoCommitChangesStream(
     `cd ${workspacePath} && git log origin/${safeCurrentBranch}..HEAD --oneline 2>&1`
   );
   const unpushedOutput = unpushed.stdout.trim();
-  const verificationOutput = `${unpushed.stdout || ''}\n${unpushed.stderr || ''}`.trim();
+  // stderr is already merged into stdout via 2>&1, so just use stdout
+  const verificationOutput = unpushedOutput;
   const remoteBranchMissing =
     unpushed.exitCode !== 0 &&
     /(unknown revision|ambiguous argument|bad revision|does not match any|not a valid object name)/i.test(
