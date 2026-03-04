@@ -750,7 +750,7 @@ describe('autoCommitChangesStream', () => {
       expect(events).toHaveLength(2);
       expect(events[1]).toMatchObject({
         streamEventType: 'status',
-        message: expect.stringContaining('invalid branch name'),
+        message: expect.stringContaining('invalid branch name') as unknown,
       });
       expect(mockStreamKilocodeExec).not.toHaveBeenCalled();
     });
@@ -924,7 +924,7 @@ describe('autoCommitChangesStream', () => {
       const lastEvent = events[events.length - 1];
       expect(lastEvent).toMatchObject({
         streamEventType: 'status',
-        message: expect.stringContaining('Auto-commit completed successfully'),
+        message: expect.stringContaining('Auto-commit completed successfully') as unknown,
       });
     });
 
@@ -971,7 +971,7 @@ describe('autoCommitChangesStream', () => {
       const lastEvent = events[events.length - 1];
       expect(lastEvent).toMatchObject({
         streamEventType: 'status',
-        message: expect.stringContaining('Auto-commit completed successfully'),
+        message: expect.stringContaining('Auto-commit completed successfully') as unknown,
       });
     });
 

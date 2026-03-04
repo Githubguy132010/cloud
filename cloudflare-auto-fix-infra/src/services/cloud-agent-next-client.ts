@@ -56,7 +56,7 @@ export class CloudAgentNextClient {
       throw new Error(`prepareSession failed (${response.status}): ${errorText}`);
     }
 
-    const result = (await response.json()) as Record<string, unknown>;
+    const result = await response.json<Record<string, unknown>>();
     const data = (result.result as Record<string, unknown> | undefined)?.data as
       | Record<string, unknown>
       | undefined;
@@ -95,7 +95,7 @@ export class CloudAgentNextClient {
       throw new Error(`initiateFromKilocodeSessionV2 failed (${response.status}): ${errorText}`);
     }
 
-    const result = (await response.json()) as Record<string, unknown>;
+    const result = await response.json<Record<string, unknown>>();
     const data = (result.result as Record<string, unknown> | undefined)?.data as
       | Record<string, unknown>
       | undefined;
