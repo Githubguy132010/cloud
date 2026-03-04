@@ -205,7 +205,7 @@ export const GitHubAuthorAssociationSchema = z.enum([
 export const PullRequestReviewCommentPayloadSchema = z.object({
   action: z.string(),
   comment: z.object({
-    id: z.number(),
+    id: z.number().int(),
     body: z.string(),
     user: z.object({
       login: z.string(),
