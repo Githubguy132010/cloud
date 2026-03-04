@@ -268,8 +268,10 @@ export function SettingsTab({
   }
 
   // Determine if running version differs from tracked version
-  const trackedVersion = status.openclawVersion;
-  const runningVersion = controllerVersion?.version;
+  // Strip quotes if the API returns them in the string
+  const cleanVersion = (v: string | null | undefined) => v?.replace(/^["']|["']$/g, '') || null;
+  const trackedVersion = cleanVersion(status.openclawVersion);
+  const runningVersion = cleanVersion(controllerVersion?.version);
   const versionMismatch = trackedVersion && runningVersion && trackedVersion !== runningVersion;
 
   return (
