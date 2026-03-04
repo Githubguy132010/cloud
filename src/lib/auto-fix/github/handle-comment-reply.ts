@@ -245,6 +245,10 @@ export async function handleCommentReply(
           '[auto-fix-comment-reply] Failed to post success reply (non-fatal):',
           successReplyError
         );
+        captureException(successReplyError, {
+          tags: { operation: 'auto-fix-comment-reply', step: 'post-success-reply' },
+          extra: { ticketId, sessionId, prNumber: ticket.issue_number },
+        });
       }
 
       await updateFixTicketStatus(ticketId, 'completed', {
