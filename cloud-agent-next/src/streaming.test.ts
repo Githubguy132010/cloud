@@ -209,7 +209,7 @@ describe('streamKilocodeExecution', () => {
     expect(events).toHaveLength(0);
     expect(error.message).toContain('exceeded the');
     expect(error.message).toContain('timeout limit');
-    expect(error.message).toContain('1800s'); // DEFAULT_CLI_TIMEOUT_SECONDS
+    expect(error.message).toContain('900s'); // DEFAULT_CLI_TIMEOUT_SECONDS
     expect(error.message).toContain('Try simplifying your request');
   });
 

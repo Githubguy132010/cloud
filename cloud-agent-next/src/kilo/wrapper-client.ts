@@ -214,8 +214,6 @@ export class WrapperClient {
     upstreamBranch?: string;
     /** Model ID for the wrapper */
     model?: string;
-    /** Per-message timeout in milliseconds (forwarded as MAX_RUNTIME_MS to wrapper) */
-    maxRuntimeMs?: number;
   }): Promise<void> {
     const {
       sessionId,
@@ -227,7 +225,6 @@ export class WrapperClient {
       condenseOnComplete,
       upstreamBranch,
       model,
-      maxRuntimeMs,
     } = options;
 
     // First, try to check health
@@ -252,7 +249,6 @@ export class WrapperClient {
     if (condenseOnComplete) envParts.push('CONDENSE_ON_COMPLETE=true');
     if (upstreamBranch) envParts.push(`UPSTREAM_BRANCH=${upstreamBranch}`);
     if (model) envParts.push(`MODEL=${model}`);
-    if (maxRuntimeMs) envParts.push(`MAX_RUNTIME_MS=${maxRuntimeMs}`);
 
     const command = `${envParts.join(' ')} bun run ${wrapperPath} ${sessionMarker}`;
 
@@ -304,7 +300,6 @@ export class WrapperClient {
       condenseOnComplete?: boolean;
       upstreamBranch?: string;
       model?: string;
-      maxRuntimeMs?: number;
     }
   ): Promise<WrapperClient> {
     logger.withFields({ sessionId, workspacePath }).info('Ensuring wrapper is running');
