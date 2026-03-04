@@ -273,6 +273,9 @@ export function SettingsTab({
   const trackedVersion = cleanVersion(status.openclawVersion);
   const runningVersion = cleanVersion(controllerVersion?.version);
   const versionMismatch = trackedVersion && runningVersion && trackedVersion !== runningVersion;
+  
+  // Only show version info if we have meaningful data (not just ":latest" or empty)
+  const hasVersionInfo = isRunning && trackedVersion && trackedVersion !== ':latest';
 
   return (
     <div className="flex flex-col gap-6">
@@ -284,8 +287,10 @@ export function SettingsTab({
 
       <Separator />
 
-      {/* OpenClaw Version Information */}
-      <div>
+      {/* OpenClaw Version Information - only show when instance is running with real version data */}
+      {hasVersionInfo && (
+        <>
+          <div>
         <h3 className="text-foreground mb-3 flex items-center gap-2 text-sm font-medium">
           <Package className="h-4 w-4" />
           OpenClaw Version
@@ -332,6 +337,8 @@ export function SettingsTab({
       </div>
 
       <Separator />
+        </>
+      )}
 
       <div>
         <h2 className="text-foreground mb-4 text-lg font-semibold">KiloCode Configuration</h2>
