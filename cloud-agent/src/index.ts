@@ -301,7 +301,6 @@ export default class KilocodeWorker extends WorkerEntrypoint<Env> {
             .withFields({
               status: validationResult.status,
               procedure: procedureName,
-              reason: validationResult.message,
             })
             .warn('Pre-flight validation failed');
 
@@ -383,7 +382,6 @@ export default class KilocodeWorker extends WorkerEntrypoint<Env> {
             .withFields({
               status: validationResult.status,
               procedure: procedureName,
-              reason: validationResult.message,
             })
             .warn('Pre-flight validation failed for V2 mutation');
 

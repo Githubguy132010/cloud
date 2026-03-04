@@ -144,23 +144,13 @@ export function createSessionInitHandlers() {
               }
             }
 
+            const usageEvent = await createSandboxUsageEvent(session, sessionId);
+            yield usageEvent;
+
             if (interrupted) {
-              // Best-effort sandbox usage after interrupted stream (container may be dead)
-              try {
-                yield await createSandboxUsageEvent(session, sessionId);
-              } catch (usageError) {
-                logger
-                  .withFields({
-                    error: usageError instanceof Error ? usageError.message : String(usageError),
-                  })
-                  .warn('Failed to collect sandbox usage after interrupted session (non-fatal)');
-              }
               logger.info('Session execution interrupted; skipping post-exec steps');
               return;
             }
-
-            const usageEvent = await createSandboxUsageEvent(session, sessionId);
-            yield usageEvent;
 
             // Auto-commit if requested
             if (input.autoCommit) {
@@ -343,19 +333,10 @@ export function createSessionInitHandlers() {
             // sessionId is assigned at generator start, so it's always available here
             const confirmedSessionId = sessionId;
 
+            yield await createSandboxUsageEvent(session, confirmedSessionId);
+
             if (interrupted) {
               logger.info('Session execution interrupted/failed; skipping post-exec steps');
-
-              // Best-effort sandbox usage after interrupted stream (container may be dead)
-              try {
-                yield await createSandboxUsageEvent(session, confirmedSessionId);
-              } catch (usageError) {
-                logger
-                  .withFields({
-                    error: usageError instanceof Error ? usageError.message : String(usageError),
-                  })
-                  .warn('Failed to collect sandbox usage after interrupted session (non-fatal)');
-              }
 
               // Invoke callback with interrupted/failed status, including the real error reason
               logger.info('Invoking callback for interrupted session');
@@ -369,8 +350,6 @@ export function createSessionInitHandlers() {
               // But skip: auto-commit and complete event
               return;
             }
-
-            yield await createSandboxUsageEvent(session, confirmedSessionId);
 
             // Auto-commit if requested
             logger.info(`Checking for auto-commit request: ${input.autoCommit}`);
@@ -665,26 +644,13 @@ export function createSessionInitHandlers() {
                   }
                 }
 
+                const usageEvent = await createSandboxUsageEvent(session, sessionId);
+                yield usageEvent;
+
                 if (interrupted) {
-                  // Best-effort sandbox usage after interrupted stream (container may be dead)
-                  try {
-                    yield await createSandboxUsageEvent(session, sessionId);
-                  } catch (usageError) {
-                    logger
-                      .withFields({
-                        error:
-                          usageError instanceof Error ? usageError.message : String(usageError),
-                      })
-                      .warn(
-                        'Failed to collect sandbox usage after interrupted session (non-fatal)'
-                      );
-                  }
                   logger.info('Session execution interrupted; skipping post-exec steps');
                   return;
                 }
-
-                const usageEvent = await createSandboxUsageEvent(session, sessionId);
-                yield usageEvent;
 
                 // Auto-commit if requested
                 if (metadata.autoCommit) {
@@ -818,26 +784,13 @@ export function createSessionInitHandlers() {
                   }
                 }
 
+                const usageEvent = await createSandboxUsageEvent(session, sessionId);
+                yield usageEvent;
+
                 if (interrupted) {
-                  // Best-effort sandbox usage after interrupted stream (container may be dead)
-                  try {
-                    yield await createSandboxUsageEvent(session, sessionId);
-                  } catch (usageError) {
-                    logger
-                      .withFields({
-                        error:
-                          usageError instanceof Error ? usageError.message : String(usageError),
-                      })
-                      .warn(
-                        'Failed to collect sandbox usage after interrupted session (non-fatal)'
-                      );
-                  }
                   logger.info('Session execution interrupted; skipping post-exec steps');
                   return;
                 }
-
-                const usageEvent = await createSandboxUsageEvent(session, sessionId);
-                yield usageEvent;
 
                 // Auto-commit if requested
                 if (legacyInput.autoCommit) {
