@@ -830,15 +830,7 @@ export class SessionService {
     );
 
     // Check disk space before clone; clean up stale workspaces if low
-    const diskSpace = await checkDiskSpace(session);
-    if (diskSpace.isLow) {
-      await cleanupStaleWorkspaces(
-        session,
-        sandbox,
-        getBaseWorkspacePath(orgId, userId),
-        sessionId
-      );
-    }
+    await SessionService.checkDiskAndCleanIfLow(session, sandbox, orgId, userId, sessionId);
 
     // Clone repository using appropriate method
     // Shallow clone (depth: 1) can be enabled for faster checkout and reduced disk usage
@@ -1081,15 +1073,7 @@ export class SessionService {
     );
 
     // Check disk space before clone; clean up stale workspaces if low
-    const diskSpace = await checkDiskSpace(session);
-    if (diskSpace.isLow) {
-      await cleanupStaleWorkspaces(
-        session,
-        sandbox,
-        getBaseWorkspacePath(orgId, userId),
-        sessionId
-      );
-    }
+    await SessionService.checkDiskAndCleanIfLow(session, sandbox, orgId, userId, sessionId);
 
     // Clone repository using appropriate method
     if (gitUrl) {
@@ -1273,15 +1257,7 @@ export class SessionService {
     const isColdStart = !repoExists;
 
     // Check disk space; clean up stale workspaces if low
-    const diskSpace = await checkDiskSpace(session);
-    if (diskSpace.isLow) {
-      await cleanupStaleWorkspaces(
-        session,
-        sandbox,
-        getBaseWorkspacePath(orgId, userId),
-        sessionId
-      );
-    }
+    await SessionService.checkDiskAndCleanIfLow(session, sandbox, orgId, userId, sessionId);
 
     // Only re-run setup if we had to reclone (cold start)
     if (isColdStart) {
@@ -1383,6 +1359,24 @@ export class SessionService {
       return SessionService.interruptWithPkill(session, sessionContext, executionId);
     }
     return SessionService.interruptWithSandboxApi(sandbox, session, sessionContext);
+  }
+
+  private static async checkDiskAndCleanIfLow(
+    session: ExecutionSession,
+    sandbox: SandboxInstance,
+    orgId: string | undefined,
+    userId: string,
+    sessionId: string
+  ): Promise<void> {
+    const diskSpace = await checkDiskSpace(session);
+    if (diskSpace.isLow) {
+      await cleanupStaleWorkspaces(
+        session,
+        sandbox,
+        getBaseWorkspacePath(orgId, userId),
+        sessionId
+      );
+    }
   }
 
   /**
