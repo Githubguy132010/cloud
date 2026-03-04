@@ -1,115 +1,10 @@
-import {
-  Actions,
-  Card,
-  Chat,
-  emoji,
-  LinkButton,
-  Section,
-  CardText,
-  type ActionEvent,
-  type Message,
-  type Thread,
-} from 'chat';
-import { createSlackAdapter, type SlackEvent } from '@chat-adapter/slack';
+import { Chat, emoji, type ActionEvent, type Message, type Thread } from 'chat';
+import { createSlackAdapter } from '@chat-adapter/slack';
 import { createRedisState } from '@chat-adapter/state-redis';
-import { getInstallationByTeamId } from '@/lib/integrations/slack-service';
-import { createLinkToken, resolveKiloUserId, type PlatformIdentity } from '@/lib/bot-identity';
-import { APP_URL } from '@/lib/constants';
+import { resolveKiloUserId } from '@/lib/bot-identity';
 import type { PlatformIntegration } from '@kilocode/db';
-
-// -- Platform helpers ---------------------------------------------------------
-
-function getSlackTeamId(message: Message<SlackEvent>): string {
-  const teamId = message.raw.team_id ?? message.raw.team;
-  if (!teamId) throw new Error('Expected a teamId in message.raw');
-  return teamId;
-}
-
-/**
- * Extract platform identity coordinates from any adapter's message.
- * Extend the switch for Discord / Teams / Google Chat / etc.
- */
-function getPlatformIdentity(thread: Thread, message: Message): PlatformIdentity {
-  const platform = thread.id.split(':')[0]; // "slack", "discord", "gchat", "teams", …
-
-  switch (platform) {
-    case 'slack': {
-      const teamId = getSlackTeamId(message as Message<SlackEvent>);
-      return { platform: 'slack', teamId, userId: message.author.userId };
-    }
-    default:
-      throw new Error(`PlatformNotSupported: ${platform}`);
-  }
-}
-
-async function getPlatformIntegration(thread: Thread, message: Message) {
-  const platform = thread.id.split(':')[0];
-
-  switch (platform) {
-    case 'slack':
-      return await getInstallationByTeamId(getSlackTeamId(message as Message<SlackEvent>));
-    default:
-      throw new Error(`PlatformNotSupported: ${platform}`);
-  }
-}
-
-// -- Link-account prompt ------------------------------------------------------
-
-const LINK_ACCOUNT_PATH = '/api/chat/link-account';
-
-/** Prefix that the Slack adapter auto-generates for LinkButton action_ids. */
-const LINK_ACCOUNT_ACTION_PREFIX = `link-${APP_URL}${LINK_ACCOUNT_PATH}`;
-
-function buildLinkAccountUrl(identity: PlatformIdentity): string {
-  const url = new URL(LINK_ACCOUNT_PATH, APP_URL);
-  url.searchParams.set('token', createLinkToken(identity));
-  return url.toString();
-}
-
-function linkAccountCard(linkUrl: string) {
-  return Card({
-    title: 'Link your Kilo account',
-    children: [
-      Section([
-        CardText(
-          'To use Kilo from this workspace you first need to link your chat account. ' +
-            'Click the button below to sign in and link your account.'
-        ),
-      ]),
-      Actions([LinkButton({ label: 'Link Account', url: linkUrl, style: 'primary' })]),
-    ],
-  });
-}
-
-/** True when the message is a top-level channel post (not a threaded reply). */
-function isChannelLevelMessage(thread: Thread, message: Message): boolean {
-  const platform = thread.id.split(':')[0];
-
-  switch (platform) {
-    case 'slack': {
-      const raw = (message as Message<SlackEvent>).raw;
-      return !raw.thread_ts || raw.thread_ts === raw.ts;
-    }
-    default:
-      return false;
-  }
-}
-
-async function promptLinkAccount(
-  thread: Thread,
-  message: Message,
-  identity: PlatformIdentity
-): Promise<void> {
-  const linkUrl = buildLinkAccountUrl(identity);
-  const card = linkAccountCard(linkUrl);
-  const opts = { fallbackToDM: true } as const;
-
-  // Post to the channel when the @mention is top-level, otherwise into the thread.
-  const target = isChannelLevelMessage(thread, message) ? thread.channel : thread;
-  await target.postEphemeral(message.author, card, opts);
-}
-
-// -- Message processing -------------------------------------------------------
+import { getPlatformIdentity, getPlatformIntegration } from '@/lib/bot/platform-helpers';
+import { LINK_ACCOUNT_ACTION_PREFIX, promptLinkAccount } from '@/lib/bot/link-account';
 
 async function processMessage(
   thread: Thread,
@@ -119,8 +14,6 @@ async function processMessage(
 ) {
   await thread.post('TODO');
 }
-
-// -- Bot instance -------------------------------------------------------------
 
 const slackAdapter = createSlackAdapter({
   clientId: process.env.SLACK_CLIENT_ID,
