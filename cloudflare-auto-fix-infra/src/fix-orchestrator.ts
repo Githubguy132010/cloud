@@ -69,7 +69,13 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
       });
 
       if (this.state.triggerSource === 'review_comment') {
-        await this.notifyReviewCommentFailure(this.state.sessionId, errorMessage);
+        // notifyReviewCommentFailure calls handleCommentReply which already
+        // marks the ticket as failed — only fall through to updateStatus if
+        // the notification itself failed.
+        const notified = await this.notifyReviewCommentFailure(this.state.sessionId, errorMessage);
+        if (notified) {
+          return;
+        }
       }
 
       await this.updateStatus('failed', {
@@ -278,10 +284,11 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
    * Best-effort failure notification for review-comment tickets when
    * preparation/initiation fails before the callback can run.
    */
+  /** Returns true when the comment-reply endpoint successfully updated the ticket. */
   private async notifyReviewCommentFailure(
     sessionId: string | undefined,
     errorMessage: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     console.log('[AutoFixOrchestrator] Notifying review comment failure', {
       ticketId: this.state.ticketId,
       sessionId,
@@ -312,18 +319,21 @@ export class AutoFixOrchestrator extends DurableObject<Env> {
           httpStatusText: response.statusText,
           errorText,
         });
-      } else {
-        console.log('[AutoFixOrchestrator] Review comment failure notification succeeded', {
-          ticketId: this.state.ticketId,
-          sessionId,
-        });
+        return false;
       }
+
+      console.log('[AutoFixOrchestrator] Review comment failure notification succeeded', {
+        ticketId: this.state.ticketId,
+        sessionId,
+      });
+      return true;
     } catch (notifyError) {
       console.warn('[AutoFixOrchestrator] Error notifying review comment failure', {
         ticketId: this.state.ticketId,
         sessionId,
         error: notifyError instanceof Error ? notifyError.message : String(notifyError),
       });
+      return false;
     }
   }
 
