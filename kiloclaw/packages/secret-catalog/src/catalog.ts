@@ -89,22 +89,22 @@ export const SECRET_CATALOG: readonly SecretCatalogEntry[] = [
 // Lookup helpers
 
 /** Map of entry ID → entry */
-export const SECRET_CATALOG_MAP = new Map<string, SecretCatalogEntry>(
+export const SECRET_CATALOG_MAP: ReadonlyMap<string, SecretCatalogEntry> = new Map(
   SECRET_CATALOG.map(entry => [entry.id, entry])
 );
 
 /** Set of all field keys across all entries */
-export const ALL_SECRET_FIELD_KEYS = new Set<string>(
+export const ALL_SECRET_FIELD_KEYS: ReadonlySet<string> = new Set(
   SECRET_CATALOG.flatMap(entry => entry.fields.map(field => field.key))
 );
 
 /** Map of field key → env var name */
-export const FIELD_KEY_TO_ENV_VAR = new Map<string, string>(
+export const FIELD_KEY_TO_ENV_VAR: ReadonlyMap<string, string> = new Map(
   SECRET_CATALOG.flatMap(entry => entry.fields.map(field => [field.key, field.envVar]))
 );
 
 /** Map of field key → owning entry (used for allFieldsRequired checks) */
-export const FIELD_KEY_TO_ENTRY = new Map<string, SecretCatalogEntry>(
+export const FIELD_KEY_TO_ENTRY: ReadonlyMap<string, SecretCatalogEntry> = new Map(
   SECRET_CATALOG.flatMap(entry => entry.fields.map(field => [field.key, entry]))
 );
 

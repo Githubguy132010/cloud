@@ -1,3 +1,14 @@
+const regexCache = new Map<string, RegExp>();
+
+function getRegex(pattern: string): RegExp {
+  let regex = regexCache.get(pattern);
+  if (!regex) {
+    regex = new RegExp(pattern);
+    regexCache.set(pattern, regex);
+  }
+  return regex;
+}
+
 /**
  * Validates a field value against its catalog validation pattern.
  *
@@ -11,17 +22,6 @@
  * @returns true if valid or no validation needed, false if invalid
  * @throws Error if the validation pattern is invalid (forces catalog authors to fix bad patterns)
  */
-const regexCache = new Map<string, RegExp>();
-
-function getRegex(pattern: string): RegExp {
-  let regex = regexCache.get(pattern);
-  if (!regex) {
-    regex = new RegExp(pattern);
-    regexCache.set(pattern, regex);
-  }
-  return regex;
-}
-
 export function validateFieldValue(
   value: string | null | undefined,
   pattern: string | undefined
