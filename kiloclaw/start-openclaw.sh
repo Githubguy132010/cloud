@@ -267,10 +267,6 @@ config.tools.exec = config.tools.exec || {};
 config.tools.exec.host = 'gateway';
 config.tools.exec.security = 'allowlist';
 config.tools.exec.ask = 'on-miss';
-// Pre-approved CLIs for allowlist mode.
-if (!config.tools.exec.safeBins) {
-    config.tools.exec.safeBins = ['rg', 'git', 'gh', 'node', 'pnpm', 'go'];
-}
 
 // Telegram configuration
 // Overwrite entire channel object to drop stale keys that would fail

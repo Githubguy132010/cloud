@@ -171,8 +171,6 @@ export function generateBaseConfig(
   config.tools.exec.host = 'gateway';
   config.tools.exec.security = 'allowlist';
   config.tools.exec.ask = 'on-miss';
-  // Pre-approved CLIs for allowlist mode.
-  config.tools.exec.safeBins = ['rg', 'git', 'gh', 'node', 'pnpm', 'go'];
 
   // Telegram
   if (env.TELEGRAM_BOT_TOKEN) {

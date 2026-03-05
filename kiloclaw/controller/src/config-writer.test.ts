@@ -92,9 +92,6 @@ describe('generateBaseConfig', () => {
     expect(config.tools.exec.host).toBe('gateway');
     expect(config.tools.exec.security).toBe('allowlist');
     expect(config.tools.exec.ask).toBe('on-miss');
-
-    // Safe bins
-    expect(config.tools.exec.safeBins).toEqual(['rg', 'git', 'gh', 'node', 'pnpm', 'go']);
   });
 
   it('always sets tool profile to full on restore', () => {
@@ -103,18 +100,6 @@ describe('generateBaseConfig', () => {
     const config = generateBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
 
     expect(config.tools.profile).toBe('full');
-  });
-
-  it('always resets safeBins to defaults on restore', () => {
-    const existing = JSON.stringify({
-      tools: {
-        exec: { safeBins: ['rg', 'custom_bin'] },
-      },
-    });
-    const { deps } = fakeDeps(existing);
-    const config = generateBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
-
-    expect(config.tools.exec.safeBins).toEqual(['rg', 'git', 'gh', 'node', 'pnpm', 'go']);
   });
 
   it('preserves existing config keys not touched by the patch', () => {
