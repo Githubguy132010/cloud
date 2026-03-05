@@ -180,7 +180,7 @@ export const OpenRouterStreamChatCompletionChunkChoiceSchema = z
         reasoning: z.string().nullish().optional(),
         reasoning_details: ReasoningDetailArraySchema.nullish(),
         images: ImageResponseArraySchema.nullish(),
-        phase: z.enum(['commentary', 'final_answer']).nullable().optional(),
+        phase: PhaseSchema.nullable().optional(),
         tool_calls: z
           .array(
             z
