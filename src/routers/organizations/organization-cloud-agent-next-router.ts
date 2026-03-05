@@ -178,19 +178,13 @@ export const organizationCloudAgentNextRouter = createTRPCRouter({
       const authToken = generateCloudAgentToken(ctx.user);
       const client = createCloudAgentNextClient(authToken);
 
-      // Determine platform to fetch the correct token
-      const session = await client.getSession(input.cloudAgentSessionId);
-      let githubToken: string | undefined;
-
-      if (session.platform !== 'gitlab') {
-        githubToken = await getGitHubTokenForOrganization(input.organizationId);
-      }
-
+      // No token fetch needed: prepare and initiate happen back-to-back,
+      // so tokens stored during prepareSession are still fresh.
+      // The DO refreshes GitHub App installation tokens internally.
       try {
         return await client.initiateFromPreparedSession({
           cloudAgentSessionId: input.cloudAgentSessionId,
           kilocodeOrganizationId: input.organizationId,
-          githubToken,
         });
       } catch (error) {
         rethrowAsPaymentRequired(error);

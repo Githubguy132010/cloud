@@ -108,7 +108,6 @@ export type PrepareSessionOutput = {
 export type InitiateFromPreparedSessionInput = {
   cloudAgentSessionId: string;
   kilocodeOrganizationId?: string;
-  githubToken?: string;
 };
 
 /** Input for sendMessage procedure (V2 - uses cloudAgentSessionId) */
