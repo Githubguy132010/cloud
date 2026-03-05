@@ -1,5 +1,6 @@
 import {
   createCloudAgentNextClient,
+  type AgentMode,
   type PrepareSessionInput,
 } from '@/lib/cloud-agent-next/cloud-agent-client';
 import { runSessionToCompletion } from '@/lib/cloud-agent-next/run-session';
@@ -25,31 +26,41 @@ type SpawnCloudAgentResult = {
   sessionId?: string;
 };
 
-export const spawnCloudAgentInputSchema = z.object({
-  githubRepo: z
-    .string()
-    .regex(/^[-a-zA-Z0-9_.]+\/[-a-zA-Z0-9_.]+$/)
-    .describe('The GitHub repository in owner/repo format (e.g., "facebook/react")')
-    .optional(),
-  gitlabProject: z
-    .string()
-    .regex(/^[-a-zA-Z0-9_.]+(?:\/[-a-zA-Z0-9_.]+)+$/)
-    .describe(
-      'The GitLab project path in group/project format (e.g., "mygroup/myproject"). May include nested groups (e.g., "group/subgroup/project").'
-    )
-    .optional(),
+const sharedFields = {
   prompt: z
     .string()
     .describe(
       'The task description for the Cloud Agent. Be specific about what changes or analysis you want.'
     ),
   mode: z
-    .enum(['architect', 'code', 'ask', 'debug', 'orchestrator'])
+    .enum(['code', 'plan', 'debug', 'orchestrator', 'ask', 'build', 'architect', 'custom'])
     .default('code')
     .describe(
-      'The agent mode: "code" for making changes, "architect" for design tasks, "ask" for questions, "debug" for troubleshooting, "orchestrator" for complex multi-step tasks'
+      'The agent mode: "code" for making changes, "plan" for design tasks, "ask" for questions, "debug" for troubleshooting, "orchestrator" for complex multi-step tasks. "build" and "architect" are backward-compatible aliases for "code" and "plan".'
     ),
+};
+
+const githubSchema = z.object({
+  githubRepo: z
+    .string()
+    .regex(/^[-a-zA-Z0-9_.]+\/[-a-zA-Z0-9_.]+$/)
+    .describe('The GitHub repository in owner/repo format (e.g., "facebook/react")'),
+  ...sharedFields,
 });
+
+const gitlabSchema = z.object({
+  gitlabProject: z
+    .string()
+    .regex(/^[-a-zA-Z0-9_.]+(?:\/[-a-zA-Z0-9_.]+)+$/)
+    .describe(
+      'The GitLab project path in group/project format (e.g., "mygroup/myproject"). May include nested groups (e.g., "group/subgroup/project").'
+    ),
+  ...sharedFields,
+});
+
+export const spawnCloudAgentInputSchema = z.union([githubSchema, gitlabSchema]);
+
+type SpawnCloudAgentInput = z.infer<typeof spawnCloudAgentInputSchema>;
 
 /**
  * Spawn a Cloud Agent session and collect the results.
@@ -57,12 +68,7 @@ export const spawnCloudAgentInputSchema = z.object({
  * Delegates to the shared runSessionToCompletion helper.
  */
 export default async function spawnCloudAgentSession(
-  args: {
-    githubRepo?: string;
-    gitlabProject?: string;
-    prompt: string;
-    mode?: string;
-  },
+  args: SpawnCloudAgentInput,
   model: string,
   platformIntegration: PlatformIntegration,
   authToken: string,
@@ -70,32 +76,13 @@ export default async function spawnCloudAgentSession(
 ): Promise<SpawnCloudAgentResult> {
   console.log('[SlackBot] spawnCloudAgentSession called with args:', JSON.stringify(args, null, 2));
 
-  if (args.githubRepo && args.gitlabProject) {
-    return {
-      response: 'Error: Both githubRepo and gitlabProject were specified. Provide exactly one.',
-    };
-  }
-
-  if (!args.githubRepo && !args.gitlabProject) {
-    return {
-      response: 'Error: No repository specified. Provide either githubRepo or gitlabProject.',
-    };
-  }
-
-  // Validate the repo identifier has at least "owner/repo" shape (non-empty segments around a slash)
-  const repoIdentifier = args.githubRepo ?? args.gitlabProject;
-  if (!repoIdentifier || !/\/./.test(repoIdentifier)) {
-    return {
-      response: `Error: Invalid repository identifier "${repoIdentifier ?? ''}". Expected format like "owner/repo".`,
-    };
-  }
-
   // Build platform-specific prepareInput and initiateInput
   const kilocodeOrganizationId = platformIntegration.owned_by_organization_id || undefined;
   let prepareInput: PrepareSessionInput;
   let initiateInput: { githubToken?: string; kilocodeOrganizationId?: string };
+  const mode: AgentMode = args.mode ?? 'code';
 
-  if (args.gitlabProject) {
+  if ('gitlabProject' in args) {
     // GitLab path: get token + instance URL, build clone URL, use gitUrl/gitToken
     const gitlabToken =
       typeof platformIntegration.owned_by_organization_id === 'string'
@@ -126,7 +113,7 @@ export default async function spawnCloudAgentSession(
 
     prepareInput = {
       prompt: args.prompt,
-      mode: (args.mode as PrepareSessionInput['mode']) || 'code',
+      mode,
       model,
       gitUrl,
       gitToken: gitlabToken,
@@ -152,7 +139,7 @@ export default async function spawnCloudAgentSession(
     prepareInput = {
       githubRepo: args.githubRepo,
       prompt: args.prompt,
-      mode: (args.mode as PrepareSessionInput['mode']) || 'code',
+      mode,
       model,
       githubToken,
       kilocodeOrganizationId,
