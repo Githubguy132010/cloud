@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import type { OrganizationRole, TimePeriod } from '@/lib/organizations/organization-types';
@@ -34,20 +35,30 @@ export function OrganizationPaymentDetails({ organizationId, role, isAutoTopUpEn
   const isKiloAdmin = session?.data?.isAdmin ?? false;
   const { data: organizationData } = useOrganizationWithMembers(organizationId);
   const { expiringBlocks, expiring_mUsd, earliestExpiry } = useExpiringCredits(organizationId);
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const hasHandledSetupParam = useRef(false);
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const setupStatus = url.searchParams.get('auto_topup_setup');
+    if (hasHandledSetupParam.current) return;
+    const setupStatus = searchParams.get('auto_topup_setup');
+    if (!setupStatus) return;
+
+    hasHandledSetupParam.current = true;
+
     if (setupStatus === 'success') {
       toast.success('Automatic top up enabled');
     } else if (setupStatus === 'cancelled') {
       toast.info('Automatic top up setup cancelled');
     }
 
-    if (!setupStatus) return;
-    url.searchParams.delete('auto_topup_setup');
-    window.history.replaceState({}, '', url.toString());
-  }, []);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('auto_topup_setup');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   return (
     <OrganizationContextProvider value={{ userRole, isKiloAdmin, isAutoTopUpEnabled }}>

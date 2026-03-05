@@ -162,7 +162,7 @@ async function maybePerformAutoTopUpForEntity(entity: AutoTopUpEntity): Promise<
   }
 
   if (result.success) {
-    sentryLogger('auto-topup', 'info')(`Auto-top-up successful for ${entityLabel}`, {
+    logExceptInTest(`Auto-top-up successful for ${entityLabel}`, {
       traceId,
       entity_type: entity.type,
       entity_id: entityId,

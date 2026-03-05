@@ -301,6 +301,7 @@ async function handleAutoTopUpSetup(
 
 async function handleOrgAutoTopUpSetup(
   organizationId: string,
+  kiloUserId: string,
   paymentIntent: Stripe.PaymentIntent,
   config: StripeConfig
 ) {
@@ -329,8 +330,6 @@ async function handleOrgAutoTopUpSetup(
     ? parseInt(paymentIntent.metadata.amountCents, 10)
     : DEFAULT_ORG_AUTO_TOP_UP_AMOUNT_CENTS;
 
-  const createdByUserId = paymentIntent.metadata.kiloUserId ?? null;
-
   await db
     .insert(auto_top_up_configs)
     .values({
@@ -338,7 +337,7 @@ async function handleOrgAutoTopUpSetup(
       stripe_payment_method_id: paymentMethodId,
       amount_cents: amountCents,
       disabled_reason: null,
-      created_by_user_id: createdByUserId,
+      created_by_user_id: kiloUserId,
     })
     .onConflictDoUpdate({
       target: auto_top_up_configs.owned_by_organization_id,
@@ -346,7 +345,7 @@ async function handleOrgAutoTopUpSetup(
         stripe_payment_method_id: paymentMethodId,
         amount_cents: amountCents,
         disabled_reason: null,
-        created_by_user_id: createdByUserId,
+        created_by_user_id: kiloUserId,
       },
       targetWhere: sql`${auto_top_up_configs.owned_by_organization_id} IS NOT NULL`,
     });
@@ -398,7 +397,7 @@ export async function handleSuccessfulChargeWithPayment(
     await processTopupForOrganization(kiloUserId, organizationId, creditAmountInCents, config);
 
     if (paymentIntent.metadata.type === 'org-auto-topup-setup') {
-      await handleOrgAutoTopUpSetup(organizationId, paymentIntent, config);
+      await handleOrgAutoTopUpSetup(organizationId, kiloUserId, paymentIntent, config);
     }
 
     // Save payment method for organization (for future auto-top-ups)

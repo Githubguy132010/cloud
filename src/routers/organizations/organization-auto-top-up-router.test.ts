@@ -278,12 +278,12 @@ describe('organization auto-top-up router', () => {
 
     it('rejects invalid amountCents', async () => {
       const caller = await createCallerForUser(ownerUser.id);
-      const invalidInput = JSON.parse(
-        JSON.stringify({ organizationId: testOrg.id, amountCents: 1234 })
-      );
-      await expect(
-        caller.organizations.autoTopUp.changePaymentMethod(invalidInput)
-      ).rejects.toThrow(/amountCents/i);
+      const promise = caller.organizations.autoTopUp.changePaymentMethod({
+        organizationId: testOrg.id,
+        // @ts-expect-error testing runtime validation with an invalid amountCents value
+        amountCents: 1234,
+      });
+      await expect(promise).rejects.toThrow(/amountCents/i);
     });
   });
 });
