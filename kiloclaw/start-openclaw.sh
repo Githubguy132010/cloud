@@ -263,16 +263,11 @@ config.tools.exec = config.tools.exec || {};
 config.tools.exec.host = 'gateway';
 config.tools.exec.security = 'allowlist';
 config.tools.exec.ask = 'on-miss';
-// Ensure pre-installed CLIs are in safeBins so they don't require approval.
-// Merges into any existing user-configured list without overwriting.
-var requiredSafeBins = ['rg', 'git', 'node', 'pnpm', 'go'];
-var currentSafeBins = config.tools.exec.safeBins || [];
-requiredSafeBins.forEach(function(bin) {
-    if (currentSafeBins.indexOf(bin) === -1) {
-        currentSafeBins.push(bin);
-    }
-});
-config.tools.exec.safeBins = currentSafeBins;
+// Default safe bins on fresh install only. Users can approve additional
+// tools via the Control UI; we don't overwrite their choices on restart.
+if (!config.tools.exec.safeBins) {
+    config.tools.exec.safeBins = ['rg', 'git', 'node', 'pnpm', 'go'];
+}
 
 // Telegram configuration
 // Overwrite entire channel object to drop stale keys that would fail

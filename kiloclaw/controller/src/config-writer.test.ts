@@ -105,7 +105,7 @@ describe('generateBaseConfig', () => {
     expect(config.tools.profile).toBe('coding');
   });
 
-  it('merges required safeBins without duplicating existing entries', () => {
+  it('preserves user-customized safeBins', () => {
     const existing = JSON.stringify({
       tools: {
         exec: { safeBins: ['rg', 'custom_bin'] },
@@ -114,7 +114,7 @@ describe('generateBaseConfig', () => {
     const { deps } = fakeDeps(existing);
     const config = generateBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
 
-    expect(config.tools.exec.safeBins).toEqual(['rg', 'custom_bin', 'git', 'node', 'pnpm', 'go']);
+    expect(config.tools.exec.safeBins).toEqual(['rg', 'custom_bin']);
   });
 
   it('preserves existing config keys not touched by the patch', () => {

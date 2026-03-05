@@ -172,16 +172,9 @@ export function generateBaseConfig(
   config.tools.exec.host = 'gateway';
   config.tools.exec.security = 'allowlist';
   config.tools.exec.ask = 'on-miss';
-  // Extend safe bins with tools pre-installed in the Docker image.
-  // The defaults (jq, cut, uniq, head, tail, tr, wc) are inherited;
-  // these additions avoid mandatory approval prompts for common dev CLIs.
-  const existingSafeBins: string[] = Array.isArray(config.tools.exec.safeBins)
-    ? config.tools.exec.safeBins
-    : [];
-  for (const bin of ['rg', 'git', 'node', 'pnpm', 'go']) {
-    if (!existingSafeBins.includes(bin)) existingSafeBins.push(bin);
-  }
-  config.tools.exec.safeBins = existingSafeBins;
+  // Default safe bins on fresh install only. Users can approve additional
+  // tools via the Control UI; we don't overwrite their choices on restart.
+  config.tools.exec.safeBins = config.tools.exec.safeBins ?? ['rg', 'git', 'node', 'pnpm', 'go'];
 
   // Telegram
   if (env.TELEGRAM_BOT_TOKEN) {
