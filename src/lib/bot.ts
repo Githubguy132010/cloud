@@ -9,8 +9,9 @@ import { findUserById } from '@/lib/user';
 import { processMessage } from '@/lib/bot/run';
 
 const slackAdapter = createSlackAdapter({
-  clientId: process.env.SLACK_CLIENT_ID,
-  clientSecret: process.env.SLACK_CLIENT_SECRET,
+  clientId: process.env.SLACK_NEXT_CLIENT_ID,
+  clientSecret: process.env.SLACK_NEXT_CLIENT_SECRET,
+  signingSecret: process.env.SLACK_NEXT_SIGNING_SECRET,
 });
 
 export const bot = new Chat({

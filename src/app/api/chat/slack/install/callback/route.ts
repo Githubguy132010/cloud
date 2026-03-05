@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   // TODO(remon): Not completely sure why this is needed, but handleOAuthCallback
   //   requires a redirect_uri in the URL, and we don't have it (because we are the redirect_uri)
   const url = new URL(request.url);
-  url.searchParams.set('redirect_uri', SLACK_REDIRECT_URI);
+  url.searchParams.set('redirect_uri', `${APP_URL}/api/chat/slack/install/callback`);
   const patchedRequest = new Request(url, request);
 
   const { teamId, installation } = await slackAdapter.handleOAuthCallback(patchedRequest);
@@ -43,13 +43,13 @@ export async function GET(request: Request) {
         .where(
           and(
             eq(platform_integrations.owned_by_organization_id, orgId),
-            eq(platform_integrations.platform, PLATFORM.SLACK)
+            eq(platform_integrations.platform, PLATFORM.SLACK_NEXT)
           )
         );
 
       await tx.insert(platform_integrations).values({
         owned_by_organization_id: orgId,
-        platform: PLATFORM.SLACK,
+        platform: PLATFORM.SLACK_NEXT,
         integration_type: 'oauth',
         platform_installation_id: teamId,
         platform_account_id: teamId,
@@ -66,13 +66,13 @@ export async function GET(request: Request) {
         .where(
           and(
             eq(platform_integrations.owned_by_user_id, user.id),
-            eq(platform_integrations.platform, PLATFORM.SLACK)
+            eq(platform_integrations.platform, PLATFORM.SLACK_NEXT)
           )
         );
 
       await tx.insert(platform_integrations).values({
         owned_by_user_id: user.id,
-        platform: PLATFORM.SLACK,
+        platform: PLATFORM.SLACK_NEXT,
         integration_type: 'oauth',
         platform_installation_id: teamId,
         platform_account_id: teamId,

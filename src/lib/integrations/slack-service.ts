@@ -23,7 +23,7 @@ const SLACK_DEFAULT_MODEL = minimax_m25_free_model.is_enabled
 
 // Slack OAuth scopes for the integration
 // These should be kept in sync with the scopes requested in the Slack app configuration
-const SLACK_SCOPES = [
+export const SLACK_SCOPES = [
   'app_mentions:read',
   'channels:history',
   'channels:read',
@@ -44,7 +44,7 @@ const SLACK_SCOPES = [
   'users:read.email',
 ];
 
-export const SLACK_REDIRECT_URI = `${APP_URL}/api/chat/slack/install/callback`;
+export const SLACK_REDIRECT_URI = `${APP_URL}/api/integrations/slack/callback`;
 
 function getOwnershipConditions(owner: Owner) {
   return owner.type === 'user'

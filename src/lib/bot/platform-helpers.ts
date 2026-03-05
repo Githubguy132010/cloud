@@ -1,6 +1,9 @@
 import type { PlatformIdentity } from '@/lib/bot-identity';
-import { getInstallationByTeamId } from '@/lib/integrations/slack-service';
+import { db } from '@/lib/drizzle';
+import { eq, and } from 'drizzle-orm';
+import { PLATFORM } from '@/lib/integrations/core/constants';
 import { type SlackEvent } from '@chat-adapter/slack';
+import { platform_integrations } from '@kilocode/db';
 import type { Message, Thread } from 'chat';
 
 export function getSlackTeamId(message: Message<SlackEvent>): string {
@@ -26,12 +29,27 @@ export function getPlatformIdentity(thread: Thread, message: Message): PlatformI
   }
 }
 
+async function getSlackNextInstallation(teamId: string) {
+  const [integration] = await db
+    .select()
+    .from(platform_integrations)
+    .where(
+      and(
+        eq(platform_integrations.platform, PLATFORM.SLACK_NEXT),
+        eq(platform_integrations.platform_installation_id, teamId)
+      )
+    )
+    .limit(1);
+
+  return integration;
+}
+
 export async function getPlatformIntegration(thread: Thread, message: Message) {
   const platform = thread.id.split(':')[0];
 
   switch (platform) {
     case 'slack':
-      return await getInstallationByTeamId(getSlackTeamId(message as Message<SlackEvent>));
+      return await getSlackNextInstallation(getSlackTeamId(message as Message<SlackEvent>));
     default:
       throw new Error(`PlatformNotSupported: ${platform}`);
   }
