@@ -9,6 +9,12 @@ import 'server-only';
 export const IS_IN_AUTOMATED_TEST = !!getEnvVariable('IS_IN_AUTOMATED_TEST');
 export const NEXTAUTH_URL = APP_URL;
 export const CUSTOMERIO_EMAIL_API_KEY = getEnvVariable('CUSTOMERIO_EMAIL_API_KEY');
+export const MAILGUN_API_KEY = getEnvVariable('MAILGUN_API_KEY');
+export const MAILGUN_DOMAIN = getEnvVariable('MAILGUN_DOMAIN');
+// Which email backend to use: 'customerio' (default) or 'mailgun'
+export const EMAIL_PROVIDER = (getEnvVariable('EMAIL_PROVIDER') ?? 'customerio') as
+  | 'customerio'
+  | 'mailgun';
 export const WORKOS_API_KEY = getEnvVariable('WORKOS_API_KEY');
 export const WORKOS_CLIENT_ID = getEnvVariable('WORKOS_CLIENT_ID');
 export const GOOGLE_CLIENT_ID = getEnvVariable('GOOGLE_CLIENT_ID');

@@ -1,10 +1,9 @@
 import type { Organization } from '@/db/schema';
 import { getMagicLinkUrl, type MagicLinkTokenWithPlaintext } from '@/lib/auth/magic-link-tokens';
-import { CUSTOMERIO_EMAIL_API_KEY, NEXTAUTH_URL } from '@/lib/config.server';
-import { captureMessage } from '@sentry/nextjs';
-
-import { APIClient, SendEmailRequest } from 'customerio-node';
-import type { SendEmailRequestOptions } from 'customerio-node/dist/lib/api/requests';
+import { EMAIL_PROVIDER, NEXTAUTH_URL } from '@/lib/config.server';
+import { sendViaCustomerIo } from '@/lib/email-customerio';
+import type { SendEmailRequestOptions } from '@/lib/email-customerio';
+import { sendViaMailgun } from '@/lib/email-mailgun';
 
 type OrganizationInviteEmailData = {
   to: string;
@@ -20,24 +19,10 @@ type Props = {
 };
 
 function send(mailRequest: SendEmailRequestOptions) {
-  if (!CUSTOMERIO_EMAIL_API_KEY) {
-    const message = 'CUSTOMERIO_EMAIL_API_KEY is not set - cannot send email';
-    console.warn(message);
-    console.warn(JSON.stringify(mailRequest));
-
-    captureMessage(message, {
-      level: 'warning',
-      tags: { source: 'email_service' },
-      extra: {
-        mailRequest,
-      },
-    });
-    return;
+  if (EMAIL_PROVIDER === 'mailgun') {
+    return sendViaMailgun(mailRequest);
   }
-  console.log('sending email with customerio: ', JSON.stringify(mailRequest));
-  const client = new APIClient(CUSTOMERIO_EMAIL_API_KEY);
-  const request = new SendEmailRequest(mailRequest);
-  return client.sendEmail(request);
+  return sendViaCustomerIo(mailRequest);
 }
 
 const templates = {
