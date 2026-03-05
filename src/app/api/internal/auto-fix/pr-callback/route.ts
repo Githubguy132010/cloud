@@ -36,35 +36,33 @@ import {
   sanitizePublicErrorMessage,
 } from '@/lib/auto-fix/github/handle-comment-reply';
 import { handleCreateIssuePR } from '@/lib/auto-fix/github/handle-create-issue-pr';
+import { z } from 'zod';
 
-type LegacyCallbackPayload = {
-  sessionId: string;
-  status: 'completed' | 'failed' | 'interrupted';
-  errorMessage?: string;
-};
+const callbackStatusEnum = z.enum(['completed', 'failed', 'interrupted']);
 
-type CloudAgentNextCallbackPayload = {
+const CallbackPayloadSchema = z
+  .object({
+    sessionId: z.string().optional(),
+    cloudAgentSessionId: z.string().optional(),
+    status: callbackStatusEnum,
+    errorMessage: z.string().optional(),
+    lastSeenBranch: z.string().optional(),
+  })
+  .refine(data => data.sessionId || data.cloudAgentSessionId, {
+    message: 'Either sessionId or cloudAgentSessionId is required',
+  });
+
+function normalizePayload(raw: z.infer<typeof CallbackPayloadSchema>): {
   sessionId?: string;
-  cloudAgentSessionId?: string;
-  status: 'completed' | 'failed' | 'interrupted';
-  errorMessage?: string;
-  lastSeenBranch?: string;
-};
-
-type CallbackPayload = LegacyCallbackPayload | CloudAgentNextCallbackPayload;
-
-function normalizePayload(raw: CallbackPayload): {
-  sessionId?: string;
-  status: 'completed' | 'failed' | 'interrupted';
+  status: z.infer<typeof callbackStatusEnum>;
   errorMessage?: string;
   lastSeenBranch?: string;
 } {
   return {
-    sessionId:
-      raw.sessionId ?? ('cloudAgentSessionId' in raw ? raw.cloudAgentSessionId : undefined),
+    sessionId: raw.sessionId ?? raw.cloudAgentSessionId,
     status: raw.status,
     errorMessage: raw.errorMessage,
-    lastSeenBranch: 'lastSeenBranch' in raw ? raw.lastSeenBranch : undefined,
+    lastSeenBranch: raw.lastSeenBranch,
   };
 }
 
@@ -76,15 +74,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload: CallbackPayload = await req.json();
-    const { sessionId, status, errorMessage, lastSeenBranch } = normalizePayload(payload);
-
-    // Validate payload
-    if (!sessionId || !status) {
+    const raw: unknown = await req.json();
+    const parsed = CallbackPayloadSchema.safeParse(raw);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: sessionId, status' },
+        { error: 'Invalid payload', issues: parsed.error.issues },
         { status: 400 }
       );
+    }
+    const { sessionId, status, errorMessage, lastSeenBranch } = normalizePayload(parsed.data);
+
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Missing required fields: sessionId' }, { status: 400 });
     }
 
     logExceptInTest('[auto-fix-pr-callback] Received callback', {
