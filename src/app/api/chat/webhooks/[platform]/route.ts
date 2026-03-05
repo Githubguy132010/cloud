@@ -1,5 +1,8 @@
 import { after } from 'next/server';
 import { bot } from '@/lib/bot';
+
+export const maxDuration = 800;
+
 type Platform = keyof typeof bot.webhooks;
 type RouteContext = {
   params: Promise<{ platform: string }>;
