@@ -364,8 +364,11 @@ export function createLifecycleManager(
           // BUT only if not aborted - fatal errors already sent their own terminal event
           const job = state.currentJob;
           if (job && !isAborted) {
-            // Capture current branch so the DO can persist it for future warm starts
-            const currentBranch = await getCurrentBranch(config.workspacePath).catch(() => '');
+            // Capture current branch so the DO can persist it for future warm starts.
+            // Use a short timeout — if git hangs here the drain must still proceed.
+            const currentBranch = await getCurrentBranch(config.workspacePath, 10_000).catch(
+              () => ''
+            );
             logToFile(
               `sending complete event for executionId=${job.executionId} branch=${currentBranch || '(none)'}`
             );
