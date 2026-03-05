@@ -97,7 +97,15 @@ describe('generateBaseConfig', () => {
     expect(config.tools.exec.safeBins).toEqual(['rg', 'git', 'node', 'pnpm', 'go']);
   });
 
-  it('does not duplicate safeBins when already present', () => {
+  it('preserves user-customized tool profile', () => {
+    const existing = JSON.stringify({ tools: { profile: 'coding' } });
+    const { deps } = fakeDeps(existing);
+    const config = generateBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
+
+    expect(config.tools.profile).toBe('coding');
+  });
+
+  it('merges required safeBins without duplicating existing entries', () => {
     const existing = JSON.stringify({
       tools: {
         exec: { safeBins: ['rg', 'custom_bin'] },

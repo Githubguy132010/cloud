@@ -249,11 +249,12 @@ if (config.agents && config.agents.defaults && config.agents.defaults.models) {
     delete config.agents.defaults.models;
 }
 
-// Tool profile: "full" enables all tools without restriction. The default
-// "messaging" profile from onboard only allows session/message tools, which
-// leaves agents without file, shell, or web access.
+// Tool profile: default to "full" (all tools) on first boot. The onboard
+// default "messaging" only allows session/message tools, which leaves agents
+// without file, shell, or web access. Don't overwrite if the user has
+// customized their profile.
 config.tools = config.tools || {};
-config.tools.profile = 'full';
+config.tools.profile = config.tools.profile || 'full';
 
 // Exec: KiloClaw machines have no Docker sandbox, so exec must target the
 // gateway host directly. Allowlist mode gates unknown commands via the
@@ -262,14 +263,16 @@ config.tools.exec = config.tools.exec || {};
 config.tools.exec.host = 'gateway';
 config.tools.exec.security = 'allowlist';
 config.tools.exec.ask = 'on-miss';
-// Extend safe bins with tools pre-installed in the Docker image.
-// The defaults (jq, cut, uniq, head, tail, tr, wc) are inherited;
-// these additions avoid mandatory approval prompts for common dev CLIs.
-config.tools.exec.safeBins = (config.tools.exec.safeBins || []).concat(
-    ['rg', 'git', 'node', 'pnpm', 'go'].filter(function(bin) {
-        return (config.tools.exec.safeBins || []).indexOf(bin) === -1;
-    })
-);
+// Ensure pre-installed CLIs are in safeBins so they don't require approval.
+// Merges into any existing user-configured list without overwriting.
+var requiredSafeBins = ['rg', 'git', 'node', 'pnpm', 'go'];
+var currentSafeBins = config.tools.exec.safeBins || [];
+requiredSafeBins.forEach(function(bin) {
+    if (currentSafeBins.indexOf(bin) === -1) {
+        currentSafeBins.push(bin);
+    }
+});
+config.tools.exec.safeBins = currentSafeBins;
 
 // Telegram configuration
 // Overwrite entire channel object to drop stale keys that would fail

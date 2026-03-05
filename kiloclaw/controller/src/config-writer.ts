@@ -158,11 +158,12 @@ export function generateBaseConfig(
     delete config.agents.defaults.models;
   }
 
-  // Tool profile: "full" enables all tools without restriction. The default
-  // "messaging" profile from onboard only allows session/message tools, which
-  // leaves agents without file, shell, or web access.
+  // Tool profile: default to "full" (all tools) on first boot. The onboard
+  // default "messaging" only allows session/message tools, which leaves agents
+  // without file, shell, or web access. Don't overwrite if the user has
+  // customized their profile.
   config.tools = config.tools ?? {};
-  config.tools.profile = 'full';
+  config.tools.profile = config.tools.profile ?? 'full';
 
   // Exec: KiloClaw machines have no Docker sandbox, so exec must target the
   // gateway host directly. Allowlist mode gates unknown commands via the
