@@ -11,6 +11,17 @@
  * @returns true if valid or no validation needed, false if invalid
  * @throws Error if the validation pattern is invalid (forces catalog authors to fix bad patterns)
  */
+const regexCache = new Map<string, RegExp>();
+
+function getRegex(pattern: string): RegExp {
+  let regex = regexCache.get(pattern);
+  if (!regex) {
+    regex = new RegExp(pattern);
+    regexCache.set(pattern, regex);
+  }
+  return regex;
+}
+
 export function validateFieldValue(
   value: string | null | undefined,
   pattern: string | undefined
@@ -31,8 +42,7 @@ export function validateFieldValue(
   }
 
   try {
-    const regex = new RegExp(pattern);
-    return regex.test(value);
+    return getRegex(pattern).test(value);
   } catch (err) {
     // Invalid regex pattern in catalog — throw to force fix during development
     throw new Error(

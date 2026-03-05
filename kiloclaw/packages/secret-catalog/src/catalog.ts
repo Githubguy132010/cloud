@@ -5,7 +5,7 @@ import type { SecretCatalogEntry, SecretCategory } from './types.js';
  *
  * Migrated from cloud/src/app/(app)/claw/components/channel-config.tsx
  */
-export const SECRET_CATALOG: SecretCatalogEntry[] = [
+export const SECRET_CATALOG: readonly SecretCatalogEntry[] = [
   {
     id: 'telegram',
     label: 'Telegram',

@@ -61,25 +61,21 @@ describe('Secret Catalog', () => {
       }
     });
 
-    it(
-      'no validation pattern exhibits catastrophic backtracking',
-      { timeout: 1000 },
-      () => {
-        const longString = 'a'.repeat(10000);
-        for (const entry of SECRET_CATALOG) {
-          for (const field of entry.fields) {
-            if (field.validationPattern) {
-              const pattern = field.validationPattern;
-              const regex = new RegExp(pattern);
-              // Test completes quickly if no catastrophic backtracking
-              const result = regex.test(longString);
-              // Assert something to make the test meaningful
-              expect(typeof result).toBe('boolean');
-            }
+    it('no validation pattern exhibits catastrophic backtracking', { timeout: 1000 }, () => {
+      const longString = 'a'.repeat(10000);
+      for (const entry of SECRET_CATALOG) {
+        for (const field of entry.fields) {
+          if (field.validationPattern) {
+            const pattern = field.validationPattern;
+            const regex = new RegExp(pattern);
+            // Test completes quickly if no catastrophic backtracking
+            const result = regex.test(longString);
+            // Assert something to make the test meaningful
+            expect(typeof result).toBe('boolean');
           }
         }
       }
-    );
+    });
   });
 
   describe('Field to env var mappings', () => {

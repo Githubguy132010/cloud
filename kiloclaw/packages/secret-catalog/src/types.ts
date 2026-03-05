@@ -27,7 +27,7 @@ export type SecretFieldDefinition = {
   validationPattern?: string; // regex string (not RegExp — must be serializable)
   validationMessage?: string;
   envVar: string; // container env var name
-  maxLength?: number; // max input length; default 500 if omitted
+  maxLength: number; // max input length
 };
 
 export type SecretCatalogEntry = {
