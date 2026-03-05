@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { TemplateName } from '@/lib/email';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/lib/trpc/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,28 +29,12 @@ const breadcrumbs = (
   </>
 );
 
-type TemplateName =
-  | 'orgSubscription'
-  | 'orgRenewed'
-  | 'orgCancelled'
-  | 'orgSSOUserJoined'
-  | 'orgInvitation'
-  | 'magicLink'
-  | 'balanceAlert'
-  | 'autoTopUpFailed'
-  | 'ossInviteNewUser'
-  | 'ossInviteExistingUser'
-  | 'ossExistingOrgProvisioned'
-  | 'deployFailed';
-
-type ProviderName = 'customerio';
-
 export default function EmailTestingPage() {
   const trpc = useTRPC();
   const { data: session } = useSession();
 
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateName | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<ProviderName | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [recipient, setRecipient] = useState<string>('');
 
   const { data: templates } = useQuery(trpc.admin.emailTesting.getTemplates.queryOptions());
@@ -65,24 +50,25 @@ export default function EmailTestingPage() {
   // Auto-select first template and provider on load
   useEffect(() => {
     if (templates && templates.length > 0 && !selectedTemplate) {
-      setSelectedTemplate(templates[0].name as TemplateName);
+      setSelectedTemplate(templates[0].name);
     }
   }, [templates, selectedTemplate]);
 
   useEffect(() => {
     if (providers && providers.length > 0 && !selectedProvider) {
-      setSelectedProvider(providers[0] as ProviderName);
+      setSelectedProvider(providers[0]);
     }
   }, [providers, selectedProvider]);
 
-  const previewEnabled = selectedTemplate !== null && selectedProvider !== null;
   const previewQuery = useQuery(
     trpc.admin.emailTesting.getPreview.queryOptions(
       {
-        template: selectedTemplate ?? 'orgSubscription',
-        provider: selectedProvider ?? 'customerio',
+        // Values come directly from the server's getTemplates/getProviders responses,
+        // so the cast is safe — tRPC zod will reject anything invalid at runtime anyway.
+        template: (selectedTemplate ?? 'orgSubscription') as TemplateName,
+        provider: (selectedProvider ?? 'customerio') as 'customerio',
       },
-      { enabled: previewEnabled }
+      { enabled: selectedTemplate !== null && selectedProvider !== null }
     )
   );
 
@@ -91,7 +77,11 @@ export default function EmailTestingPage() {
   const handleSend = () => {
     if (!selectedTemplate || !selectedProvider || !recipient) return;
     sendTestMutation.mutate(
-      { template: selectedTemplate, provider: selectedProvider, recipient },
+      {
+        template: selectedTemplate as TemplateName,
+        provider: selectedProvider as 'customerio',
+        recipient,
+      },
       {
         onSuccess: result => {
           toast.success(`Test email sent via ${result.provider} to ${result.recipient}`);
@@ -128,10 +118,7 @@ export default function EmailTestingPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <Label htmlFor="template">Template</Label>
-                <Select
-                  value={selectedTemplate ?? ''}
-                  onValueChange={v => setSelectedTemplate(v as TemplateName)}
-                >
+                <Select value={selectedTemplate ?? ''} onValueChange={v => setSelectedTemplate(v)}>
                   <SelectTrigger id="template">
                     <SelectValue placeholder="Select template..." />
                   </SelectTrigger>
@@ -147,10 +134,7 @@ export default function EmailTestingPage() {
 
               <div>
                 <Label htmlFor="provider">Provider</Label>
-                <Select
-                  value={selectedProvider ?? ''}
-                  onValueChange={v => setSelectedProvider(v as ProviderName)}
-                >
+                <Select value={selectedProvider ?? ''} onValueChange={v => setSelectedProvider(v)}>
                   <SelectTrigger id="provider">
                     <SelectValue placeholder="Select provider..." />
                   </SelectTrigger>
