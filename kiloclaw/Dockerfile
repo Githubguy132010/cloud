@@ -57,11 +57,11 @@ RUN npm install -g @steipete/summarize@0.11.1
 # Install Go (available at runtime for users to `go install` additional tools)
 ENV GO_VERSION=1.26.0
 RUN ARCH="$(dpkg --print-architecture)" \
-    && curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz -o /tmp/go.tar.gz \
-    && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz.sha256" -o /tmp/go.tar.gz.sha256 \
-    && echo "$(cat /tmp/go.tar.gz.sha256)  /tmp/go.tar.gz" | sha256sum -c - \
+    && curl -fsSL https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz -o /tmp/go.tar.gz \
+    && EXPECTED_SHA256="$(curl -fsSL https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz.sha256)" \
+    && echo "${EXPECTED_SHA256}  /tmp/go.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/go.tar.gz -C /usr/local \
-    && rm /tmp/go.tar.gz /tmp/go.tar.gz.sha256
+    && rm /tmp/go.tar.gz
 # IMPORTANT: A Fly Volume is mounted at /root at runtime, which shadows
 # everything the image layer writes under /root.
 # - Pre-installed tools use GOBIN=/usr/local/bin so they survive the mount.
