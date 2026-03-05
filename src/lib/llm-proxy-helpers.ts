@@ -19,13 +19,16 @@ import type {
   OrganizationSettings,
   OrganizationPlan,
 } from '@/lib/organizations/organization-types';
-import type { OpenRouterProviderConfig } from '@/lib/providers/openrouter/types';
+import type {
+  OpenRouterChatCompletionRequest,
+  OpenRouterProviderConfig,
+  OpenRouterResponsesRequest,
+} from '@/lib/providers/openrouter/types';
 import { extraRequiredProviders } from '@/lib/models';
 import { getFraudDetectionHeaders } from '@/lib/utils';
 import { normalizeProjectId } from '@/lib/normalizeProjectId';
 import { getXKiloCodeVersionNumber } from '@/lib/userAgent';
 import { normalizeModelId } from '@/lib/providers/openrouter';
-import type { OpenRouterChatCompletionRequest } from '@/lib/providers/openrouter/types';
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
 import { sentryRootSpan } from './getRootSpan';
 import { isKiloStealthModel, kiloFreeModels } from '@/lib/models';
@@ -122,10 +125,12 @@ function byokErrorMessage(status: number): string | undefined {
   return byokErrorMessages[status];
 }
 
-function estimateTokenCount(request: OpenRouterChatCompletionRequest) {
-  return Math.round(
-    JSON.stringify(request).length / 4 + (request.max_completion_tokens ?? request.max_tokens ?? 0)
-  );
+function estimateTokenCount(request: OpenRouterChatCompletionRequest | OpenRouterResponsesRequest) {
+  const maxTokens =
+    'messages' in request
+      ? (request.max_completion_tokens ?? request.max_tokens ?? 0)
+      : (request.max_output_tokens ?? 0);
+  return Math.round(JSON.stringify(request).length / 4 + maxTokens);
 }
 
 export async function makeErrorReadable({
@@ -135,7 +140,7 @@ export async function makeErrorReadable({
   isUserByok,
 }: {
   requestedModel: string;
-  request: OpenRouterChatCompletionRequest;
+  request: OpenRouterChatCompletionRequest | OpenRouterResponsesRequest;
   response: Response;
   isUserByok: boolean;
 }) {

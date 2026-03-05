@@ -2,9 +2,17 @@ import { NextResponse, type NextResponse as NextResponseType } from 'next/server
 import { type NextRequest } from 'next/server';
 import { isOpenCodeBasedClient, isRooCodeBasedClient, stripRequiredPrefix } from '@/lib/utils';
 import { generateProviderSpecificHash } from '@/lib/providerHash';
-import { extractPromptInfo, type MicrodollarUsageContext } from '@/lib/processUsage';
+import {
+  extractPromptInfo,
+  type MicrodollarUsageContext,
+  type PromptInfo,
+} from '@/lib/processUsage';
 import { validateFeatureHeader, FEATURE_HEADER } from '@/lib/feature-detection';
-import type { OpenRouterChatCompletionRequest } from '@/lib/providers/openrouter/types';
+import type {
+  OpenRouterChatCompletionRequest,
+  OpenRouterResponsesRequest,
+  ParsedProxyRequest,
+} from '@/lib/providers/openrouter/types';
 import { applyProviderSpecificLogic, getProvider, openRouterRequest } from '@/lib/providers';
 import { debugSaveProxyRequest } from '@/lib/debugUtils';
 import { captureException, setTag, startInactiveSpan } from '@sentry/nextjs';
@@ -70,12 +78,19 @@ const MAX_TOKENS_LIMIT = 99999999999; // GPT4.1 default is ~32k
 const PAID_MODEL_AUTH_REQUIRED = 'PAID_MODEL_AUTH_REQUIRED';
 const PROMOTION_MODEL_LIMIT_REACHED = 'PROMOTION_MODEL_LIMIT_REACHED';
 
-function validatePath(url: URL) {
-  const path =
+type ApiPath = '/chat/completions' | '/responses';
+
+function validatePath(
+  url: URL
+): { path: ApiPath } | { errorResponse: ReturnType<typeof invalidPathResponse> } {
+  const pathSuffix =
     stripRequiredPrefix(url.pathname, '/api/gateway') ??
     stripRequiredPrefix(url.pathname, '/api/openrouter');
 
-  return path === '/chat/completions' ? { path } : { errorResponse: invalidPathResponse() };
+  if (pathSuffix === '/chat/completions' || pathSuffix === '/responses') {
+    return { path: pathSuffix };
+  }
+  return { errorResponse: invalidPathResponse() };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponseType<unknown>> {
@@ -83,36 +98,41 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
 
   const url = new URL(request.url);
 
-  const { errorResponse, path } = validatePath(url);
-  if (errorResponse) return errorResponse;
+  const pathResult = validatePath(url);
+  if ('errorResponse' in pathResult) return pathResult.errorResponse;
+  const { path } = pathResult;
 
   // Parse body first to check model before auth (needed for anonymous access)
   const requestBodyText = await request.text();
   debugSaveProxyRequest(requestBodyText);
-  let requestBodyParsed: OpenRouterChatCompletionRequest;
+  let parsedRequest: ParsedProxyRequest;
   try {
-    requestBodyParsed = JSON.parse(requestBodyText);
-    // Inject or merge stream_options.include_usage = true
-    requestBodyParsed.stream_options = {
-      ...(requestBodyParsed.stream_options || {}),
-      include_usage: true,
-    };
+    if (path === '/chat/completions') {
+      const body: OpenRouterChatCompletionRequest = JSON.parse(requestBodyText);
+      // Inject or merge stream_options.include_usage = true
+      body.stream_options = { ...(body.stream_options || {}), include_usage: true };
+      delete body.models; // OpenRouter specific field we do not support
+      parsedRequest = { kind: 'chat_completions', body };
+    } else {
+      const body: OpenRouterResponsesRequest = JSON.parse(requestBodyText);
+      parsedRequest = { kind: 'responses', body };
+    }
   } catch (e) {
     captureException(e, {
-      extra: {
-        requestBodyText,
-      },
+      extra: { requestBodyText },
       tags: { source: 'openrouter-proxy' },
     });
     return invalidRequestResponse();
   }
 
-  delete requestBodyParsed.models; // OpenRouter specific field we do not support
-  if (typeof requestBodyParsed.model !== 'string' || requestBodyParsed.model.trim().length === 0) {
+  if (
+    typeof parsedRequest.body.model !== 'string' ||
+    parsedRequest.body.model.trim().length === 0
+  ) {
     return modelDoesNotExistResponse();
   }
 
-  const requestedModel = requestBodyParsed.model.trim();
+  const requestedModel = parsedRequest.body.model.trim();
   const requestedModelLowerCased = requestedModel.toLowerCase();
 
   // "kilo/auto" is a quasi-model id that resolves to a real model based on x-kilocode-mode.
@@ -122,10 +142,16 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   let autoModel: string | null = null;
   if (isKiloAutoModel(requestedModelLowerCased)) {
     autoModel = requestedModelLowerCased;
-    Object.assign(requestBodyParsed, resolveAutoModel(requestedModelLowerCased, modeHeader));
+    const resolved = resolveAutoModel(requestedModelLowerCased, modeHeader);
+    if (parsedRequest.kind === 'chat_completions') {
+      Object.assign(parsedRequest.body, resolved);
+    } else {
+      // Only apply model; reasoning config for responses differs from chat completions
+      parsedRequest.body.model = resolved.model;
+    }
   }
 
-  const originalModelIdLowerCased = requestBodyParsed.model.toLowerCase();
+  const originalModelIdLowerCased = parsedRequest.body.model.toLowerCase();
 
   // Extract IP for all requests (needed for free model rate limiting)
   const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
@@ -228,9 +254,14 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   // Use new shared helper for fraud & project headers
   const { fraudHeaders, projectId } = extractFraudAndProjectHeaders(request);
   const taskId = extractHeaderAndLimitLength(request, 'x-kilocode-taskid') ?? undefined;
+  // Extract only the provider routing config that getProvider actually needs.
+  // Responses API bodies do not carry an OpenRouter provider config.
+  const providerRoutingContext = {
+    provider: parsedRequest.kind === 'chat_completions' ? parsedRequest.body.provider : undefined,
+  };
   const { provider, userByok, customLlm } = await getProvider(
     originalModelIdLowerCased,
-    requestBodyParsed,
+    providerRoutingContext,
     user,
     organizationId,
     taskId
@@ -238,19 +269,27 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
 
   console.debug(`Routing request to ${provider.id}`);
 
-  // Start abuse classification early (non-blocking) - we'll await it before creating usage context
-  const classifyPromise = classifyAbuse(request, requestBodyParsed, {
-    kiloUserId: user.id,
-    organizationId,
-    projectId,
-    provider: provider.id,
-    isByok: !!userByok,
-  });
+  // Abuse classification is only meaningful for Chat Completions where we can inspect messages.
+  // For the Responses API the classify result will be null.
+  const classifyPromise =
+    parsedRequest.kind === 'chat_completions'
+      ? classifyAbuse(request, parsedRequest.body, {
+          kiloUserId: user.id,
+          organizationId,
+          projectId,
+          provider: provider.id,
+          isByok: !!userByok,
+        })
+      : Promise.resolve(null);
 
-  // large responses may run longer than the 800s serverless function timeout, usually this value is set to 8192 tokens
-  if (requestBodyParsed.max_tokens && requestBodyParsed.max_tokens > MAX_TOKENS_LIMIT) {
+  // Large responses may run longer than the 800s serverless function timeout.
+  const requestMaxTokens =
+    parsedRequest.kind === 'chat_completions'
+      ? parsedRequest.body.max_tokens
+      : parsedRequest.body.max_output_tokens;
+  if (requestMaxTokens && requestMaxTokens > MAX_TOKENS_LIMIT) {
     console.warn(`SECURITY: Max tokens limit exceeded: ${user.id}`, {
-      maxTokens: requestBodyParsed.max_tokens,
+      maxTokens: requestMaxTokens,
       bodyText: requestBodyText,
     });
     return temporarilyUnavailableResponse();
@@ -266,8 +305,14 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   }
 
   // Extract properties for usage context
-  const tokenEstimates = estimateChatTokens_ignoringToolDefinitions(requestBodyParsed);
-  const promptInfo = extractPromptInfo(requestBodyParsed);
+  const tokenEstimates =
+    parsedRequest.kind === 'chat_completions'
+      ? estimateChatTokens_ignoringToolDefinitions(parsedRequest.body)
+      : estimateResponsesTokens(parsedRequest.body);
+  const promptInfo: PromptInfo =
+    parsedRequest.kind === 'chat_completions'
+      ? extractPromptInfo(parsedRequest.body)
+      : extractResponsesPromptInfo(parsedRequest.body);
   const isLegacyOpenRouterPath = url.pathname.includes('/openrouter');
 
   const usageContext: MicrodollarUsageContext = {
@@ -275,12 +320,18 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     provider: provider.id,
     requested_model: originalModelIdLowerCased,
     promptInfo,
-    max_tokens: requestBodyParsed.max_tokens ?? null,
-    has_middle_out_transform: requestBodyParsed.transforms?.includes('middle-out') ?? false,
+    max_tokens:
+      parsedRequest.kind === 'chat_completions'
+        ? (parsedRequest.body.max_tokens ?? null)
+        : (parsedRequest.body.max_output_tokens ?? null),
+    has_middle_out_transform:
+      parsedRequest.kind === 'chat_completions'
+        ? (parsedRequest.body.transforms?.includes('middle-out') ?? false)
+        : false,
     estimatedInputTokens: tokenEstimates.estimatedInputTokens,
     estimatedOutputTokens: tokenEstimates.estimatedOutputTokens,
     fraudHeaders,
-    isStreaming: requestBodyParsed.stream === true,
+    isStreaming: parsedRequest.body.stream === true,
     organizationId,
     prior_microdollar_usage: user.microdollars_used,
     posthog_distinct_id: isAnonymousContext(user) ? undefined : user.google_user_email,
@@ -289,7 +340,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     editor_name: extractHeaderAndLimitLength(request, 'x-kilocode-editorname'),
     machine_id: extractHeaderAndLimitLength(request, 'x-kilocode-machineid'),
     user_byok: !!userByok,
-    has_tools: (requestBodyParsed.tools?.length ?? 0) > 0,
+    has_tools: (parsedRequest.body.tools?.length ?? 0) > 0,
     botId,
     tokenSource,
     feature: validateFeatureHeader(
@@ -300,7 +351,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     auto_model: autoModel,
   };
 
-  setTag('ui.ai_model', requestBodyParsed.model);
+  setTag('ui.ai_model', parsedRequest.body.model);
 
   // Skip balance/org checks for anonymous users - they can only use free models
   const bypassAccessCheckForCustomLlm =
@@ -328,8 +379,9 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     });
     if (modelRestrictionError) return modelRestrictionError;
 
-    if (providerConfig) {
-      requestBodyParsed.provider = providerConfig;
+    // providerConfig (data-collection / allow-list override) only applies to Chat Completions
+    if (providerConfig && parsedRequest.kind === 'chat_completions') {
+      parsedRequest.body.provider = providerConfig;
     }
   }
 
@@ -345,55 +397,71 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
 
   if (
     isDataCollectionRequiredOnKiloCodeOnly(originalModelIdLowerCased) &&
-    !isFreePromptTrainingAllowed(requestBodyParsed.provider)
+    parsedRequest.kind === 'chat_completions' &&
+    !isFreePromptTrainingAllowed(parsedRequest.body.provider)
   ) {
     return dataCollectionRequiredResponse();
   }
 
+  const safetyHash = generateProviderSpecificHash(user.id, provider);
   if (taskId) {
-    requestBodyParsed.prompt_cache_key = generateProviderSpecificHash(user.id + taskId, provider);
+    parsedRequest.body.prompt_cache_key = generateProviderSpecificHash(user.id + taskId, provider);
+  }
+  parsedRequest.body.safety_identifier = safetyHash;
+  parsedRequest.body.user = safetyHash; // deprecated, but this is what OpenRouter uses
+
+  if (parsedRequest.kind === 'chat_completions') {
+    if (ENABLE_TOOL_REPAIR) {
+      repairTools(parsedRequest.body);
+    }
+
+    if (isOpenCodeBasedClient(fraudHeaders)) {
+      fixOpenCodeDuplicateReasoning(originalModelIdLowerCased, parsedRequest.body, taskId);
+    }
   }
 
-  requestBodyParsed.safety_identifier = generateProviderSpecificHash(user.id, provider);
-  requestBodyParsed.user = requestBodyParsed.safety_identifier; // deprecated, but this is what OpenRouter uses
-
-  if (ENABLE_TOOL_REPAIR) {
-    repairTools(requestBodyParsed);
-  }
-
-  if (isOpenCodeBasedClient(fraudHeaders)) {
-    fixOpenCodeDuplicateReasoning(originalModelIdLowerCased, requestBodyParsed, taskId);
-  }
-
-  const toolsAvailable = getToolsAvailable(requestBodyParsed.tools);
-  const toolsUsed = getToolsUsed(requestBodyParsed.messages);
+  const toolsAvailable =
+    parsedRequest.kind === 'chat_completions' ? getToolsAvailable(parsedRequest.body.tools) : [];
+  const toolsUsed =
+    parsedRequest.kind === 'chat_completions' ? getToolsUsed(parsedRequest.body.messages) : [];
 
   const extraHeaders: Record<string, string> = {};
-  applyProviderSpecificLogic(
-    provider,
-    originalModelIdLowerCased,
-    requestBodyParsed,
-    extraHeaders,
-    userByok
-  );
+  if (parsedRequest.kind === 'chat_completions') {
+    applyProviderSpecificLogic(
+      provider,
+      originalModelIdLowerCased,
+      parsedRequest.body,
+      extraHeaders,
+      userByok
+    );
+  }
 
-  const response = customLlm
-    ? await customLlmRequest(
-        customLlm,
-        requestBodyParsed,
-        user.id,
-        taskId,
-        isRooCodeBasedClient(fraudHeaders)
-      )
-    : await openRouterRequest({
-        path,
-        search: url.search,
-        method: request.method,
-        body: requestBodyParsed,
-        extraHeaders,
-        provider,
-        signal: request.signal,
-      });
+  let response: Response;
+  if (customLlm) {
+    if (parsedRequest.kind === 'responses') {
+      return NextResponse.json(
+        { error: 'Custom LLMs do not support the Responses API' },
+        { status: 400 }
+      );
+    }
+    response = await customLlmRequest(
+      customLlm,
+      parsedRequest.body,
+      user.id,
+      taskId,
+      isRooCodeBasedClient(fraudHeaders)
+    );
+  } else {
+    response = await openRouterRequest({
+      path,
+      search: url.search,
+      method: request.method,
+      body: parsedRequest.body,
+      extraHeaders,
+      provider,
+      signal: request.signal,
+    });
+  }
   const ttfbMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
 
   emitApiMetricsForResponse(
@@ -401,7 +469,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       kiloUserId: user.id,
       organizationId,
       isAnonymous: isAnonymousContext(user),
-      isStreaming: requestBodyParsed.stream === true,
+      isStreaming: parsedRequest.body.stream === true,
       userByok: !!userByok,
       mode: modeHeader || undefined,
       provider: provider.id,
@@ -422,10 +490,10 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   if (response.status === 402 && !userByok) {
     await captureProxyError({
       user,
-      request: requestBodyParsed,
+      request: parsedRequest.body,
       response,
       organizationId,
-      model: requestBodyParsed.model,
+      model: originalModelIdLowerCased,
       errorMessage: `${provider.id} returned 402 Payment Required`,
       trackInSentry: true,
     });
@@ -437,10 +505,10 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   if (response.status >= 400) {
     await captureProxyError({
       user,
-      request: requestBodyParsed,
+      request: parsedRequest.body,
       response,
       organizationId,
-      model: requestBodyParsed.model,
+      model: originalModelIdLowerCased,
       errorMessage: `${provider.id} returned error ${response.status}`,
       trackInSentry: response.status >= 500,
     });
@@ -478,13 +546,13 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     organization_id: organizationId || null,
     provider: provider.id,
     model: originalModelIdLowerCased,
-    request: requestBodyParsed,
+    request: parsedRequest.body,
   });
 
   {
     const errorResponse = await makeErrorReadable({
       requestedModel: originalModelIdLowerCased,
-      request: requestBodyParsed,
+      request: parsedRequest.body,
       response,
       isUserByok: !!userByok,
     });
@@ -493,7 +561,9 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     }
   }
 
+  // rewriteFreeModelResponse only handles Chat Completions format responses.
   if (
+    parsedRequest.kind === 'chat_completions' &&
     provider.id !== 'custom' &&
     (isKiloFreeModel(originalModelIdLowerCased) ||
       isActiveReviewPromo(botId, originalModelIdLowerCased) ||
@@ -503,4 +573,29 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   }
 
   return wrapInSafeNextResponse(response);
+}
+
+// ---------------------------------------------------------------------------
+// Responses API helpers
+// ---------------------------------------------------------------------------
+
+function extractResponsesPromptInfo(body: OpenRouterResponsesRequest): PromptInfo {
+  const instructions = body.instructions ?? '';
+  const input = typeof body.input === 'string' ? body.input : '';
+  return {
+    system_prompt_prefix: instructions.slice(0, 100),
+    system_prompt_length: instructions.length,
+    user_prompt_prefix: input.slice(0, 100),
+  };
+}
+
+function estimateResponsesTokens(body: OpenRouterResponsesRequest): {
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+} {
+  const inputLen =
+    typeof body.input === 'string' ? body.input.length : JSON.stringify(body.input ?? []).length;
+  const instructionsLen = (body.instructions ?? '').length;
+  const total = inputLen + instructionsLen;
+  return { estimatedInputTokens: total / 4, estimatedOutputTokens: total / 4 };
 }

@@ -53,7 +53,7 @@ function isLikelyAvailableOnAllGateways(requestedModel: string) {
 
 export async function shouldRouteToVercel(
   requestedModel: string,
-  request: OpenRouterChatCompletionRequest,
+  request: { provider?: OpenRouterProviderConfig },
   randomSeed: string
 ) {
   if (request.provider?.data_collection === 'deny') {

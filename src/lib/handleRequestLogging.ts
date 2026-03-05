@@ -1,7 +1,7 @@
 import { api_request_log, type User } from '@kilocode/db/schema';
 import { db } from '@/lib/drizzle';
 import { KILO_ORGANIZATION_ID } from '@/lib/organizations/constants';
-import type { OpenRouterChatCompletionRequest } from '@/lib/providers/openrouter/types';
+// The request body is stored verbatim as JSON so no deep typing is required here.
 import { logExceptInTest } from '@/lib/utils.server';
 import { after } from 'next/server';
 
@@ -11,7 +11,7 @@ export function handleRequestLogging(params: {
   organization_id: string | null;
   provider: string;
   model: string;
-  request: OpenRouterChatCompletionRequest;
+  request: object;
 }) {
   const { clonedResponse, user, organization_id, provider, model, request } = params;
   const isKiloEmployee =

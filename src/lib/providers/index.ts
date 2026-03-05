@@ -5,6 +5,7 @@ import { captureException, captureMessage } from '@sentry/nextjs';
 import type {
   OpenRouterChatCompletionRequest,
   OpenRouterGeneration,
+  OpenRouterProviderConfig,
 } from '@/lib/providers/openrouter/types';
 import {
   applyMistralModelSettings,
@@ -91,7 +92,7 @@ export const PROVIDERS = {
 
 export async function getProvider(
   requestedModel: string,
-  request: OpenRouterChatCompletionRequest,
+  request: { provider?: OpenRouterProviderConfig },
   user: User | AnonymousUserContext,
   organizationId: string | undefined,
   taskId: string | undefined
@@ -298,7 +299,7 @@ export async function openRouterRequest({
   path: string;
   search: string;
   method: string;
-  body: OpenRouterChatCompletionRequest;
+  body: object;
   extraHeaders: Record<string, string>;
   provider: Provider;
   signal?: AbortSignal;
