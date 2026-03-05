@@ -49,6 +49,8 @@ export type LifecycleConfig = {
   workspacePath: string;
   /** Model for auto-commit/condense */
   model?: string;
+  /** Upstream branch explicitly provided by the user via API */
+  upstreamBranch?: string;
 };
 
 export type LifecycleDependencies = {
@@ -255,6 +257,7 @@ export function createLifecycleManager(
           onEvent: event => state.sendToIngest(event),
           kiloClient,
           messageId: state.lastAssistantMessageId ?? undefined,
+          upstreamBranch: config.upstreamBranch,
         });
         const timeoutPromise = new Promise<'timeout'>(resolve =>
           setTimeout(() => resolve('timeout'), AUTO_COMMIT_TIMEOUT_MS)

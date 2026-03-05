@@ -21,6 +21,10 @@ export type AutoCommitOptions = {
   kiloClient: KiloClient;
   /** The assistant message ID this autocommit is associated with (for per-message UI rendering) */
   messageId?: string;
+  /** If the user explicitly provided an upstream branch via API, pass it here to allow
+   *  committing to that branch even if it is main/master. Protection is only bypassed
+   *  when the current branch matches this value exactly. */
+  upstreamBranch?: string;
 };
 
 function emitStarted(
@@ -76,19 +80,25 @@ export async function runAutoCommit(opts: AutoCommitOptions): Promise<AutoCommit
       return { success: true, skipped: true };
     }
 
-    // Branch protection: never auto-commit to main/master
+    // Branch protection: block auto-commit to main/master unless the user
+    // explicitly targeted this exact branch via the upstreamBranch API param.
     if (branch === 'main' || branch === 'master') {
-      logToFile(`auto-commit: skipping - protected branch ${branch}`);
-      emitCompleted(
-        onEvent,
-        {
-          success: true,
-          message: `Skipped: cannot commit to ${branch}`,
-          skipped: true,
-        },
-        messageId
+      if (opts.upstreamBranch !== branch) {
+        logToFile(`auto-commit: skipping - protected branch ${branch}`);
+        emitCompleted(
+          onEvent,
+          {
+            success: true,
+            message: `Skipped: cannot commit to ${branch}`,
+            skipped: true,
+          },
+          messageId
+        );
+        return { success: true, skipped: true };
+      }
+      logToFile(
+        `auto-commit: allowing commit to ${branch} (explicit upstreamBranch=${opts.upstreamBranch})`
       );
-      return { success: true, skipped: true };
     }
 
     // Check actual git upstream (not stale config) to decide push strategy

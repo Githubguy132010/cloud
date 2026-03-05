@@ -86,6 +86,7 @@ async function main() {
   const autoCommit = getOptionalEnvBool('AUTO_COMMIT', false);
   const condenseOnComplete = getOptionalEnvBool('CONDENSE_ON_COMPLETE', false);
   const model = getOptionalEnv('MODEL', '');
+  const upstreamBranch = process.env.UPSTREAM_BRANCH || undefined;
 
   const maxRuntimeMs = getOptionalEnvInt('MAX_RUNTIME_MS', DEFAULT_INFLIGHT_TIMEOUT_MS);
 
@@ -101,7 +102,7 @@ async function main() {
     logToFile(`config: agentSession=${agentSessionId}`);
   }
   logToFile(
-    `config: autoCommit=${autoCommit} condenseOnComplete=${condenseOnComplete} maxRuntimeMs=${maxRuntimeMs}`
+    `config: autoCommit=${autoCommit} condenseOnComplete=${condenseOnComplete} maxRuntimeMs=${maxRuntimeMs} upstreamBranch=${upstreamBranch ?? '(none)'}`
   );
 
   // Create state
@@ -210,6 +211,7 @@ async function main() {
       condenseOnComplete,
       workspacePath,
       model: model || undefined,
+      upstreamBranch,
     },
     {
       state,
