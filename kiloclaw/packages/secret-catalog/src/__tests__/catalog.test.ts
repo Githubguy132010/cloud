@@ -143,14 +143,21 @@ describe('Secret Catalog', () => {
   });
 
   describe('getInjectionMethod', () => {
+    const baseEntry: SecretCatalogEntry = {
+      id: 'test',
+      label: 'Test',
+      category: 'channel',
+      icon: 'key',
+      fields: [],
+    };
+
     it('returns env as default when injectionMethod is undefined', () => {
-      const entry = { injectionMethod: undefined } as SecretCatalogEntry;
-      expect(getInjectionMethod(entry)).toBe('env');
+      expect(getInjectionMethod(baseEntry)).toBe('env');
       expect(DEFAULT_INJECTION_METHOD).toBe('env');
     });
 
     it('returns explicit injectionMethod when set', () => {
-      const entry = { injectionMethod: 'openclaw-secrets' } as SecretCatalogEntry;
+      const entry: SecretCatalogEntry = { ...baseEntry, injectionMethod: 'openclaw-secrets' };
       expect(getInjectionMethod(entry)).toBe('openclaw-secrets');
     });
 
