@@ -2,7 +2,6 @@ import { bot } from '@/lib/bot';
 import { APP_URL } from '@/lib/constants';
 import { db } from '@/lib/drizzle';
 import { INTEGRATION_STATUS, PLATFORM } from '@/lib/integrations/core/constants';
-import { SLACK_REDIRECT_URI } from '@/lib/integrations/slack-service';
 import { getUserFromAuth } from '@/lib/user.server';
 import { ensureOrganizationAccess } from '@/routers/organizations/utils';
 import { platform_integrations } from '@kilocode/db';
