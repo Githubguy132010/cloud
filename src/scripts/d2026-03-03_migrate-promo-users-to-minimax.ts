@@ -79,7 +79,7 @@ async function findCandidateConfigs(): Promise<CandidatesByOwnerType> {
     ownerType: 'user',
     ownerId: row.userId,
     ownerLabel: row.email,
-    balanceUsd: row.balance_musd / 1_000_000,
+    balanceUsd: Number(row.balance_musd) / 1_000_000,
   }));
 
   const orgRows = await db
@@ -112,7 +112,7 @@ async function findCandidateConfigs(): Promise<CandidatesByOwnerType> {
     ownerType: 'org',
     ownerId: row.orgId,
     ownerLabel: row.orgName ?? '(unnamed org)',
-    balanceUsd: row.balance_musd / 1_000_000,
+    balanceUsd: Number(row.balance_musd) / 1_000_000,
   }));
 
   return { users, orgs };
