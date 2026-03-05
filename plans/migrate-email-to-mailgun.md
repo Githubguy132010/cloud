@@ -136,7 +136,7 @@ Submitting sends a test email using hardcoded representative fixture data for th
 
 ### Environment Variables
 
-- `EMAIL_PROVIDER` — Which email backend to use: `customerio` (default) or `mailgun`
+- `EMAIL_PROVIDER` — Which email backend to use: `customerio` or `mailgun`. **Must be explicitly set in every environment** — `getEnvVariable` returns `''` (not `undefined`) when unset, so omitting it will throw at startup. Defaults to `customerio` via `||` fallback in `config.server.ts`.
 - `MAILGUN_API_KEY` — Mailgun API key (starts with `key-...`)
 - `MAILGUN_DOMAIN` — Mailgun sending domain (e.g., `mail.kilocode.ai`)
 
@@ -151,17 +151,22 @@ Install: `pnpm add mailgun.js form-data` (keep `customerio-node` until cleanup)
 - ~~Add `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `EMAIL_PROVIDER` to `src/lib/config.server.ts`~~ ✅
 - ~~Extract existing Customer.io send logic into `src/lib/email-customerio.ts` with `sendViaCustomerIo()`~~ ✅
 - ~~Create `src/lib/email-mailgun.ts` as a stub (throws "not yet implemented")~~ ✅
-- ~~Add routing layer in `email.ts`: `send()` delegates to the active provider based on `EMAIL_PROVIDER`~~ ✅
+- ~~Add routing layer in `email.ts`: `send()` takes `{ to, templateName, templateVars }` and delegates to the active provider~~ ✅
+- ~~Refactor all `send*Email` functions to use `templateName` + `templateVars` instead of building `SendEmailRequestOptions` directly~~ ✅
+- ~~Remove `inviteCode` from `OrganizationInviteEmailData` and `OssInviteEmailData`; all sends use `{ email: to }` as the Customer.io identifier~~ ✅
+- ~~Export `templates`, `subjects`, `TemplateName` from `email.ts`~~ ✅
 - ~~Build the admin testing page with template/provider/recipient controls and preview pane~~ ✅
 - ~~Hardcode representative fixture data for each template~~ ✅
-- The provider dropdown only shows `customerio` at this point ✅
+- ~~The provider dropdown only shows `customerio` at this point~~ ✅
+- ~~Add `EMAIL_PROVIDER=customerio` to `.env.local`, `.env.test`, and `.env.development.local.example`~~ ✅
 - Deploy with `EMAIL_PROVIDER=customerio` — no production change
 
 ### PR 2: Mailgun Send Logic + Template Rendering
 
-Pre-requisite template changes:
+Pre-requisite template work:
 
 - ~~Replace `{{ "now" | date: "%Y" }}` with `{{ year }}` in all 12 templates~~ ✅ Done
+- Re-include `src/emails/*.html` and `src/emails/AGENTS.md` (removed from PR 1 branch, cut fresh from PR 1 once merged)
 - Replace the `{% if has_credits %}...{% endif %}` block with `{{ credits_section }}` in the 3 OSS templates (`ossInviteNewUser.html`, `ossInviteExistingUser.html`, `ossExistingOrgProvisioned.html`)
 
 Implementation:
@@ -194,12 +199,16 @@ After the provider switch is confirmed stable:
 
 ## Files Changed
 
-| File                          | Change                                                                                               |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `src/lib/email.ts`            | Add renderTemplate(), routing layer via send(), update all send\*Email functions                     |
-| `src/lib/email-customerio.ts` | Extract existing Customer.io send logic into sendViaCustomerIo()                                     |
-| `src/lib/email-mailgun.ts`    | New Mailgun send logic via sendViaMailgun()                                                          |
-| `src/lib/config.server.ts`    | Add MAILGUN_API_KEY, MAILGUN_DOMAIN, EMAIL_PROVIDER; keep CUSTOMERIO_EMAIL_API_KEY during transition |
-| `package.json`                | Add `mailgun.js` + `form-data` (keep `customerio-node` until cleanup)                                |
-| `src/emails/AGENTS.md`        | Update to reflect Mailgun                                                                            |
-| `.env` files                  | Add MAILGUN_API_KEY, MAILGUN_DOMAIN, EMAIL_PROVIDER                                                  |
+| File                                                        | PR  | Change                                                                                              |
+| ----------------------------------------------------------- | --- | --------------------------------------------------------------------------------------------------- |
+| `src/lib/email.ts`                                          | 1   | Routing via `send({ templateName, templateVars })`; exports `templates`, `subjects`, `TemplateName` |
+| `src/lib/email-customerio.ts`                               | 1   | Extracted `sendViaCustomerIo()`; minimal PII-free logging                                           |
+| `src/lib/email-mailgun.ts`                                  | 1→2 | Stub in PR 1 (throws); full `sendViaMailgun({ to, subject, html })` implementation in PR 2          |
+| `src/lib/config.server.ts`                                  | 1   | Add `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `EMAIL_PROVIDER` with runtime validation guard             |
+| `src/routers/admin/email-testing-router.ts`                 | 1   | New tRPC router with `getTemplates`, `getProviders`, `getPreview`, `sendTest`                       |
+| `src/app/admin/email-testing/page.tsx`                      | 1   | New admin page; Customer.io variable preview; mailgun iframe preview added in PR 2                  |
+| `src/app/admin/components/AppSidebar.tsx`                   | 1   | Add Email Testing nav link                                                                          |
+| `src/routers/admin-router.ts`                               | 1   | Register `emailTestingRouter`                                                                       |
+| `.env.local`, `.env.test`, `.env.development.local.example` | 1   | Add `EMAIL_PROVIDER=customerio`                                                                     |
+| `src/emails/*.html`                                         | 2   | OSS templates: replace Liquid credits conditional with `{{ credits_section }}`                      |
+| `package.json`                                              | 2   | Add `mailgun.js` + `form-data` (keep `customerio-node` until PR 4)                                  |
