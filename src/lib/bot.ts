@@ -1,7 +1,8 @@
 import { Chat, emoji, type ActionEvent, type Message, type Thread } from 'chat';
 import { createSlackAdapter } from '@chat-adapter/slack';
 import { createRedisState } from '@chat-adapter/state-redis';
-import { resolveKiloUserId } from '@/lib/bot-identity';
+import { captureException } from '@sentry/nextjs';
+import { resolveKiloUserId, unlinkKiloUser } from '@/lib/bot-identity';
 import { getPlatformIdentity, getPlatformIntegration } from '@/lib/bot/platform-helpers';
 import { LINK_ACCOUNT_ACTION_PREFIX, promptLinkAccount } from '@/lib/bot/link-account';
 import { findUserById } from '@/lib/user';
@@ -31,7 +32,10 @@ bot.onNewMention(async function handleIncomingMessage(
   ]);
 
   if (!platformIntegration) {
-    throw new Error('No Active Platform Integration Found');
+    captureException(new Error('No active platform integration found'), {
+      extra: { platform: identity.platform, teamId: identity.teamId },
+    });
+    return;
   }
 
   if (!kiloUserId) {
