@@ -13,6 +13,13 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     date: '2026-03-05',
     description:
+      'Switched tool profile from "messaging" to "full". New deploys now have access to all tools including exec, filesystem, web search, and messaging. Existing instances pick up the change on next restart.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
+    date: '2026-03-05',
+    description:
       'Added Go 1.26, gog (gogcli), goplaces, blogwatcher, xurl, gifgrep, and summarize to the default image. Go is available at runtime for installing additional tools via `go install`.',
     category: 'feature',
     deployHint: 'redeploy_suggested',

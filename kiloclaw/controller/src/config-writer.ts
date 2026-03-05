@@ -158,12 +158,29 @@ export function generateBaseConfig(
     delete config.agents.defaults.models;
   }
 
-  // Exec tool settings
+  // Tool profile: "full" enables all tools without restriction. The default
+  // "messaging" profile from onboard only allows session/message tools, which
+  // leaves agents without file, shell, or web access.
   config.tools = config.tools ?? {};
+  config.tools.profile = 'full';
+
+  // Exec: KiloClaw machines have no Docker sandbox, so exec must target the
+  // gateway host directly. Allowlist mode gates unknown commands via the
+  // Control UI approval dialog; safe bins auto-allow without approval.
   config.tools.exec = config.tools.exec ?? {};
   config.tools.exec.host = 'gateway';
   config.tools.exec.security = 'allowlist';
   config.tools.exec.ask = 'on-miss';
+  // Extend safe bins with tools pre-installed in the Docker image.
+  // The defaults (jq, cut, uniq, head, tail, tr, wc) are inherited;
+  // these additions avoid mandatory approval prompts for common dev CLIs.
+  const existingSafeBins: string[] = Array.isArray(config.tools.exec.safeBins)
+    ? config.tools.exec.safeBins
+    : [];
+  for (const bin of ['rg', 'git', 'node', 'pnpm', 'go']) {
+    if (!existingSafeBins.includes(bin)) existingSafeBins.push(bin);
+  }
+  config.tools.exec.safeBins = existingSafeBins;
 
   // Telegram
   if (env.TELEGRAM_BOT_TOKEN) {

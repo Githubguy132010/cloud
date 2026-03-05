@@ -85,10 +85,28 @@ describe('generateBaseConfig', () => {
     // No default model override when env var not set
     expect(config.agents).toBeUndefined();
 
+    // Tool profile
+    expect(config.tools.profile).toBe('full');
+
     // Exec
     expect(config.tools.exec.host).toBe('gateway');
     expect(config.tools.exec.security).toBe('allowlist');
     expect(config.tools.exec.ask).toBe('on-miss');
+
+    // Safe bins
+    expect(config.tools.exec.safeBins).toEqual(['rg', 'git', 'node', 'pnpm', 'go']);
+  });
+
+  it('does not duplicate safeBins when already present', () => {
+    const existing = JSON.stringify({
+      tools: {
+        exec: { safeBins: ['rg', 'custom_bin'] },
+      },
+    });
+    const { deps } = fakeDeps(existing);
+    const config = generateBaseConfig(minimalEnv(), '/tmp/openclaw.json', deps);
+
+    expect(config.tools.exec.safeBins).toEqual(['rg', 'custom_bin', 'git', 'node', 'pnpm', 'go']);
   });
 
   it('preserves existing config keys not touched by the patch', () => {
