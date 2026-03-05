@@ -58,7 +58,8 @@ export async function handleCreateIssuePR(
 
     const prTitle = config.pr_title_template
       .replace('{issue_number}', ticket.issue_number.toString())
-      .replace('{issue_title}', ticket.issue_title);
+      .replace('{issue_title}', ticket.issue_title)
+      .slice(0, 256);
 
     const prBody =
       config.pr_body_template ||
