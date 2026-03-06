@@ -221,10 +221,10 @@ async function processItem(
   const item = parsed.data;
   const { item_id } = getItemIdentity(item);
 
-  // Check if item data exceeds DO SQLite row limit
+  // Check if item data exceeds DO SQLite row limit (use byte length for non-ASCII safety)
   const itemDataJson = JSON.stringify(item.data);
   let r2References: Record<string, string> | undefined;
-  if (itemDataJson.length > MAX_INGEST_ITEM_BYTES) {
+  if (new TextEncoder().encode(itemDataJson).byteLength > MAX_INGEST_ITEM_BYTES) {
     const itemR2Key = `items/${kiloUserId}/${sessionId}/${item_id}`;
     await env.SESSION_INGEST_R2.put(itemR2Key, itemDataJson);
     r2References = { [item_id]: itemR2Key };

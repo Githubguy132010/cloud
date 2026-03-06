@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { eq, ne, gt, and, like, inArray } from 'drizzle-orm';
+import { eq, ne, gt, and, like, inArray, isNotNull } from 'drizzle-orm';
 import { drizzle, type DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite';
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator';
 
@@ -264,6 +264,8 @@ export class SessionIngestDO extends DurableObject<Env> {
 
             // parts for this message: item_id = '{msgId}/{partId}'
             const msgId = msgRow.item_id.slice('message/'.length);
+            // Escape LIKE wildcards in msgId to prevent unintended pattern matches
+            const escapedMsgId = msgId.replace(/[%_]/g, '\\$&');
             controller.enqueue(encoder.encode(',"parts":['));
             let partCursor = 0;
             let firstPart = true;
@@ -279,7 +281,7 @@ export class SessionIngestDO extends DurableObject<Env> {
                 .where(
                   and(
                     eq(ingestItems.item_type, 'part'),
-                    like(ingestItems.item_id, `${msgId}/%`),
+                    like(ingestItems.item_id, `${escapedMsgId}/%`),
                     gt(ingestItems.id, partCursor)
                   )
                 )
@@ -423,6 +425,17 @@ export class SessionIngestDO extends DurableObject<Env> {
   }
 
   async clear(): Promise<void> {
+    // Delete any R2-backed item blobs before wiping SQLite
+    const r2Rows = this.db
+      .select({ item_data_r2_key: ingestItems.item_data_r2_key })
+      .from(ingestItems)
+      .where(isNotNull(ingestItems.item_data_r2_key))
+      .all();
+    const r2Keys = r2Rows.map(r => r.item_data_r2_key).filter((k): k is string => k !== null);
+    if (r2Keys.length > 0) {
+      await this.env.SESSION_INGEST_R2.delete(r2Keys);
+    }
+
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
     await migrate(this.db, migrations);
