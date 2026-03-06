@@ -236,4 +236,110 @@ describe('SessionIngestDO integration', () => {
       expect(snapshot.messages).toEqual([]);
     });
   });
+
+  describe('deleted flag', () => {
+    it('clear() then ingest() returns empty changes', async () => {
+      const sessionId = 'ses_deleted_ingest_0000010';
+      const stub = getStub(kiloUserId, sessionId);
+
+      // Ingest, then clear (sets deleted flag)
+      await stub.ingest(
+        [{ type: 'session', data: { title: 'Before Delete' } }],
+        kiloUserId,
+        sessionId,
+        1
+      );
+      await stub.clear();
+
+      // Ingest after clear should be a no-op due to deleted flag
+      const result = await stub.ingest(
+        [{ type: 'session', data: { title: 'After Delete' } }],
+        kiloUserId,
+        sessionId,
+        1
+      );
+
+      expect(result.changes).toEqual([]);
+    });
+
+    it('clear() then getAllStream() returns empty snapshot', async () => {
+      const sessionId = 'ses_deleted_stream_000011';
+      const stub = getStub(kiloUserId, sessionId);
+
+      await stub.ingest(
+        [
+          { type: 'session', data: { title: 'Will Be Deleted' } },
+          { type: 'message', data: { id: 'msg_1', role: 'user', content: 'hi' } },
+        ],
+        kiloUserId,
+        sessionId,
+        1
+      );
+      await stub.clear();
+
+      const raw = await stub.getAllStream().then(s => new Response(s).text());
+      const snapshot = JSON.parse(raw);
+
+      expect(snapshot.info).toEqual({});
+      expect(snapshot.messages).toEqual([]);
+    });
+  });
+
+  describe('timestamp guard', () => {
+    it('stale ingest (older ingestedAt) does not overwrite newer item', async () => {
+      const sessionId = 'ses_ts_guard_stale_000012';
+      const stub = getStub(kiloUserId, sessionId);
+
+      // Ingest with newer timestamp first
+      await stub.ingest(
+        [{ type: 'session', data: { title: 'Newer' } }],
+        kiloUserId,
+        sessionId,
+        1,
+        2000
+      );
+
+      // Ingest with older timestamp — should be skipped
+      await stub.ingest(
+        [{ type: 'session', data: { title: 'Older' } }],
+        kiloUserId,
+        sessionId,
+        1,
+        1000
+      );
+
+      const raw = await stub.getAllStream().then(s => new Response(s).text());
+      const snapshot = JSON.parse(raw);
+
+      expect(snapshot.info).toEqual({ title: 'Newer' });
+    });
+
+    it('newer ingest (higher ingestedAt) overwrites older item', async () => {
+      const sessionId = 'ses_ts_guard_newer_000013';
+      const stub = getStub(kiloUserId, sessionId);
+
+      // Ingest with older timestamp first
+      await stub.ingest(
+        [{ type: 'session', data: { title: 'Old' } }],
+        kiloUserId,
+        sessionId,
+        1,
+        1000
+      );
+
+      // Ingest with newer timestamp — should overwrite
+      await stub.ingest(
+        [{ type: 'session', data: { title: 'New' } }],
+        kiloUserId,
+        sessionId,
+        1,
+        2000
+      );
+
+      const raw = await stub.getAllStream().then(s => new Response(s).text());
+      const snapshot = JSON.parse(raw);
+
+      expect(snapshot.info).toEqual({ title: 'New' });
+    });
+  });
 });

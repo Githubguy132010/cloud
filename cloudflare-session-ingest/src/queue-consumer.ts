@@ -28,7 +28,7 @@ export interface IngestQueueMessage {
  *
  * Peak memory: one R2 chunk + one parsed item (bounded by MAX_SINGLE_ITEM_BYTES).
  */
-function createItemExtractor(r2Key: string) {
+export function createItemExtractor(r2Key: string) {
   const pending: Record<string, unknown>[] = [];
   let parseError: Error | null = null;
 
