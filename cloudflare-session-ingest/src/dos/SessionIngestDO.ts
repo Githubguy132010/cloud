@@ -247,9 +247,7 @@ export class SessionIngestDO extends DurableObject<Env> {
                 item_data_r2_key: ingestItems.item_data_r2_key,
               })
               .from(ingestItems)
-              .where(
-                and(eq(ingestItems.item_type, 'message'), gt(ingestItems.id, msgCursor))
-              )
+              .where(and(eq(ingestItems.item_type, 'message'), gt(ingestItems.id, msgCursor)))
               .orderBy(ingestItems.id)
               .limit(1)
               .get();
