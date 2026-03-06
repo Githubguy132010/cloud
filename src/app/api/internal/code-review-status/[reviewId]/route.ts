@@ -56,6 +56,7 @@ type OrchestratorPayload = {
   cliSessionId?: string;
   status: 'running' | 'completed' | 'failed' | 'cancelled';
   errorMessage?: string;
+  gateResult?: 'pass' | 'fail';
 };
 
 /**
@@ -69,6 +70,7 @@ type CloudAgentNextCallbackPayload = {
   status: 'completed' | 'failed' | 'interrupted';
   errorMessage?: string;
   lastSeenBranch?: string;
+  gateResult?: 'pass' | 'fail';
 };
 
 type StatusUpdatePayload = OrchestratorPayload | CloudAgentNextCallbackPayload;
@@ -82,6 +84,7 @@ function normalizePayload(raw: StatusUpdatePayload): {
   sessionId?: string;
   cliSessionId?: string;
   errorMessage?: string;
+  gateResult?: 'pass' | 'fail';
 } {
   // Map cloud-agent-next 'interrupted' → 'cancelled'
   const status = raw.status === 'interrupted' ? 'cancelled' : raw.status;
@@ -103,6 +106,7 @@ function normalizePayload(raw: StatusUpdatePayload): {
     sessionId,
     cliSessionId,
     errorMessage: raw.errorMessage,
+    gateResult: raw.gateResult,
   };
 }
 
@@ -131,8 +135,16 @@ async function getReviewUsageData(reviewId: string) {
 /**
  * Maps a review status to a GitHub Check Run update.
  * Returns null for statuses that don't have a check run mapping (e.g. 'queued').
+ *
+ * When `gateResult` is `'fail'` and the review completed successfully (no system error),
+ * the conclusion is set to `'failure'` — the agent determined that the review found
+ * blocking issues (used when `strict_gate` is enabled in the agent config).
  */
-function mapStatusToCheckRun(reviewStatus: string, errorMessage?: string) {
+function mapStatusToCheckRun(
+  reviewStatus: string,
+  errorMessage?: string,
+  gateResult?: 'pass' | 'fail'
+) {
   const statusMap: Record<string, 'in_progress' | 'completed'> = {
     running: 'in_progress',
     completed: 'completed',
@@ -140,28 +152,34 @@ function mapStatusToCheckRun(reviewStatus: string, errorMessage?: string) {
     cancelled: 'completed',
   };
 
+  const checkStatus = statusMap[reviewStatus];
+  if (!checkStatus) return null;
+
+  // When the review completed but the agent reported a gate failure
+  // (e.g. blocking findings with strict_gate enabled), fail the check.
+  const reviewFailed = reviewStatus === 'completed' && gateResult === 'fail';
+
   const conclusionMap: Record<string, CheckRunConclusion> = {
-    completed: 'success',
+    completed: reviewFailed ? 'failure' : 'success',
     failed: 'failure',
     cancelled: 'cancelled',
   };
 
   const titleMap: Record<string, string> = {
     running: 'Kilo Code Review in progress',
-    completed: 'Kilo Code Review completed',
+    completed: reviewFailed ? 'Kilo Code Review found issues' : 'Kilo Code Review completed',
     failed: 'Kilo Code Review failed',
     cancelled: 'Kilo Code Review cancelled',
   };
 
   const summaryMap: Record<string, string> = {
     running: 'Review is running...',
-    completed: 'Code review completed successfully.',
+    completed: reviewFailed
+      ? 'Code review completed with findings that require attention.'
+      : 'Code review completed successfully.',
     failed: errorMessage ? `Review failed: ${errorMessage}` : 'Review failed.',
     cancelled: 'Review was cancelled.',
   };
-
-  const checkStatus = statusMap[reviewStatus];
-  if (!checkStatus) return null;
 
   return {
     status: checkStatus,
@@ -174,7 +192,11 @@ function mapStatusToCheckRun(reviewStatus: string, errorMessage?: string) {
 /**
  * Maps a review status to a GitLab commit status state.
  */
-function mapStatusToGitLabState(reviewStatus: string): GitLabCommitStatusState {
+function mapStatusToGitLabState(
+  reviewStatus: string,
+  gateResult?: 'pass' | 'fail'
+): GitLabCommitStatusState {
+  if (reviewStatus === 'completed' && gateResult === 'fail') return 'failed';
   const stateMap: Record<string, GitLabCommitStatusState> = {
     running: 'running',
     completed: 'success',
@@ -213,12 +235,13 @@ async function updatePRGateCheck(
   integration: PlatformIntegration,
   reviewStatus: string,
   errorMessage?: string,
-  gitlabAccessToken?: string
+  gitlabAccessToken?: string,
+  gateResult?: 'pass' | 'fail'
 ) {
   const platform = review.platform || 'github';
   const detailsUrl = `${APP_URL}/code-reviews/${review.id}`;
 
-  const checkRunMapping = mapStatusToCheckRun(reviewStatus, errorMessage);
+  const checkRunMapping = mapStatusToCheckRun(reviewStatus, errorMessage, gateResult);
   if (!checkRunMapping) return; // unsupported status (e.g. 'queued') — nothing to update
 
   if (platform === 'github' && integration.platform_installation_id) {
@@ -251,7 +274,7 @@ async function updatePRGateCheck(
     const accessToken =
       gitlabAccessToken ?? (await resolveGitLabAccessToken(integration, projectId));
 
-    const state = mapStatusToGitLabState(reviewStatus);
+    const state = mapStatusToGitLabState(reviewStatus, gateResult);
 
     await setCommitStatus(
       accessToken,
@@ -285,7 +308,8 @@ export async function POST(
 
     const { reviewId } = await params;
     const rawPayload: StatusUpdatePayload = await req.json();
-    const { status, sessionId, cliSessionId, errorMessage } = normalizePayload(rawPayload);
+    const { status, sessionId, cliSessionId, errorMessage, gateResult } =
+      normalizePayload(rawPayload);
 
     // Validate payload
     if (!status) {
@@ -352,7 +376,14 @@ export async function POST(
     // above, so a flaky gate update would be unrecoverable.
     if (integration) {
       try {
-        await updatePRGateCheck(review, integration, status, errorMessage, gitlabAccessToken);
+        await updatePRGateCheck(
+          review,
+          integration,
+          status,
+          errorMessage,
+          gitlabAccessToken,
+          gateResult
+        );
       } catch (gateCheckError) {
         logExceptInTest('[code-review-status] Failed to update PR gate check:', gateCheckError);
         const isTerminal = status === 'completed' || status === 'failed' || status === 'cancelled';
