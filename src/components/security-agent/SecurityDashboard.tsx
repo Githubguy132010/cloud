@@ -72,7 +72,7 @@ export function SecurityDashboard() {
   // Build a query string suffix for drill-down links so the selected repo filter carries through
   const repoFilterParam = repoFullName ? `&repoFullName=${encodeURIComponent(repoFullName)}` : '';
 
-  const { data, isLoading, dataUpdatedAt } = useQuery({
+  const { data, isLoading } = useQuery({
     ...(isOrg
       ? trpc.organizations.securityAgent.getDashboardStats.queryOptions({
           organizationId: organizationId ?? '',
@@ -84,6 +84,18 @@ export function SecurityDashboard() {
     staleTime: 30_000,
     enabled: hasIntegration,
   });
+
+  // Use real sync time from DB rather than React Query fetch time
+  const { data: lastSyncData } = useQuery(
+    isOrg
+      ? trpc.organizations.securityAgent.getLastSyncTime.queryOptions({
+          organizationId: organizationId ?? '',
+          repoFullName,
+        })
+      : trpc.securityAgent.getLastSyncTime.queryOptions({
+          repoFullName,
+        })
+  );
 
   if (isLoadingPermission) {
     return (
@@ -120,8 +132,9 @@ export function SecurityDashboard() {
   const overdue = data?.overdue ?? [];
   const repoHealth = data?.repoHealth ?? [];
 
-  const lastUpdated = dataUpdatedAt
-    ? `Last synced ${formatDistanceToNow(new Date(dataUpdatedAt), { addSuffix: true })}`
+  const lastSyncTime = lastSyncData?.lastSyncTime;
+  const lastUpdated = lastSyncTime
+    ? `Last synced ${formatDistanceToNow(new Date(lastSyncTime), { addSuffix: true })}`
     : null;
 
   return (

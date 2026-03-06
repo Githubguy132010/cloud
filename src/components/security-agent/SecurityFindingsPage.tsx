@@ -39,16 +39,23 @@ export function SecurityFindingsPage() {
   const trpc = useTRPC();
   const searchParams = useSearchParams();
 
-  // Initialize filters from URL search params
+  // Initialize filters from URL search params.
+  // When outcomeFilter implies its own status (e.g. "fixed", "dismissed"),
+  // leave status unset so it doesn't contradict the outcome filter.
   const initialFilters = useMemo(() => {
-    const status = searchParams.get('status') ?? 'open';
+    const statusParam = searchParams.get('status') ?? undefined;
     const severity = searchParams.get('severity') ?? undefined;
     const repoFullName = searchParams.get('repoFullName') ?? undefined;
     const outcomeFilter = searchParams.get('outcomeFilter') ?? undefined;
     const overdue = searchParams.get('overdue');
 
+    const outcomeImpliesStatus = outcomeFilter === 'fixed' || outcomeFilter === 'dismissed';
+
+    const status =
+      overdue === 'true' ? 'open' : outcomeImpliesStatus ? undefined : (statusParam ?? 'open');
+
     return {
-      status: overdue === 'true' ? 'open' : status || undefined,
+      status: status || undefined,
       severity,
       repoFullName,
       outcomeFilter,
