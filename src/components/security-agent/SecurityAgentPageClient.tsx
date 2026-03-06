@@ -613,8 +613,30 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
   // Get findings data
   const findings = findingsData?.findings ?? [];
   const totalCount = findingsData?.totalCount ?? 0;
-  const runningCount = findingsData?.runningCount ?? 0;
+  const serverRunningCount = findingsData?.runningCount ?? 0;
   const concurrencyLimit = findingsData?.concurrencyLimit ?? 3;
+
+  // Compute effective running count that includes optimistic additions from
+  // in-flight startAnalysis mutations (whose results haven't been reflected in
+  // the server data yet). This ensures the capacity badge updates immediately
+  // when the user clicks "Analyze".
+  const runningCount = useMemo(() => {
+    if (startingAnalysisIds.size === 0) return serverRunningCount;
+
+    let optimisticAdditional = 0;
+    for (const id of startingAnalysisIds) {
+      const finding = findings.find(f => f.id === id);
+      // Only count as additional if the server data doesn't already reflect
+      // this analysis (i.e. the finding's status hasn't moved to pending/running yet).
+      if (
+        !finding ||
+        (finding.analysis_status !== 'pending' && finding.analysis_status !== 'running')
+      ) {
+        optimisticAdditional++;
+      }
+    }
+    return serverRunningCount + optimisticAdditional;
+  }, [serverRunningCount, startingAnalysisIds, findings]);
 
   // Get repositories - filter to only show selected repositories in the findings tab
   const allRepositories = reposData ?? [];
