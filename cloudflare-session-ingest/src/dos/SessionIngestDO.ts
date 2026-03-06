@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { eq, ne, gt, and, like, inArray, isNotNull } from 'drizzle-orm';
+import { eq, ne, gt, and, sql, inArray, isNotNull } from 'drizzle-orm';
 import { drizzle, type DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite';
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator';
 
@@ -264,8 +264,8 @@ export class SessionIngestDO extends DurableObject<Env> {
 
             // parts for this message: item_id = '{msgId}/{partId}'
             const msgId = msgRow.item_id.slice('message/'.length);
-            // Escape LIKE wildcards in msgId to prevent unintended pattern matches
-            const escapedMsgId = msgId.replace(/[%_]/g, '\\$&');
+            // Escape LIKE wildcards (% and _) so they match literally, with ESCAPE clause
+            const likePattern = msgId.replace(/[%_\\]/g, '\\$&') + '/%';
             controller.enqueue(encoder.encode(',"parts":['));
             let partCursor = 0;
             let firstPart = true;
@@ -281,7 +281,7 @@ export class SessionIngestDO extends DurableObject<Env> {
                 .where(
                   and(
                     eq(ingestItems.item_type, 'part'),
-                    like(ingestItems.item_id, `${escapedMsgId}/%`),
+                    sql`${ingestItems.item_id} LIKE ${likePattern} ESCAPE '\\'`,
                     gt(ingestItems.id, partCursor)
                   )
                 )
@@ -329,6 +329,10 @@ export class SessionIngestDO extends DurableObject<Env> {
       return false;
     }
 
+    // Note: items that exceeded the DO SQLite row limit (~1.94MB) are stored in R2
+    // with item_data='{}'. Metrics reads only item_data from SQLite, so those items
+    // contribute empty data. This is acceptable — oversized items are rare edge cases
+    // (giant tool results) and metrics only needs small fields (timestamps, types).
     const rows = this.db
       .select({
         item_type: ingestItems.item_type,
