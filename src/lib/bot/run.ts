@@ -227,7 +227,6 @@ async function summarizePrompt(
   const result = await generateText({
     model: provider.chatModel(pickSummaryModel(modelSlug)),
     prompt: `Summarize the following task in at most 10 words. Output only the summary, nothing else.\n\n${prompt}`,
-    maxOutputTokens: 50,
   });
   return result.text.trim();
 }
