@@ -19,7 +19,7 @@ export async function sendViaMailgun({ to, subject, html }: SendViaMailgunParams
     return;
   }
   const client = mailgun.client({ username: 'api', key: MAILGUN_API_KEY });
-  await client.messages.create(MAILGUN_DOMAIN, {
+  return client.messages.create(MAILGUN_DOMAIN, {
     from: 'Kilo Code <noreply@app.kilocode.ai>',
     'h:Reply-To': 'hi@kilocode.ai',
     to,

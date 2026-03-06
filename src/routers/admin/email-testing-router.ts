@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { adminProcedure, createTRPCRouter } from '@/lib/trpc/init';
 import { NEXTAUTH_URL } from '@/lib/config.server';
 import { sendViaCustomerIo } from '@/lib/email-customerio';
@@ -171,19 +172,31 @@ export const emailTestingRouter = createTRPCRouter({
         const messageData: Record<string, string> = Object.fromEntries(
           Object.entries(vars).map(([k, v]) => [k, v instanceof RawHtml ? v.html : v])
         );
-        await sendViaCustomerIo({
+        const result = await sendViaCustomerIo({
           transactional_message_id: templates[input.template],
           to: input.recipient,
           message_data: messageData,
           identifiers: { email: input.recipient },
           reply_to: 'hi@kilocode.ai',
         });
-        return { success: true, provider: input.provider, recipient: input.recipient };
+        if (!result) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'CUSTOMERIO_EMAIL_API_KEY is not configured — email was not sent',
+          });
+        }
+        return { provider: input.provider, recipient: input.recipient };
       }
 
       const subject = subjects[input.template];
       const html = renderTemplateForPreview(input.template, vars);
-      await sendViaMailgun({ to: input.recipient, subject, html });
-      return { success: true, provider: input.provider, recipient: input.recipient };
+      const result = await sendViaMailgun({ to: input.recipient, subject, html });
+      if (!result) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'MAILGUN_API_KEY/MAILGUN_DOMAIN is not configured — email was not sent',
+        });
+      }
+      return { provider: input.provider, recipient: input.recipient };
     }),
 });
