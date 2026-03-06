@@ -138,7 +138,7 @@ async function getReviewUsageData(reviewId: string) {
  *
  * When `gateResult` is `'fail'` and the review completed successfully (no system error),
  * the conclusion is set to `'failure'` — the agent determined that the review found
- * blocking issues (used when `strict_gate` is enabled in the agent config).
+ * blocking issues (based on the `gate_threshold` setting in the agent config).
  */
 function mapStatusToCheckRun(
   reviewStatus: string,
@@ -156,7 +156,7 @@ function mapStatusToCheckRun(
   if (!checkStatus) return null;
 
   // When the review completed but the agent reported a gate failure
-  // (e.g. blocking findings with strict_gate enabled), fail the check.
+  // (e.g. findings exceeding the gate_threshold), fail the check.
   const reviewFailed = reviewStatus === 'completed' && gateResult === 'fail';
 
   const conclusionMap: Record<string, CheckRunConclusion> = {
