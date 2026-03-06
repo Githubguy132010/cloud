@@ -637,7 +637,7 @@
     },
     {
       "id": "kilo/auto",
-      "name": "[DEPRECATED] use kilo-auto/frontier instead",
+      "name": "DEPRECATED use kilo-auto/frontier instead",
       "created": 0,
       "description": "Automatically routes your request to the best model for the task.",
       "architecture": {
@@ -678,7 +678,7 @@
     },
     {
       "id": "kilo/auto-free",
-      "name": "[DEPRECATED] use kilo-auto/free instead",
+      "name": "DEPRECATED use kilo-auto/free instead",
       "created": 0,
       "description": "Automatically routes your request to a free model.",
       "architecture": {
@@ -723,7 +723,7 @@
     },
     {
       "id": "kilo/auto-small",
-      "name": "[DEPRECATED] use kilo-auto/small instead",
+      "name": "DEPRECATED use kilo-auto/small instead",
       "created": 0,
       "description": "Automatically routes your request to a small model.",
       "architecture": {
