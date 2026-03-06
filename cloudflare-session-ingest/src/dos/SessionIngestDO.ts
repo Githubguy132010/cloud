@@ -111,14 +111,19 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     let hasSessionOpen = false;
     let closeReason: string | undefined;
+    const orphanedR2Keys: string[] = [];
 
     for (const item of payload) {
       const { item_id, item_type } = getItemIdentity(item);
 
-      // Check timestamp guard: skip if existing row has a newer ingested_at
+      // Check timestamp guard: skip if existing row has a newer ingested_at.
+      // Also read the existing R2 key so we can clean up orphaned blobs.
       if (ingestedAt !== undefined) {
         const existing = this.db
-          .select({ ingested_at: ingestItems.ingested_at })
+          .select({
+            ingested_at: ingestItems.ingested_at,
+            item_data_r2_key: ingestItems.item_data_r2_key,
+          })
           .from(ingestItems)
           .where(eq(ingestItems.item_id, item_id))
           .get();
@@ -127,7 +132,16 @@ export class SessionIngestDO extends DurableObject<Env> {
           existing?.ingested_at !== undefined &&
           existing.ingested_at > ingestedAt
         ) {
+          // Item is stale — if the caller wrote an R2 blob for it, that blob is orphaned
+          const newR2Key = r2References?.[item_id];
+          if (newR2Key) orphanedR2Keys.push(newR2Key);
           continue;
+        }
+
+        // If the existing row pointed to a different R2 blob, it will be orphaned after upsert
+        const newR2Key = r2References?.[item_id] ?? null;
+        if (existing?.item_data_r2_key && existing.item_data_r2_key !== newR2Key) {
+          orphanedR2Keys.push(existing.item_data_r2_key);
         }
       }
 
@@ -181,6 +195,11 @@ export class SessionIngestDO extends DurableObject<Env> {
       if (meta.changed) {
         changes.push({ name: key, value: meta.value });
       }
+    }
+
+    // Clean up orphaned R2 blobs (e.g. replaced or stale oversized items)
+    if (orphanedR2Keys.length > 0) {
+      await this.env.SESSION_INGEST_R2.delete(orphanedR2Keys);
     }
 
     if (ingestVersion >= 1) {

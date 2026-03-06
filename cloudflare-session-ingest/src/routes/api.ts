@@ -189,7 +189,13 @@ api.post('/session/:sessionId/ingest', async c => {
     ingestVersion,
     ingestedAt: Date.now(),
   };
-  await c.env.INGEST_QUEUE.send(queueMessage);
+  try {
+    await c.env.INGEST_QUEUE.send(queueMessage);
+  } catch (err) {
+    // Clean up staging R2 object to prevent orphaned blobs
+    await c.env.SESSION_INGEST_R2.delete(r2Key).catch(() => {});
+    throw err;
+  }
 
   return c.json({ success: true }, 200);
 });

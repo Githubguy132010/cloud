@@ -144,6 +144,19 @@ function createItemExtractor(r2Key: string) {
 async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> {
   const { r2Key, kiloUserId, sessionId, ingestVersion, ingestedAt } = msg;
 
+  // Guard: skip processing if the session has been deleted since this message was queued
+  const db = getWorkerDb(env.HYPERDRIVE.connectionString);
+  const sessionRows = await db
+    .select({ session_id: cli_sessions_v2.session_id })
+    .from(cli_sessions_v2)
+    .where(and(eq(cli_sessions_v2.session_id, sessionId), eq(cli_sessions_v2.kilo_user_id, kiloUserId)))
+    .limit(1);
+  if (!sessionRows[0]) {
+    console.warn('Session no longer exists, cleaning up staging object', { r2Key, sessionId });
+    await env.SESSION_INGEST_R2.delete(r2Key);
+    return;
+  }
+
   const obj = await env.SESSION_INGEST_R2.get(r2Key);
   if (!obj) {
     console.warn('R2 object not found, skipping', { r2Key });
@@ -225,7 +238,7 @@ async function processItem(
   const itemDataJson = JSON.stringify(item.data);
   let r2References: Record<string, string> | undefined;
   if (new TextEncoder().encode(itemDataJson).byteLength > MAX_INGEST_ITEM_BYTES) {
-    const itemR2Key = `items/${kiloUserId}/${sessionId}/${item_id}`;
+    const itemR2Key = `items/${kiloUserId}/${sessionId}/${item_id}/${ingestedAt}`;
     await env.SESSION_INGEST_R2.put(itemR2Key, itemDataJson);
     r2References = { [item_id]: itemR2Key };
   }
