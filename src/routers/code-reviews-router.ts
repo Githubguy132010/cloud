@@ -51,6 +51,7 @@ const SaveReviewConfigInputSchema = z.object({
   repositorySelectionMode: z.enum(['all', 'selected']).optional(),
   selectedRepositoryIds: z.array(z.number()).optional(),
   manuallyAddedRepositories: z.array(ManuallyAddedRepositoryInputSchema).optional(),
+  gateThreshold: z.enum(['off', 'all', 'warning', 'critical']).optional(),
   // GitLab-specific: auto-configure webhooks
   autoConfigureWebhooks: z.boolean().optional().default(true),
 });
@@ -165,6 +166,7 @@ export const personalReviewAgentRouter = createTRPCRouter({
           maxReviewTimeMinutes: 10,
           modelSlug: PRIMARY_DEFAULT_MODEL,
           thinkingEffort: null satisfies string | null,
+          gateThreshold: 'off' as const,
           repositorySelectionMode: 'all' as const,
           selectedRepositoryIds: [],
           manuallyAddedRepositories: [],
@@ -181,6 +183,7 @@ export const personalReviewAgentRouter = createTRPCRouter({
         maxReviewTimeMinutes: cfg.max_review_time_minutes || 10,
         modelSlug: cfg.model_slug || PRIMARY_DEFAULT_MODEL,
         thinkingEffort: cfg.thinking_effort ?? null,
+        gateThreshold: cfg.gate_threshold ?? 'off',
         repositorySelectionMode: cfg.repository_selection_mode || 'all',
         selectedRepositoryIds: cfg.selected_repository_ids || [],
         manuallyAddedRepositories: cfg.manually_added_repositories || [],
@@ -217,6 +220,7 @@ export const personalReviewAgentRouter = createTRPCRouter({
             max_review_time_minutes: input.maxReviewTimeMinutes,
             model_slug: input.modelSlug,
             thinking_effort: input.thinkingEffort ?? null,
+            gate_threshold: input.gateThreshold ?? 'off',
             repository_selection_mode: input.repositorySelectionMode || 'all',
             selected_repository_ids: input.selectedRepositoryIds || [],
             manually_added_repositories: input.manuallyAddedRepositories || [],
