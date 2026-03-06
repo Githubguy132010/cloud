@@ -48,6 +48,15 @@ import {
   StartAnalysisInputSchema,
   GetAnalysisInputSchema,
   DeleteFindingsByRepoInputSchema,
+  type SaveSecurityConfigInput,
+  type ListFindingsInput,
+  type TriggerSyncInput,
+  type DismissFindingInput,
+  type GetFindingInput,
+  type SetEnabledInput,
+  type StartAnalysisInput,
+  type GetAnalysisInput,
+  type DeleteFindingsByRepoInput,
 } from '@/lib/security-agent/core/schemas';
 import {
   DEFAULT_SECURITY_AGENT_TRIAGE_MODEL,
@@ -201,7 +210,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof SaveSecurityConfigInputSchema._output & TExtra;
+        input: SaveSecurityConfigInput & TExtra;
       }) => {
         const input = rawInput;
         const owner = deps.resolveOwner(ctx, input);
@@ -336,7 +345,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof SetEnabledInputSchema._output & TExtra;
+        input: SetEnabledInput & TExtra;
       }) => {
         const input = rawInput;
         const owner = deps.resolveOwner(ctx, input);
@@ -511,7 +520,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof ListFindingsInputSchema._output & TExtra;
+        input: ListFindingsInput & TExtra;
       }) => {
         const input = rawInput;
         const securityOwner = deps.resolveSecurityOwner(ctx, input);
@@ -548,7 +557,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof GetFindingInputSchema._output & TExtra;
+        input: GetFindingInput & TExtra;
       }) => {
         const input = rawInput;
         const finding = await getSecurityFindingById(input.id);
@@ -590,7 +599,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: Pick<typeof ListFindingsInputSchema._output, 'repoFullName'> & TExtra;
+        input: Pick<ListFindingsInput, 'repoFullName'> & TExtra;
       }) => {
         const input = rawInput;
         const securityOwner = deps.resolveSecurityOwner(ctx, input);
@@ -612,7 +621,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof TriggerSyncInputSchema._output & TExtra;
+        input: TriggerSyncInput & TExtra;
       }) => {
         const input = rawInput;
         const owner = deps.resolveOwner(ctx, input);
@@ -771,7 +780,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof DismissFindingInputSchema._output & TExtra;
+        input: DismissFindingInput & TExtra;
       }) => {
         const input = rawInput;
         const securityOwner = deps.resolveSecurityOwner(ctx, input);
@@ -877,7 +886,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof StartAnalysisInputSchema._output & TExtra;
+        input: StartAnalysisInput & TExtra;
       }) => {
         const input = rawInput;
         const owner = deps.resolveOwner(ctx, input);
@@ -992,7 +1001,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof GetAnalysisInputSchema._output & TExtra;
+        input: GetAnalysisInput & TExtra;
       }) => {
         const input = rawInput;
         const finding = await getSecurityFindingById(input.findingId);
@@ -1064,7 +1073,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         input: rawInput,
       }: {
         ctx: TRPCContext;
-        input: typeof DeleteFindingsByRepoInputSchema._output & TExtra;
+        input: DeleteFindingsByRepoInput & TExtra;
       }) => {
         const input = rawInput;
         const securityOwner = deps.resolveSecurityOwner(ctx, input);

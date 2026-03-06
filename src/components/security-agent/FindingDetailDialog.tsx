@@ -404,11 +404,14 @@ export function FindingDetailDialog({
                         Usage locations:
                       </span>
                       <ul className="text-muted-foreground mt-1 list-inside list-disc text-xs">
-                        {analysis.sandboxAnalysis.usageLocations.slice(0, 5).map((loc: string) => (
-                          <li key={loc} className="truncate">
-                            {loc}
-                          </li>
-                        ))}
+                        {/* usageLocations may contain duplicates, so index is needed for uniqueness */}
+                        {analysis.sandboxAnalysis.usageLocations
+                          .slice(0, 5)
+                          .map((loc: string, i: number) => (
+                            <li key={`${loc}-${i}`} className="truncate">
+                              {loc}
+                            </li>
+                          ))}
                         {analysis.sandboxAnalysis.usageLocations.length > 5 && (
                           <li className="text-muted-foreground/70">
                             ...and {analysis.sandboxAnalysis.usageLocations.length - 5} more

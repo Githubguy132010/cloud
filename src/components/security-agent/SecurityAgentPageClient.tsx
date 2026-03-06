@@ -293,13 +293,17 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
   // Analysis mutations - Organization
   const { mutate: orgStartAnalysisMutate, isPending: _isOrgStartAnalysisPending } = useMutation(
     trpc.organizations.securityAgent.startAnalysis.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (_data, variables) => {
         setGitHubError(null); // Clear any previous error on success
         toast.success('Analysis started');
         void queryClient.invalidateQueries();
-        setStartingAnalysisIds(new Set());
+        setStartingAnalysisIds(prev => {
+          const next = new Set(prev);
+          next.delete(variables.findingId);
+          return next;
+        });
       },
-      onError: error => {
+      onError: (error, variables) => {
         const message = error instanceof Error ? error.message : String(error);
         if (isGitHubIntegrationError(error)) {
           setGitHubError(message);
@@ -315,7 +319,11 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
         }
         // Refetch so the row picks up analysis_status = 'failed' and shows "Retry"
         void queryClient.invalidateQueries();
-        setStartingAnalysisIds(new Set());
+        setStartingAnalysisIds(prev => {
+          const next = new Set(prev);
+          next.delete(variables.findingId);
+          return next;
+        });
       },
     })
   );
@@ -324,13 +332,17 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
   const { mutate: personalStartAnalysisMutate, isPending: _isPersonalStartAnalysisPending } =
     useMutation(
       trpc.securityAgent.startAnalysis.mutationOptions({
-        onSuccess: async () => {
+        onSuccess: async (_data, variables) => {
           setGitHubError(null); // Clear any previous error on success
           toast.success('Analysis started');
           void queryClient.invalidateQueries();
-          setStartingAnalysisIds(new Set());
+          setStartingAnalysisIds(prev => {
+            const next = new Set(prev);
+            next.delete(variables.findingId);
+            return next;
+          });
         },
-        onError: error => {
+        onError: (error, variables) => {
           const message = error instanceof Error ? error.message : String(error);
           if (isGitHubIntegrationError(error)) {
             setGitHubError(message);
@@ -346,7 +358,11 @@ export function SecurityAgentPageClient({ organizationId }: SecurityAgentPageCli
           }
           // Refetch so the row picks up analysis_status = 'failed' and shows "Retry"
           void queryClient.invalidateQueries();
-          setStartingAnalysisIds(new Set());
+          setStartingAnalysisIds(prev => {
+            const next = new Set(prev);
+            next.delete(variables.findingId);
+            return next;
+          });
         },
       })
     );

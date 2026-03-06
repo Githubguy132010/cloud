@@ -381,13 +381,15 @@ export async function listSecurityFindings(
           );
           break;
         case 'triage_complete':
+          // Triage done but no sandbox analysis yet; matches TriageSuggestedActionSchema = 'analyze_codebase'.
+          // Coupled with OutcomeFilterSchema and getOutcome() in SecurityFindingRow.tsx.
           conditions.push(eq(security_findings.status, 'open'));
           conditions.push(eq(security_findings.analysis_status, 'completed'));
           conditions.push(
             sql`(${security_findings.analysis}->'sandboxAnalysis'->>'isExploitable') IS NULL`
           );
           conditions.push(
-            sql`COALESCE(${security_findings.analysis}->'triage'->>'suggestedAction', '') NOT IN ('dismiss', 'manual_review')`
+            sql`(${security_findings.analysis}->'triage'->>'suggestedAction') = 'analyze_codebase'`
           );
           break;
         case 'fixed':
