@@ -74,7 +74,7 @@ const normalUnconditionalNotifications: KiloNotification[] = [
       actionURL: 'https://app.kilo.ai/app-builder',
     },
     showIn: ['extension'],
-    expiresAt: '2025-03-10T00:00:00Z',
+    expiresAt: '2026-03-10T00:00:00Z',
   },
 ];
 
