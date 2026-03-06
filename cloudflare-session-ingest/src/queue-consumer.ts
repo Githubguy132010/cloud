@@ -143,7 +143,7 @@ function createItemExtractor(r2Key: string) {
   return {
     tokenizer,
     pending,
-    get parseError() {
+    getParseError() {
       return parseError;
     },
   };
@@ -174,7 +174,7 @@ async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> 
   }
 
   const mergedChanges = new Map<string, string | null>();
-  const { tokenizer, pending, parseError } = createItemExtractor(r2Key);
+  const { tokenizer, pending, getParseError } = createItemExtractor(r2Key);
 
   // Feed the R2 body chunk by chunk, processing completed items between reads
   const reader = obj.body.getReader();
@@ -214,6 +214,7 @@ async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> 
   }
 
   // If the JSON payload was malformed, throw so the queue message is retried/DLQ'd
+  const parseError = getParseError();
   if (parseError) {
     throw new Error(`Malformed JSON in staging object ${r2Key}: ${parseError.message}`);
   }
