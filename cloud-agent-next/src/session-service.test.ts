@@ -41,7 +41,7 @@ import type { PersistenceEnv, CloudAgentSessionState } from './persistence/types
 describe('SessionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (mockEnv.SESSION_INGEST as { fetch: ReturnType<typeof vi.fn> }).fetch = vi
+    (mockEnv.SESSION_INGEST as unknown as { fetch: ReturnType<typeof vi.fn> }).fetch = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify({ info: {}, messages: [] })));
   });
