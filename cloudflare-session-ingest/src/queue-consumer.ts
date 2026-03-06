@@ -30,6 +30,7 @@ export interface IngestQueueMessage {
  */
 function createItemExtractor(r2Key: string) {
   const pending: Record<string, unknown>[] = [];
+  let parseError: Error | null = null;
 
   // Depth: 0=before root, 1=root object, 2=$.data array, 3+=inside an item
   let depth = 0;
@@ -136,9 +137,10 @@ function createItemExtractor(r2Key: string) {
 
   tokenizer.onError = (err: Error) => {
     console.error('Tokenizer error in queue consumer', { r2Key, error: err.message });
+    parseError = err;
   };
 
-  return { tokenizer, pending };
+  return { tokenizer, pending, get parseError() { return parseError; } };
 }
 
 async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> {
@@ -164,7 +166,7 @@ async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> 
   }
 
   const mergedChanges = new Map<string, string | null>();
-  const { tokenizer, pending } = createItemExtractor(r2Key);
+  const { tokenizer, pending, parseError } = createItemExtractor(r2Key);
 
   // Feed the R2 body chunk by chunk, processing completed items between reads
   const reader = obj.body.getReader();
@@ -201,6 +203,11 @@ async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> 
     }
 
     if (result.done) break;
+  }
+
+  // If the JSON payload was malformed, throw so the queue message is retried/DLQ'd
+  if (parseError) {
+    throw new Error(`Malformed JSON in staging object ${r2Key}: ${parseError.message}`);
   }
 
   // Update Postgres with metadata changes
