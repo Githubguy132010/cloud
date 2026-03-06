@@ -26,12 +26,16 @@ import {
   addReactionToPR,
   findKiloReviewComment,
   updateKiloReviewComment,
+  updateCheckRun,
 } from '@/lib/integrations/platforms/github/adapter';
+import type { CheckRunConclusion } from '@/lib/integrations/platforms/github/adapter';
 import {
   addReactionToMR,
   findKiloReviewNote,
   updateKiloReviewNote,
+  setCommitStatus,
 } from '@/lib/integrations/platforms/gitlab/adapter';
+import type { GitLabCommitStatusState } from '@/lib/integrations/platforms/gitlab/adapter';
 import { getIntegrationById } from '@/lib/integrations/db/platform-integrations';
 import {
   getValidGitLabToken,
@@ -41,6 +45,8 @@ import { captureException, captureMessage } from '@sentry/nextjs';
 import { INTERNAL_API_SECRET } from '@/lib/config.server';
 import { PLATFORM } from '@/lib/integrations/core/constants';
 import { appendUsageFooter } from '@/lib/code-reviews/summary/usage-footer';
+import { APP_URL } from '@/lib/constants';
+import type { CloudAgentCodeReview, PlatformIntegration } from '@kilocode/db/schema';
 
 /**
  * Payload from the orchestrator DO (legacy format).
@@ -122,6 +128,120 @@ async function getReviewUsageData(reviewId: string) {
   };
 }
 
+/**
+ * Maps a review status to a GitHub Check Run update.
+ */
+function mapStatusToCheckRun(reviewStatus: string, errorMessage?: string) {
+  const conclusionMap: Record<string, CheckRunConclusion> = {
+    completed: 'success',
+    failed: 'failure',
+    cancelled: 'cancelled',
+  };
+
+  const titleMap: Record<string, string> = {
+    running: 'Kilo Code Review in progress',
+    completed: 'Kilo Code Review completed',
+    failed: 'Kilo Code Review failed',
+    cancelled: 'Kilo Code Review cancelled',
+  };
+
+  const summaryMap: Record<string, string> = {
+    running: 'Review is running...',
+    completed: 'Code review completed successfully.',
+    failed: errorMessage ? `Review failed: ${errorMessage}` : 'Review failed.',
+    cancelled: 'Review was cancelled.',
+  };
+
+  return {
+    status: (reviewStatus === 'running' ? 'in_progress' : 'completed') as
+      | 'in_progress'
+      | 'completed',
+    conclusion: conclusionMap[reviewStatus],
+    title: titleMap[reviewStatus] ?? 'Kilo Code Review',
+    summary: summaryMap[reviewStatus] ?? '',
+  };
+}
+
+/**
+ * Maps a review status to a GitLab commit status state.
+ */
+function mapStatusToGitLabState(reviewStatus: string): GitLabCommitStatusState {
+  const stateMap: Record<string, GitLabCommitStatusState> = {
+    running: 'running',
+    completed: 'success',
+    failed: 'failed',
+    cancelled: 'canceled',
+  };
+  return stateMap[reviewStatus] ?? 'pending';
+}
+
+/**
+ * Update the GitHub Check Run or GitLab commit status for a review.
+ * Non-blocking — errors are logged but don't fail the callback.
+ */
+async function updatePRGateCheck(
+  review: CloudAgentCodeReview,
+  integration: PlatformIntegration,
+  reviewStatus: string,
+  errorMessage?: string
+) {
+  const platform = review.platform || 'github';
+  const detailsUrl = `${APP_URL}/code-reviews/${review.id}`;
+
+  if (platform === 'github' && integration.platform_installation_id) {
+    // GitHub: update Check Run (only if we have a check_run_id)
+    if (!review.check_run_id) return;
+
+    const [repoOwner, repoName] = review.repo_full_name.split('/');
+    const { status, conclusion, title, summary } = mapStatusToCheckRun(reviewStatus, errorMessage);
+
+    await updateCheckRun(
+      integration.platform_installation_id,
+      repoOwner,
+      repoName,
+      review.check_run_id,
+      {
+        status,
+        conclusion,
+        detailsUrl,
+        output: { title, summary },
+      }
+    );
+
+    logExceptInTest(
+      `[code-review-status] Updated check run for ${review.repo_full_name}#${review.pr_number}`,
+      { status, conclusion }
+    );
+  } else if (platform === PLATFORM.GITLAB) {
+    // GitLab: update commit status
+    const metadata = integration.metadata as { gitlab_instance_url?: string } | null;
+    const instanceUrl = metadata?.gitlab_instance_url || 'https://gitlab.com';
+    const projectId = review.platform_project_id;
+    const storedPrat = projectId ? getStoredProjectAccessToken(integration, projectId) : null;
+    const accessToken = storedPrat ? storedPrat.token : await getValidGitLabToken(integration);
+
+    const state = mapStatusToGitLabState(reviewStatus);
+    const { title } = mapStatusToCheckRun(reviewStatus, errorMessage);
+
+    await setCommitStatus(
+      accessToken,
+      review.repo_full_name,
+      review.head_sha,
+      state,
+      {
+        targetUrl: detailsUrl,
+        description: title,
+      },
+      instanceUrl
+    );
+
+    logExceptInTest(
+      `[code-review-status] Updated commit status for GitLab MR ${review.repo_full_name}!${review.pr_number}`,
+      { state }
+    );
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ reviewId: string }> }
@@ -201,6 +321,19 @@ export async function POST(
       cliSessionId,
       status,
     });
+
+    // Update PR gate check (GitHub Check Run / GitLab commit status)
+    if (review.platform_integration_id) {
+      try {
+        const integration = await getIntegrationById(review.platform_integration_id);
+        if (integration) {
+          await updatePRGateCheck(review, integration, status, errorMessage);
+        }
+      } catch (gateCheckError) {
+        // Non-blocking — log but don't fail the status callback
+        logExceptInTest('[code-review-status] Failed to update PR gate check:', gateCheckError);
+      }
+    }
 
     // Only trigger dispatch for terminal states (completed/failed/cancelled)
     // This frees up a slot for the next pending review
