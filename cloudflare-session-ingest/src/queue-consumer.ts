@@ -140,7 +140,13 @@ function createItemExtractor(r2Key: string) {
     parseError = err;
   };
 
-  return { tokenizer, pending, get parseError() { return parseError; } };
+  return {
+    tokenizer,
+    pending,
+    get parseError() {
+      return parseError;
+    },
+  };
 }
 
 async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> {
@@ -151,7 +157,9 @@ async function processMessage(env: Env, msg: IngestQueueMessage): Promise<void> 
   const sessionRows = await db
     .select({ session_id: cli_sessions_v2.session_id })
     .from(cli_sessions_v2)
-    .where(and(eq(cli_sessions_v2.session_id, sessionId), eq(cli_sessions_v2.kilo_user_id, kiloUserId)))
+    .where(
+      and(eq(cli_sessions_v2.session_id, sessionId), eq(cli_sessions_v2.kilo_user_id, kiloUserId))
+    )
     .limit(1);
   if (!sessionRows[0]) {
     console.warn('Session no longer exists, cleaning up staging object', { r2Key, sessionId });
