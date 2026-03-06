@@ -30,7 +30,8 @@ type IngestMetaKey =
   | 'sessionId'
   | 'ingestVersion'
   | 'closeReason'
-  | 'metricsEmitted';
+  | 'metricsEmitted'
+  | 'deleted';
 
 type ExtractableMetaKey = 'title' | 'parentId' | 'platform' | 'orgId' | 'gitUrl' | 'gitBranch';
 
@@ -93,6 +94,15 @@ export class SessionIngestDO extends DurableObject<Env> {
   ): Promise<{
     changes: Changes;
   }> {
+    const deletedRow = this.db
+      .select({ value: ingestMeta.value })
+      .from(ingestMeta)
+      .where(eq(ingestMeta.key, 'deleted'))
+      .get();
+    if (deletedRow?.value === 'true') {
+      return { changes: [] };
+    }
+
     writeIngestMetaIfChanged(this.db, { key: 'kiloUserId', incomingValue: kiloUserId });
     writeIngestMetaIfChanged(this.db, { key: 'sessionId', incomingValue: sessionId });
     writeIngestMetaIfChanged(this.db, {
@@ -417,10 +427,21 @@ export class SessionIngestDO extends DurableObject<Env> {
     const metaRows = this.db
       .select()
       .from(ingestMeta)
-      .where(inArray(ingestMeta.key, ['kiloUserId', 'sessionId', 'closeReason', 'ingestVersion']))
+      .where(
+        inArray(ingestMeta.key, [
+          'kiloUserId',
+          'sessionId',
+          'closeReason',
+          'ingestVersion',
+          'deleted',
+        ])
+      )
       .all();
 
     const meta = Object.fromEntries(metaRows.map(r => [r.key, r.value]));
+
+    if (meta['deleted'] === 'true') return;
+
     const kiloUserId = meta['kiloUserId'];
     const sessionId = meta['sessionId'];
 
@@ -462,6 +483,11 @@ export class SessionIngestDO extends DurableObject<Env> {
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
     await migrate(this.db, migrations);
+    this.db
+      .insert(ingestMeta)
+      .values({ key: 'deleted', value: 'true' })
+      .onConflictDoUpdate({ target: ingestMeta.key, set: { value: 'true' } })
+      .run();
   }
 }
 
