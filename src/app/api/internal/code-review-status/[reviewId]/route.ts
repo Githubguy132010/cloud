@@ -316,6 +316,14 @@ export async function POST(
       return NextResponse.json({ error: 'Missing required field: status' }, { status: 400 });
     }
 
+    // Warn on unexpected gateResult values so agent-side typos surface early
+    const validGateResult = gateResult === 'pass' || gateResult === 'fail' ? gateResult : undefined;
+    if (gateResult && !validGateResult) {
+      logExceptInTest('[code-review-status] Unexpected gateResult value, ignoring', {
+        gateResult,
+      });
+    }
+
     logExceptInTest('[code-review-status] Received status update', {
       reviewId,
       sessionId,
@@ -382,7 +390,7 @@ export async function POST(
           status,
           errorMessage,
           gitlabAccessToken,
-          gateResult
+          validGateResult
         );
       } catch (gateCheckError) {
         logExceptInTest('[code-review-status] Failed to update PR gate check:', gateCheckError);
