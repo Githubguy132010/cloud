@@ -468,11 +468,15 @@ export function FindingDetailDialog({
                   </div>
                 )}
               </div>
-            ) : analysisStatus === 'running' ? (
+            ) : analysisStatus === 'running' || analysisStatus === 'pending' ? (
               <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
-                  <p className="text-sm text-yellow-400">Codebase analysis in progress...</p>
+                  <p className="text-sm text-yellow-400">
+                    {analysisStatus === 'pending'
+                      ? 'Queued...'
+                      : 'Codebase analysis in progress...'}
+                  </p>
                 </div>
                 <p className="text-muted-foreground mt-1 text-xs">
                   This may take 1-2 minutes. The agent is searching your codebase.

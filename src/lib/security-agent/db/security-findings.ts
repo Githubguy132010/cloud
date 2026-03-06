@@ -386,7 +386,7 @@ export async function listSecurityFindings(
           conditions.push(eq(security_findings.status, 'open'));
           conditions.push(eq(security_findings.analysis_status, 'completed'));
           conditions.push(
-            sql`(${security_findings.analysis}->'sandboxAnalysis'->>'isExploitable') IS NULL`
+            sql`((${security_findings.analysis}->'sandboxAnalysis'->>'isExploitable') IS NULL OR (${security_findings.analysis}->'sandboxAnalysis'->>'isExploitable') = 'unknown')`
           );
           conditions.push(
             sql`(${security_findings.analysis}->'triage'->>'suggestedAction') = 'analyze_codebase'`
