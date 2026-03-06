@@ -116,10 +116,14 @@ export function formatConversationContextForPrompt(ctx: ConversationContext): st
   lines.push(`- Channel: ${channelLabel}`);
 
   if (ctx.channelTopic) {
-    lines.push(`- Channel topic: ${truncate(ctx.channelTopic, MAX_MESSAGE_TEXT_LENGTH)}`);
+    lines.push(
+      `- Channel topic: ${sanitizeForDelimiters(truncate(ctx.channelTopic, MAX_MESSAGE_TEXT_LENGTH))}`
+    );
   }
   if (ctx.channelPurpose) {
-    lines.push(`- Channel purpose: ${truncate(ctx.channelPurpose, MAX_MESSAGE_TEXT_LENGTH)}`);
+    lines.push(
+      `- Channel purpose: ${sanitizeForDelimiters(truncate(ctx.channelPurpose, MAX_MESSAGE_TEXT_LENGTH))}`
+    );
   }
 
   // Channel messages (most recent first), wrapped in delimiters to
