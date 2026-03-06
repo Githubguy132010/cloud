@@ -228,7 +228,7 @@ export async function handlePullRequestCodeReview(
         );
         await updateCheckRunId(reviewId, checkRunId);
         logExceptInTest(
-          `Created check run ${checkRunId} for ${repository.full_name}#${pull_request.number}`
+          `Created check run ${checkRunId.toString()} for ${repository.full_name}#${pull_request.number}`
         );
       } catch (checkRunError) {
         // Non-blocking — the review still proceeds even if the check run fails

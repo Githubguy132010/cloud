@@ -130,8 +130,16 @@ async function getReviewUsageData(reviewId: string) {
 
 /**
  * Maps a review status to a GitHub Check Run update.
+ * Returns null for statuses that don't have a check run mapping (e.g. 'queued').
  */
 function mapStatusToCheckRun(reviewStatus: string, errorMessage?: string) {
+  const statusMap: Record<string, 'in_progress' | 'completed'> = {
+    running: 'in_progress',
+    completed: 'completed',
+    failed: 'completed',
+    cancelled: 'completed',
+  };
+
   const conclusionMap: Record<string, CheckRunConclusion> = {
     completed: 'success',
     failed: 'failure',
@@ -152,10 +160,11 @@ function mapStatusToCheckRun(reviewStatus: string, errorMessage?: string) {
     cancelled: 'Review was cancelled.',
   };
 
+  const checkStatus = statusMap[reviewStatus];
+  if (!checkStatus) return null;
+
   return {
-    status: (reviewStatus === 'running' ? 'in_progress' : 'completed') as
-      | 'in_progress'
-      | 'completed',
+    status: checkStatus,
     conclusion: conclusionMap[reviewStatus],
     title: titleMap[reviewStatus] ?? 'Kilo Code Review',
     summary: summaryMap[reviewStatus] ?? '',
@@ -176,6 +185,26 @@ function mapStatusToGitLabState(reviewStatus: string): GitLabCommitStatusState {
 }
 
 /**
+ * Resolves a GitLab access token for a review's project.
+ * Prefers a stored Project Access Token; falls back to the user's OAuth token.
+ */
+async function resolveGitLabAccessToken(
+  integration: PlatformIntegration,
+  projectId: number | null
+): Promise<string> {
+  const storedPrat = projectId ? getStoredProjectAccessToken(integration, projectId) : null;
+  return storedPrat ? storedPrat.token : await getValidGitLabToken(integration);
+}
+
+/**
+ * Extracts the GitLab instance URL from an integration's metadata.
+ */
+function getGitLabInstanceUrl(integration: PlatformIntegration): string {
+  const metadata = integration.metadata as { gitlab_instance_url?: string } | null;
+  return metadata?.gitlab_instance_url || 'https://gitlab.com';
+}
+
+/**
  * Update the GitHub Check Run or GitLab commit status for a review.
  * Non-blocking — errors are logged but don't fail the callback.
  */
@@ -183,17 +212,20 @@ async function updatePRGateCheck(
   review: CloudAgentCodeReview,
   integration: PlatformIntegration,
   reviewStatus: string,
-  errorMessage?: string
+  errorMessage?: string,
+  gitlabAccessToken?: string
 ) {
   const platform = review.platform || 'github';
   const detailsUrl = `${APP_URL}/code-reviews/${review.id}`;
+
+  const checkRunMapping = mapStatusToCheckRun(reviewStatus, errorMessage);
+  if (!checkRunMapping) return; // unsupported status (e.g. 'queued') — nothing to update
 
   if (platform === 'github' && integration.platform_installation_id) {
     // GitHub: update Check Run (only if we have a check_run_id)
     if (!review.check_run_id) return;
 
     const [repoOwner, repoName] = review.repo_full_name.split('/');
-    const { status, conclusion, title, summary } = mapStatusToCheckRun(reviewStatus, errorMessage);
 
     await updateCheckRun(
       integration.platform_installation_id,
@@ -201,27 +233,25 @@ async function updatePRGateCheck(
       repoName,
       review.check_run_id,
       {
-        status,
-        conclusion,
+        status: checkRunMapping.status,
+        conclusion: checkRunMapping.conclusion,
         detailsUrl,
-        output: { title, summary },
+        output: { title: checkRunMapping.title, summary: checkRunMapping.summary },
       }
     );
 
     logExceptInTest(
       `[code-review-status] Updated check run for ${review.repo_full_name}#${review.pr_number}`,
-      { status, conclusion }
+      { status: checkRunMapping.status, conclusion: checkRunMapping.conclusion }
     );
   } else if (platform === PLATFORM.GITLAB) {
     // GitLab: update commit status
-    const metadata = integration.metadata as { gitlab_instance_url?: string } | null;
-    const instanceUrl = metadata?.gitlab_instance_url || 'https://gitlab.com';
+    const instanceUrl = getGitLabInstanceUrl(integration);
     const projectId = review.platform_project_id;
-    const storedPrat = projectId ? getStoredProjectAccessToken(integration, projectId) : null;
-    const accessToken = storedPrat ? storedPrat.token : await getValidGitLabToken(integration);
+    const accessToken =
+      gitlabAccessToken ?? (await resolveGitLabAccessToken(integration, projectId));
 
     const state = mapStatusToGitLabState(reviewStatus);
-    const { title } = mapStatusToCheckRun(reviewStatus, errorMessage);
 
     await setCommitStatus(
       accessToken,
@@ -230,7 +260,7 @@ async function updatePRGateCheck(
       state,
       {
         targetUrl: detailsUrl,
-        description: title,
+        description: checkRunMapping.title,
       },
       instanceUrl
     );
@@ -327,10 +357,19 @@ export async function POST(
       ? await getIntegrationById(review.platform_integration_id)
       : null;
 
+    // Resolve GitLab token once, shared between gate check and reaction/footer logic
+    const isGitLab = (review.platform || 'github') === PLATFORM.GITLAB;
+    const gitlabAccessToken =
+      integration && isGitLab
+        ? await resolveGitLabAccessToken(integration, review.platform_project_id).catch(
+            () => undefined
+          )
+        : undefined;
+
     // Update PR gate check (GitHub Check Run / GitLab commit status)
     if (integration) {
       try {
-        await updatePRGateCheck(review, integration, status, errorMessage);
+        await updatePRGateCheck(review, integration, status, errorMessage, gitlabAccessToken);
       } catch (gateCheckError) {
         // Non-blocking — log but don't fail the status callback
         logExceptInTest('[code-review-status] Failed to update PR gate check:', gateCheckError);
@@ -451,15 +490,10 @@ export async function POST(
                 }
               }
             } else if (platform === PLATFORM.GITLAB) {
-              const metadata = integration.metadata as { gitlab_instance_url?: string } | null;
-              const instanceUrl = metadata?.gitlab_instance_url || 'https://gitlab.com';
-              const projectId = review.platform_project_id;
-              const storedPrat = projectId
-                ? getStoredProjectAccessToken(integration, projectId)
-                : null;
-              const accessToken = storedPrat
-                ? storedPrat.token
-                : await getValidGitLabToken(integration);
+              const instanceUrl = getGitLabInstanceUrl(integration);
+              const accessToken =
+                gitlabAccessToken ??
+                (await resolveGitLabAccessToken(integration, review.platform_project_id));
 
               // Reaction
               const emoji = status === 'completed' ? 'tada' : 'confused';

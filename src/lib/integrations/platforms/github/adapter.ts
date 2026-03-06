@@ -845,13 +845,18 @@ export async function updateCheckRun(
   },
   appType: GitHubAppType = 'standard'
 ): Promise<void> {
+  const numericCheckRunId = Number(checkRunId);
+  if (!Number.isSafeInteger(numericCheckRunId)) {
+    throw new Error(`Check run ID ${checkRunId} exceeds safe integer range`);
+  }
+
   const tokenData = await generateGitHubInstallationToken(installationId, appType);
   const octokit = new Octokit({ auth: tokenData.token });
 
   await octokit.checks.update({
     owner,
     repo,
-    check_run_id: Number(checkRunId),
+    check_run_id: numericCheckRunId,
     ...(options.status ? { status: options.status } : {}),
     ...(options.conclusion ? { conclusion: options.conclusion } : {}),
     ...(options.detailsUrl ? { details_url: options.detailsUrl } : {}),
