@@ -19,7 +19,18 @@ import {
   getCodeReviewById,
   cancelCodeReview,
   resetCodeReviewForRetry,
+  updateCheckRunId,
 } from '@/lib/code-reviews/db/code-reviews';
+import { getIntegrationById } from '@/lib/integrations/db/platform-integrations';
+import { createCheckRun } from '@/lib/integrations/platforms/github/adapter';
+import { setCommitStatus } from '@/lib/integrations/platforms/gitlab/adapter';
+import {
+  getValidGitLabToken,
+  getStoredProjectAccessToken,
+} from '@/lib/integrations/gitlab-service';
+import { PLATFORM } from '@/lib/integrations/core/constants';
+import { APP_URL } from '@/lib/constants';
+import { logExceptInTest } from '@/lib/utils.server';
 import {
   ListCodeReviewsInputSchema,
   ListCodeReviewsForUserInputSchema,
@@ -33,6 +44,64 @@ import { DEFAULT_LIST_LIMIT } from '@/lib/code-reviews/core/constants';
 import { codeReviewWorkerClient } from '@/lib/code-reviews/client/code-review-worker-client';
 import { tryDispatchPendingReviews } from '@/lib/code-reviews/dispatch/dispatch-pending-reviews';
 import { getBotUserId } from '@/lib/bot-users/bot-user-service';
+import type { CloudAgentCodeReview, PlatformIntegration } from '@kilocode/db/schema';
+
+/**
+ * Re-creates the PR gate check (GitHub Check Run / GitLab commit status)
+ * after a review has been reset for retry. Without this, `updatePRGateCheck()`
+ * would be a no-op for all subsequent status callbacks because `check_run_id`
+ * was cleared during reset.
+ */
+async function recreatePRGateCheck(review: CloudAgentCodeReview) {
+  if (!review.platform_integration_id) return;
+
+  const integration = await getIntegrationById(review.platform_integration_id);
+  if (!integration) return;
+
+  const platform = review.platform || 'github';
+  const detailsUrl = `${APP_URL}/code-reviews/${review.id}`;
+
+  if (platform === 'github' && integration.platform_installation_id) {
+    const appType = integration.github_app_type ?? 'standard';
+    if (appType === 'lite') return;
+
+    const [repoOwner, repoName] = review.repo_full_name.split('/');
+    const checkRunId = await createCheckRun(
+      integration.platform_installation_id,
+      repoOwner,
+      repoName,
+      review.head_sha,
+      {
+        detailsUrl,
+        output: { title: 'Kilo Code Review queued', summary: 'Waiting for a review slot...' },
+      },
+      appType
+    );
+    await updateCheckRunId(review.id, checkRunId);
+    logExceptInTest(
+      `[retrigger] Created check run ${checkRunId.toString()} for ${review.repo_full_name}#${review.pr_number}`
+    );
+  } else if (platform === PLATFORM.GITLAB) {
+    const storedPrat = review.platform_project_id
+      ? getStoredProjectAccessToken(integration, review.platform_project_id)
+      : null;
+    const accessToken = storedPrat ? storedPrat.token : await getValidGitLabToken(integration);
+    const metadata = integration.metadata as { gitlab_instance_url?: string } | null;
+    const instanceUrl = metadata?.gitlab_instance_url || 'https://gitlab.com';
+
+    await setCommitStatus(
+      accessToken,
+      review.platform_project_id ?? review.repo_full_name,
+      review.head_sha,
+      'pending',
+      { targetUrl: detailsUrl, description: 'Kilo Code Review queued' },
+      instanceUrl
+    );
+    logExceptInTest(
+      `[retrigger] Set commit status 'pending' on ${review.repo_full_name}!${review.pr_number}`
+    );
+  }
+}
 
 export const codeReviewRouter = createTRPCRouter({
   /**
@@ -297,6 +366,14 @@ export const codeReviewRouter = createTRPCRouter({
 
         // Reset the review for retry
         await resetCodeReviewForRetry(input.reviewId);
+
+        // Re-create PR gate check so status callbacks can update it
+        try {
+          await recreatePRGateCheck(review);
+        } catch (gateError) {
+          // Non-blocking — the review still retries even if the gate check fails
+          logExceptInTest('[retrigger] Failed to re-create PR gate check:', gateError);
+        }
 
         // Build owner object for dispatch.
         // For org reviews, use the bot user ID so feature flags (e.g. code-review-cloud-agent-next)
