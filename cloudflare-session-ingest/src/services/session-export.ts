@@ -7,6 +7,28 @@ import { getSessionIngestDO } from '../dos/SessionIngestDO';
 import { withDORetry } from '@kilocode/worker-utils';
 
 /**
+ * Verify that the session exists in `cli_sessions_v2` and belongs to the
+ * given user.
+ */
+async function verifySessionOwnership(
+  env: Env,
+  sessionId: string,
+  kiloUserId: string
+): Promise<boolean> {
+  const db = getWorkerDb(env.HYPERDRIVE.connectionString);
+
+  const rows = await db
+    .select({ session_id: cli_sessions_v2.session_id })
+    .from(cli_sessions_v2)
+    .where(
+      and(eq(cli_sessions_v2.session_id, sessionId), eq(cli_sessions_v2.kilo_user_id, kiloUserId))
+    )
+    .limit(1);
+
+  return !!rows[0];
+}
+
+/**
  * Fetch the full session export as a streaming ReadableStream.
  *
  * Verifies that the session exists in `cli_sessions_v2` and belongs to the
@@ -20,17 +42,8 @@ export async function getSessionExport(
   sessionId: string,
   kiloUserId: string
 ): Promise<ReadableStream<Uint8Array> | null> {
-  const db = getWorkerDb(env.HYPERDRIVE.connectionString);
-
-  const rows = await db
-    .select({ session_id: cli_sessions_v2.session_id })
-    .from(cli_sessions_v2)
-    .where(
-      and(eq(cli_sessions_v2.session_id, sessionId), eq(cli_sessions_v2.kilo_user_id, kiloUserId))
-    )
-    .limit(1);
-
-  if (!rows[0]) {
+  const owned = await verifySessionOwnership(env, sessionId, kiloUserId);
+  if (!owned) {
     return null;
   }
 
