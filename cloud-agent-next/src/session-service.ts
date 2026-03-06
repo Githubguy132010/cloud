@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import type {
   ExecutionSession,
   SandboxInstance,
@@ -901,28 +902,21 @@ export class SessionService {
     };
   }
 
+  /**
+   * Write a snapshot payload to a temp file, run `kilo import`, then clean up.
+   *
+   * @param snapshotPayload - Pre-fetched JSON string of the session snapshot.
+   */
   private async restoreSessionSnapshot(
     session: ExecutionSession,
     sessionId: string,
-    kiloSessionId: string,
-    env: PersistenceEnv,
-    userId: string
+    userId: string,
+    snapshotPayload: string
   ): Promise<void> {
     const tmpPath = `/tmp/kilo-session-export-${sessionId}.json`;
     let wroteSnapshot = false;
     try {
-      const payload = await env.SESSION_INGEST.exportSession({
-        sessionId: kiloSessionId,
-        kiloUserId: userId,
-      });
-
-      if (payload === null) {
-        throw new SessionSnapshotRestoreError(
-          `Session snapshot restore failed: session not found`,
-          404
-        );
-      }
-      await session.writeFile(tmpPath, payload);
+      await session.writeFile(tmpPath, snapshotPayload);
       wroteSnapshot = true;
 
       const importResult = await session.exec(`kilo import "${tmpPath}"`);
@@ -939,17 +933,6 @@ export class SessionService {
         throw new Error(`Session snapshot import failed with exit code ${importResult.exitCode}`);
       }
     } catch (error) {
-      if (error instanceof SessionSnapshotRestoreError) {
-        logger
-          .withFields({
-            sessionId,
-            userId,
-            status: error.status,
-            error: error.message,
-          })
-          .error('Session snapshot restore failed');
-        throw error;
-      }
       logger
         .withFields({
           sessionId,
@@ -973,6 +956,89 @@ export class SessionService {
         }
       }
     }
+  }
+
+  /**
+   * Apply file-level changes from a pre-parsed diff array on top of the freshly
+   * cloned repo.  Called during cold-start resume after `restoreSessionSnapshot`.
+   *
+   * Each diff entry contains the full `after` content, so we simply write (or
+   * delete) files to recreate the workspace state from the previous session.
+   *
+   * @param diffs - Pre-parsed `FileDiff[]` array (or `null` when no diff exists).
+   */
+  private async applySessionDiff(
+    session: ExecutionSession,
+    sessionId: string,
+    userId: string,
+    workspacePath: string,
+    diffs: Array<{
+      file: string;
+      after: string;
+      status?: 'added' | 'deleted' | 'modified';
+    }> | null
+  ): Promise<void> {
+    if (!Array.isArray(diffs) || diffs.length === 0) {
+      return;
+    }
+
+    let applied = 0;
+    let skipped = 0;
+
+    for (const diff of diffs) {
+      if (!diff.file) {
+        skipped++;
+        continue;
+      }
+
+      // Skip binary files — they have empty after content
+      if (diff.status !== 'deleted' && !diff.after) {
+        skipped++;
+        continue;
+      }
+
+      const filePath = resolve(workspacePath, diff.file);
+      if (!filePath.startsWith(workspacePath + '/')) {
+        logger
+          .withFields({ sessionId, userId, file: diff.file })
+          .warn('Skipping diff entry with path outside workspace');
+        skipped++;
+        continue;
+      }
+
+      try {
+        if (diff.status === 'deleted') {
+          await session.deleteFile(filePath);
+          applied++;
+        } else {
+          // Ensure parent directory exists.
+          // Use single-quoted path to prevent shell metacharacter injection.
+          const lastSlash = filePath.lastIndexOf('/');
+          if (lastSlash > 0) {
+            const parentDir = filePath.substring(0, lastSlash);
+            const escaped = parentDir.replaceAll("'", "'\\''");
+            await session.exec(`mkdir -p '${escaped}'`);
+          }
+          await session.writeFile(filePath, diff.after);
+          applied++;
+        }
+      } catch (error) {
+        logger
+          .withFields({
+            sessionId,
+            userId,
+            file: diff.file,
+            status: diff.status,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          .warn('Failed to apply file diff (non-fatal, continuing)');
+        skipped++;
+      }
+    }
+
+    logger
+      .withFields({ sessionId, userId, applied, skipped, total: diffs.length })
+      .info('Applied session diff');
   }
 
   /**
@@ -1332,7 +1398,41 @@ export class SessionService {
     // Write auth file BEFORE kilo import so KiloSessions.bootstrap() can authenticate
     await writeAuthFile(sandbox, context.sessionHome, kilocodeToken);
 
-    await this.restoreSessionSnapshot(session, sessionId, metadata.kiloSessionId, env, userId);
+    // Single combined RPC: fetch snapshot (with diffs stripped) + aggregated diff.
+    const combinedPayload = await env.SESSION_INGEST.exportSessionWithDiff({
+      sessionId: metadata.kiloSessionId,
+      kiloUserId: userId,
+    });
+
+    if (combinedPayload === null) {
+      throw new SessionSnapshotRestoreError(
+        `Session snapshot restore failed: session not found`,
+        404
+      );
+    }
+
+    let snapshotJson: string;
+    let diff: Array<{
+      file: string;
+      after: string;
+      status?: 'added' | 'deleted' | 'modified';
+    }> | null;
+    try {
+      const parsed: { snapshot: unknown; diff: unknown } = JSON.parse(combinedPayload);
+      snapshotJson = JSON.stringify(parsed.snapshot);
+      diff = Array.isArray(parsed.diff) ? parsed.diff : null;
+    } catch (error) {
+      throw new Error(
+        `Failed to parse combined export payload: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    await this.restoreSessionSnapshot(session, sessionId, userId, snapshotJson);
+
+    // Apply file-level changes from the previous session on top of the fresh clone.
+    // This runs after kilo import (conversation restore) since the CLI doesn't need
+    // the file state during import — it only restores its internal session DB.
+    await this.applySessionDiff(session, sessionId, userId, context.workspacePath, diff);
 
     // Re-run setup commands (fresh clone, need to reinstall)
     if (metadata.setupCommands && metadata.setupCommands.length > 0) {
