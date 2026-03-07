@@ -5,7 +5,7 @@ import {
   security_analysis_owner_state,
   type SecurityFinding,
 } from '@kilocode/db/schema';
-import { eq, and, sql, count, isNotNull, desc, or, isNull } from 'drizzle-orm';
+import { eq, and, sql, count, isNotNull, desc, or, isNull, notExists } from 'drizzle-orm';
 import { captureException } from '@sentry/nextjs';
 import type {
   AutoAnalysisMinSeverity,
@@ -116,12 +116,13 @@ export function isFindingEligibleForAutoAnalysis(params: {
   ) {
     return { eligible: false, severityRank };
   }
-  if (severityRank == null) {
-    return { eligible: false, severityRank: null };
-  }
+  // Treat null/unknown severity as eligible with lowest rank (low=3) so these
+  // findings are not silently skipped. They still respect the severity threshold
+  // — if the threshold is stricter than 'all' they will be filtered out by rank.
+  const effectiveRank = severityRank ?? severityRankBySeverity.low;
 
   const maxRank = minSeverityToMaxRank(params.autoAnalysisMinSeverity);
-  return { eligible: severityRank <= maxRank, severityRank };
+  return { eligible: effectiveRank <= maxRank, severityRank: effectiveRank };
 }
 
 export async function updateAnalysisStatus(
@@ -401,6 +402,37 @@ export async function setOwnerAutoAnalysisEnabledAtNow(owner: SecurityReviewOwne
     .where(and(ownerCondition, isNull(security_analysis_owner_state.auto_analysis_enabled_at)));
 }
 
+/**
+ * Unconditionally reset auto_analysis_enabled_at to now().
+ * Used when auto-analysis is re-enabled (toggled OFF then ON) so the time
+ * boundary reflects the latest activation, not the original one.
+ */
+export async function resetOwnerAutoAnalysisEnabledAt(
+  owner: SecurityReviewOwner
+): Promise<void> {
+  const ownerConverted = toOwner(owner);
+  const ownerCondition =
+    ownerConverted.type === 'org'
+      ? eq(security_analysis_owner_state.owned_by_organization_id, ownerConverted.id)
+      : eq(security_analysis_owner_state.owned_by_user_id, ownerConverted.id);
+
+  // Upsert: insert if missing, update unconditionally if present
+  await db
+    .insert(security_analysis_owner_state)
+    .values({
+      owned_by_organization_id: ownerConverted.type === 'org' ? ownerConverted.id : null,
+      owned_by_user_id: ownerConverted.type === 'user' ? ownerConverted.id : null,
+      auto_analysis_enabled_at: sql`now()`,
+      updated_at: sql`now()`,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .update(security_analysis_owner_state)
+    .set({ auto_analysis_enabled_at: sql`now()`, updated_at: sql`now()` })
+    .where(ownerCondition);
+}
+
 export async function syncAutoAnalysisQueueForFinding(params: {
   owner: SecurityReviewOwner;
   findingId: string;
@@ -564,6 +596,82 @@ export async function tryAcquireAnalysisStartLease(findingId: string): Promise<b
     .returning({ id: security_findings.id });
 
   return Boolean(lease);
+}
+
+/**
+ * Enqueue all existing unanalyzed findings for an owner into the auto-analysis queue.
+ * Called when `auto_analysis_include_existing` is toggled ON so pre-existing
+ * findings are picked up without waiting for the next sync cron.
+ *
+ * Only enqueues findings that:
+ *  - belong to the owner
+ *  - are open
+ *  - have no existing queue row
+ *  - have no in-flight analysis (analysis_status is null, completed, or failed)
+ *
+ * Returns the number of findings enqueued.
+ */
+export async function enqueueBacklogFindings(params: {
+  owner: SecurityReviewOwner;
+  autoAnalysisMinSeverity: AutoAnalysisMinSeverity;
+}): Promise<number> {
+  const ownerConverted = toOwner(params.owner);
+  const maxRank = minSeverityToMaxRank(params.autoAnalysisMinSeverity);
+
+  const ownerCondition =
+    ownerConverted.type === 'org'
+      ? sql`${security_findings.owned_by_organization_id} = ${ownerConverted.id}`
+      : sql`${security_findings.owned_by_user_id} = ${ownerConverted.id}`;
+
+  // Use a single INSERT ... SELECT to bulk-enqueue eligible findings.
+  // severity_rank maps null severity to low (3) to match isFindingEligibleForAutoAnalysis.
+  const result = await db.execute<{ id: string }>(sql`
+    INSERT INTO ${security_analysis_queue} (
+      finding_id,
+      owned_by_organization_id,
+      owned_by_user_id,
+      queue_status,
+      severity_rank,
+      queued_at,
+      updated_at
+    )
+    SELECT
+      ${security_findings.id},
+      ${security_findings.owned_by_organization_id},
+      ${security_findings.owned_by_user_id},
+      'queued',
+      CASE ${security_findings.severity}
+        WHEN 'critical' THEN 0
+        WHEN 'high' THEN 1
+        WHEN 'medium' THEN 2
+        WHEN 'low' THEN 3
+        ELSE 3
+      END,
+      now(),
+      now()
+    FROM ${security_findings}
+    WHERE ${ownerCondition}
+      AND ${security_findings.status} = 'open'
+      AND CASE ${security_findings.severity}
+            WHEN 'critical' THEN 0
+            WHEN 'high' THEN 1
+            WHEN 'medium' THEN 2
+            WHEN 'low' THEN 3
+            ELSE 3
+          END <= ${maxRank}
+      AND (
+        ${security_findings.analysis_status} IS NULL
+        OR ${security_findings.analysis_status} IN ('completed', 'failed')
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM ${security_analysis_queue}
+        WHERE ${security_analysis_queue.finding_id} = ${security_findings.id}
+      )
+    ON CONFLICT (finding_id) DO NOTHING
+    RETURNING ${security_analysis_queue.id}
+  `);
+
+  return result.rows.length;
 }
 
 export async function transitionAutoAnalysisQueueFromCallback(params: {

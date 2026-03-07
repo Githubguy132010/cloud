@@ -20,7 +20,10 @@ import {
   deleteFindingsByRepository as deleteFindingsByRepositoryDb,
 } from '@/lib/security-agent/db/security-findings';
 import { getDashboardStats } from '@/lib/security-agent/db/dashboard-stats';
-import { canStartAnalysis } from '@/lib/security-agent/db/security-analysis';
+import {
+  canStartAnalysis,
+  enqueueBacklogFindings,
+} from '@/lib/security-agent/db/security-analysis';
 import {
   hasSecurityReviewPermissions,
   getReauthorizeUrl,
@@ -289,6 +292,29 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
           },
           ctx.user.id
         );
+
+        // When include_existing is toggled ON while auto-analysis is enabled,
+        // enqueue all existing unanalyzed findings so they don't have to wait
+        // for the next sync cron.
+        const wasIncludeExisting =
+          existingConfig?.config.auto_analysis_include_existing ?? false;
+        const isNowIncludeExisting = input.autoAnalysisIncludeExisting ?? wasIncludeExisting;
+        const isAutoAnalysisOn =
+          input.autoAnalysisEnabled ?? existingConfig?.config.auto_analysis_enabled ?? false;
+
+        if (isAutoAnalysisOn && isNowIncludeExisting && !wasIncludeExisting) {
+          enqueueBacklogFindings({
+            owner: securityOwner,
+            autoAnalysisMinSeverity:
+              input.autoAnalysisMinSeverity ??
+              existingConfig?.config.auto_analysis_min_severity ??
+              'high',
+          }).catch(error => {
+            // Fire-and-forget: don't fail the config save if backlog enqueue errors.
+            // The next sync cron will pick up any missed findings.
+            console.error('Failed to enqueue backlog findings', error);
+          });
+        }
 
         trackSecurityAgentConfigSaved({
           distinctId: ctx.user.id,
