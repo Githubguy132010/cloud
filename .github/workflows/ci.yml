@@ -48,10 +48,7 @@ jobs:
             app_builder:
               - 'cloudflare-app-builder/**'
 
-  # Fast quality checks that gate slower jobs — runs on a standard runner
-  # since these are CPU-light. Fails early on code style / type issues
-  # before spending 8-core minutes on tests and builds.
-  quality-gate:
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,8 +73,52 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Lint
         run: pnpm run lint
+
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Format check
         run: |
@@ -86,11 +127,33 @@ jobs:
             exit 1
           }
 
+  dependency-cycle-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Dependency cycle check
         run: pnpm run dependency-cycle-check
 
   test:
-    needs: quality-gate
+    needs: [typecheck, lint, format-check, dependency-cycle-check]
     runs-on: ubuntu-24.04-8core
 
     services:
@@ -137,7 +200,7 @@ jobs:
         run: pnpm run test
 
   build:
-    needs: quality-gate
+    needs: [typecheck, lint, format-check, dependency-cycle-check]
     runs-on: ubuntu-24.04-8core
     steps:
       - uses: actions/checkout@v4
