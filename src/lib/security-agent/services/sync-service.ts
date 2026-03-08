@@ -2,7 +2,7 @@ import { captureException } from '@sentry/nextjs';
 import { trackSecurityAgentFullSync } from '../posthog-tracking';
 import { db } from '@/lib/drizzle';
 import { platform_integrations, agent_configs } from '@kilocode/db/schema';
-import { eq, and, isNotNull } from 'drizzle-orm';
+import { eq, and, isNotNull, sql } from 'drizzle-orm';
 import { fetchAllDependabotAlerts } from '../github/dependabot-api';
 import { hasSecurityReviewPermissions } from '../github/permissions';
 import { parseDependabotAlerts } from '../parsers/dependabot-parser';
@@ -28,6 +28,35 @@ import { logSecurityAuditAndWait, SecurityAuditLogAction } from './audit-log-ser
 const log = sentryLogger('security-agent:sync', 'info');
 const warn = sentryLogger('security-agent:sync', 'warning');
 const logError = sentryLogger('security-agent:sync', 'error');
+
+export async function updateLastSyncedAt(owner: SecurityReviewOwner): Promise<void> {
+  try {
+    const { type, id } = toAgentConfigOwner(owner);
+    const ownerCondition =
+      type === 'org'
+        ? eq(agent_configs.owned_by_organization_id, id)
+        : eq(agent_configs.owned_by_user_id, id);
+
+    await db
+      .update(agent_configs)
+      .set({
+        runtime_state: sql`jsonb_set(
+          COALESCE(${agent_configs.runtime_state}, '{}'::jsonb),
+          '{last_synced_at}',
+          to_jsonb(now())
+        )`,
+      })
+      .where(
+        and(
+          eq(agent_configs.agent_type, 'security_scan'),
+          eq(agent_configs.platform, 'github'),
+          ownerCondition
+        )
+      );
+  } catch (error) {
+    logError('Failed to update last_synced_at in runtime_state', { error });
+  }
+}
 
 function toAgentConfigOwner(owner: SecurityReviewOwner): Owner {
   if (owner.organizationId) {
@@ -55,6 +84,7 @@ export async function syncDependabotAlertsForRepo(params: {
     created: 0,
     updated: 0,
     errors: 0,
+    skipped: 0,
     staleRepos: [],
   };
   const queueSyncTotals: AutoAnalysisQueueSyncResult = {
@@ -80,6 +110,7 @@ export async function syncDependabotAlertsForRepo(params: {
 
     if (fetchResult.status === 'alerts_unavailable') {
       warn(`Dependabot alerts unavailable for ${repoFullName}, skipping`);
+      result.skipped = 1;
       return result;
     }
 
@@ -109,6 +140,11 @@ export async function syncDependabotAlertsForRepo(params: {
         });
 
         result.synced++;
+        if (upsertResult.wasInserted) {
+          result.created++;
+        } else {
+          result.updated++;
+        }
 
         try {
           const queueSyncResult = await syncAutoAnalysisQueueForFinding({
@@ -209,12 +245,14 @@ export async function syncAllReposForOwner(params: {
   repositories: string[];
 }): Promise<SyncResult> {
   const { owner, platformIntegrationId, installationId, repositories } = params;
+  const syncStartTime = performance.now();
 
   const totalResult: SyncResult = {
     synced: 0,
     created: 0,
     updated: 0,
     errors: 0,
+    skipped: 0,
     staleRepos: [],
   };
 
@@ -234,6 +272,7 @@ export async function syncAllReposForOwner(params: {
       totalResult.created += result.created;
       totalResult.updated += result.updated;
       totalResult.errors += result.errors;
+      totalResult.skipped += result.skipped;
       totalResult.staleRepos.push(...result.staleRepos);
       successfulRepos++;
     } catch (error) {
@@ -247,6 +286,30 @@ export async function syncAllReposForOwner(params: {
 
   if (successfulRepos === 0 && firstError) {
     throw firstError;
+  }
+
+  // Only advance owner-level freshness when every repo actually synced.
+  // Skipped repos (alerts unavailable) still have stale findings.
+  if (totalResult.errors === 0 && totalResult.skipped === 0) {
+    await updateLastSyncedAt(owner);
+  }
+
+  const totalDurationMs = Math.round(performance.now() - syncStartTime);
+  if (totalResult.synced === 0 && totalResult.errors === 0) {
+    warn('Sync completed with zero findings processed across all repos', {
+      reposScanned: repositories.length,
+      durationMs: totalDurationMs,
+    });
+  } else {
+    log('Sync cycle summary', {
+      reposScanned: repositories.length,
+      findingsSynced: totalResult.synced,
+      findingsCreated: totalResult.created,
+      findingsUpdated: totalResult.updated,
+      errors: totalResult.errors,
+      skippedRepos: totalResult.skipped,
+      durationMs: totalDurationMs,
+    });
   }
 
   return totalResult;

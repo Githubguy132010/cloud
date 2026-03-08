@@ -144,6 +144,8 @@ export type SyncResult = {
   created: number;
   updated: number;
   errors: number;
+  /** Repos where alerts were unavailable (disabled / insufficient permissions) */
+  skipped: number;
   /** Repos that returned 404 from GitHub (deleted/transferred) */
   staleRepos: string[];
 };

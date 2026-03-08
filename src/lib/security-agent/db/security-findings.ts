@@ -1,5 +1,5 @@
 import { db } from '@/lib/drizzle';
-import { security_findings } from '@kilocode/db/schema';
+import { security_findings, agent_configs } from '@kilocode/db/schema';
 import { eq, and, desc, count, sql, max, or, type SQL } from 'drizzle-orm';
 import { captureException } from '@sentry/nextjs';
 import type { SecurityFinding, NewSecurityFinding } from '@kilocode/db/schema';
@@ -784,24 +784,45 @@ export async function getLastSyncTime(params: {
     const { owner, repoFullName } = params;
     const ownerConverted = toOwner(owner);
 
-    const conditions = [];
+    // Owner-level: read from agent_configs.runtime_state (set by sync jobs).
+    // Return null (not MAX(findings)) when runtime_state is missing — falling back to
+    // findings would overstate freshness after partial sync failures.
+    if (!repoFullName) {
+      const ownerCondition =
+        ownerConverted.type === 'org'
+          ? eq(agent_configs.owned_by_organization_id, ownerConverted.id)
+          : eq(agent_configs.owned_by_user_id, ownerConverted.id);
 
-    // Owner condition
+      const configResult = await db
+        .select({
+          lastSyncedAt: sql<string | null>`${agent_configs.runtime_state}->>'last_synced_at'`,
+        })
+        .from(agent_configs)
+        .where(
+          and(
+            ownerCondition,
+            eq(agent_configs.agent_type, 'security_scan'),
+            eq(agent_configs.platform, 'github')
+          )
+        )
+        .limit(1);
+
+      return configResult[0]?.lastSyncedAt ?? null;
+    }
+
+    // Repo-specific: read MAX(last_synced_at) from findings for the specific repo.
+    const findingConditions: SQL[] = [];
     if (ownerConverted.type === 'org') {
-      conditions.push(eq(security_findings.owned_by_organization_id, ownerConverted.id));
+      findingConditions.push(eq(security_findings.owned_by_organization_id, ownerConverted.id));
     } else {
-      conditions.push(eq(security_findings.owned_by_user_id, ownerConverted.id));
+      findingConditions.push(eq(security_findings.owned_by_user_id, ownerConverted.id));
     }
-
-    // Optional repo filter
-    if (repoFullName) {
-      conditions.push(eq(security_findings.repo_full_name, repoFullName));
-    }
+    findingConditions.push(eq(security_findings.repo_full_name, repoFullName));
 
     const result = await db
       .select({ lastSyncedAt: max(security_findings.last_synced_at) })
       .from(security_findings)
-      .where(and(...conditions));
+      .where(and(...findingConditions));
 
     return result[0]?.lastSyncedAt || null;
   } catch (error) {

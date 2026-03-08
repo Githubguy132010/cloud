@@ -1,0 +1,1 @@
+ALTER TABLE "agent_configs" ADD COLUMN "runtime_state" jsonb DEFAULT '{}'::jsonb;

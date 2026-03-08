@@ -125,6 +125,8 @@ type SecurityReviewOwner =
 type SyncResult = {
   synced: number;
   errors: number;
+  /** Repos where alerts were disabled (skipped, not a sync failure) */
+  skipped: number;
   staleRepos: string[];
 };
 
@@ -648,14 +650,15 @@ export async function syncOwner(params: {
   runId: string;
 }): Promise<SyncResult> {
   const { db: database, gitTokenService, owner, runId } = params;
+  const startTime = Date.now();
 
   const config = await getOwnerConfig(database, owner);
   if (!config) {
     console.info(`No enabled config for owner, skipping`, { runId, owner });
-    return { synced: 0, errors: 0, staleRepos: [] };
+    return { synced: 0, errors: 0, skipped: 0, staleRepos: [] };
   }
 
-  const totalResult: SyncResult = { synced: 0, errors: 0, staleRepos: [] };
+  const totalResult: SyncResult = { synced: 0, errors: 0, skipped: 0, staleRepos: [] };
   let firstError: Error | null = null;
   let successfulRepos = 0;
 
@@ -672,6 +675,7 @@ export async function syncOwner(params: {
       });
       totalResult.synced += repoResult.synced;
       totalResult.errors += repoResult.errors;
+      totalResult.skipped += repoResult.skipped;
       totalResult.staleRepos.push(...repoResult.staleRepos);
       successfulRepos++;
     } catch (error) {
@@ -724,6 +728,51 @@ export async function syncOwner(params: {
     });
   }
 
+  // Only update owner-level last_synced_at when every repo actually synced.
+  // Skipped repos (alerts disabled) still have stale findings, so treat them
+  // like errors for freshness purposes.
+  if (totalResult.errors === 0 && totalResult.skipped === 0) {
+    try {
+      await database
+        .update(agent_configs)
+        .set({
+          runtime_state: sql`jsonb_set(
+            COALESCE(${agent_configs.runtime_state}, '{}'::jsonb),
+            '{last_synced_at}',
+            to_jsonb(now())
+          )`,
+        })
+        .where(
+          and(
+            eq(agent_configs.agent_type, 'security_scan'),
+            eq(agent_configs.platform, 'github'),
+            ownerFilter(owner)
+          )
+        );
+    } catch (error) {
+      console.error('Failed to update last_synced_at in runtime_state', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const syncSummary = {
+    runId,
+    ownerId,
+    reposScanned: config.repositories.length,
+    findingsSynced: totalResult.synced,
+    errors: totalResult.errors,
+    skippedRepos: totalResult.skipped,
+    staleRepos: totalResult.staleRepos,
+    durationMs: Date.now() - startTime,
+  };
+
+  if (totalResult.synced === 0 && totalResult.errors === 0) {
+    console.warn('Sync completed with zero findings processed across all repos', syncSummary);
+  } else {
+    console.info('Sync cycle summary', syncSummary);
+  }
+
   return totalResult;
 }
 
@@ -746,7 +795,7 @@ async function syncRepo(params: {
     slaConfig,
   } = params;
   const token = await gitTokenService.getToken(installationId);
-  const result: SyncResult = { synced: 0, errors: 0, staleRepos: [] };
+  const result: SyncResult = { synced: 0, errors: 0, skipped: 0, staleRepos: [] };
 
   const [repoOwner, repoName] = repoFullName.split('/');
   if (!repoOwner || !repoName) {
@@ -763,6 +812,7 @@ async function syncRepo(params: {
 
   if (fetchResult.status === 'alerts_disabled') {
     console.info(`Dependabot alerts disabled for ${repoFullName}, skipping`);
+    result.skipped = 1;
     return result;
   }
 
