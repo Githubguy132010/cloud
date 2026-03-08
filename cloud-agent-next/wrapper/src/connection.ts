@@ -107,6 +107,7 @@ export function createConnectionManager(
   let reconnecting = false;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let generation = 0;
 
   // Event buffer for disconnection periods
   const MAX_BUFFER_SIZE = 1000;
@@ -396,6 +397,30 @@ export function createConnectionManager(
     scheduleReconnect();
   }
 
+  function completeReconnect(): void {
+    logToFile(`reconnected successfully on attempt ${reconnectAttempt}`);
+    reconnecting = false;
+    reconnectAttempt = 0;
+    startHeartbeat();
+    const sseAbort = state.sseAbortController;
+    if (ingestWs && sseAbort) {
+      state.setConnections(ingestWs, sseAbort);
+    }
+    callbacks.onReconnected?.();
+  }
+
+  function discardStaleReconnect(): void {
+    logToFile('reconnect succeeded but connection was closed — discarding stale socket');
+    if (ingestWs) {
+      try {
+        ingestWs.close();
+      } catch {
+        /* ignore */
+      }
+      ingestWs = null;
+    }
+  }
+
   function scheduleReconnect(): void {
     reconnectAttempt++;
     if (reconnectAttempt > MAX_RECONNECT_ATTEMPTS) {
@@ -412,20 +437,17 @@ export function createConnectionManager(
 
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
+      const gen = generation;
       openIngestWs()
         .then(() => {
-          logToFile(`reconnected successfully on attempt ${reconnectAttempt}`);
-          reconnecting = false;
-          reconnectAttempt = 0;
-          startHeartbeat();
-          // Update state's WS reference to match the reconnected socket
-          const sseAbort = state.sseAbortController;
-          if (ingestWs && sseAbort) {
-            state.setConnections(ingestWs, sseAbort);
+          if (gen !== generation) {
+            discardStaleReconnect();
+            return;
           }
-          callbacks.onReconnected?.();
+          completeReconnect();
         })
         .catch((err: unknown) => {
+          if (gen !== generation) return;
           const msg = err instanceof Error ? err.message : String(err);
           logToFile(`reconnect attempt ${reconnectAttempt} failed: ${msg}`);
           scheduleReconnect();
@@ -458,6 +480,7 @@ export function createConnectionManager(
 
     close: async () => {
       logToFile('closing connections');
+      generation++;
       cancelReconnect();
       stopHeartbeat();
 
@@ -477,6 +500,7 @@ export function createConnectionManager(
         }
         ingestWs = null;
       }
+      closedByUs = false;
 
       // Clear state references
       state.clearConnections();

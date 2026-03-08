@@ -713,4 +713,71 @@ describe('ingest WS reconnection', () => {
     const resumeMsg = newWs.sent.find(msg => JSON.parse(msg).streamEventType === 'wrapper_resumed');
     expect(resumeMsg).toBeUndefined();
   });
+
+  // -------------------------------------------------------------------------
+  // Test: close() during in-flight reconnect discards stale socket
+  // -------------------------------------------------------------------------
+
+  it('discards stale socket when close() is called during in-flight reconnect', async () => {
+    const manager = createManager();
+    const ws = await openConnection(manager);
+
+    // Trigger reconnection
+    ws.simulateClose(1006);
+    expect(manager.isReconnecting()).toBe(true);
+
+    // Advance past the backoff timer — openIngestWs() is called, new WS created
+    await vi.advanceTimersByTimeAsync(1_000);
+    const reconnectWs = MockWebSocket.latest!;
+    expect(reconnectWs).not.toBe(ws);
+
+    // close() is called before the reconnect WS opens — generation increments
+    await manager.close();
+    expect(manager.isReconnecting()).toBe(false);
+
+    // Now the WS opens (stale) — the generation check should discard it
+    reconnectWs.simulateOpen();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(callbacks.onReconnected).not.toHaveBeenCalled();
+
+    // Verify no heartbeats are running on the stale socket
+    reconnectWs.sent.length = 0;
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(reconnectWs.sent).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test: closedByUs flag does not leak into next execution
+  // -------------------------------------------------------------------------
+
+  it('does not leak closedByUs flag into the next execution', async () => {
+    const manager = createManager();
+    const ws = await openConnection(manager);
+
+    // close() sets closedByUs=true, closes WS, then resets closedByUs=false
+    await manager.close();
+
+    // Old WS fires onclose (stale socket — ignored by guard)
+    ws.simulateClose(1000, 'normal close');
+
+    // Simulate starting a new execution with a fresh manager on the same state
+    // (In production, state.startJob() is called for the new job. Here we
+    // just create a new manager to ensure closedByUs doesn't carry over.)
+    const callbacks2 = createCallbacks();
+    const manager2 = createConnectionManager(
+      state,
+      { kiloServerPort: 4000, kiloClient: createMockKiloClient() },
+      callbacks2
+    );
+    const ws2 = await openConnection(manager2);
+
+    // Simulate unexpected close on the new connection
+    ws2.simulateClose(1006);
+
+    // Should trigger reconnection, NOT be swallowed by closedByUs
+    expect(manager2.isReconnecting()).toBe(true);
+    expect(callbacks2.onDisconnect).not.toHaveBeenCalled();
+    expect(callbacks2.onReconnecting).toHaveBeenCalledWith(1);
+  });
 });

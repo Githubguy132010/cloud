@@ -126,6 +126,8 @@ export type IngestDOContext = {
     status: 'completed' | 'failed' | 'interrupted',
     error?: string
   ) => Promise<void>;
+  /** Cancel the disconnect grace timer when wrapper reconnects */
+  cancelDisconnectGrace?: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -242,6 +244,9 @@ export function createIngestHandler(
 
       // Track the connection
       activeConnections.set(executionId, server);
+
+      // Cancel any pending disconnect grace timer — wrapper reconnected
+      doContext.cancelDisconnectGrace?.();
 
       // Set initial heartbeat
       void doContext.updateHeartbeat(executionId, now);

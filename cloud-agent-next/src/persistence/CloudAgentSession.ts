@@ -85,6 +85,10 @@ const LAST_ACTIVITY_KEY = 'last_activity';
 /** Kilo server idle timeout: 15 minutes */
 const KILO_SERVER_IDLE_TIMEOUT_MS_DEFAULT = 15 * 60 * 1000;
 
+/** Grace period before failing execution after wrapper disconnect (ms).
+ *  Covers the wrapper's ~31s reconnection window (5 attempts with exponential backoff). */
+const DISCONNECT_GRACE_MS = 35_000;
+
 export class CloudAgentSession extends DurableObject {
   private executionQueries: ExecutionQueries;
   private eventQueries: EventQueries;
@@ -95,6 +99,7 @@ export class CloudAgentSession extends DurableObject {
   private ingestHandlerSessionId?: SessionId;
   private sessionId?: SessionId;
   private orchestrator?: ExecutionOrchestrator;
+  private disconnectGraceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private isTerminalStatus(
     status: ExecutionStatus
@@ -229,6 +234,7 @@ export class CloudAgentSession extends DurableObject {
         updateKiloSessionId: (id: string) => this.updateKiloSessionId(id),
         updateUpstreamBranch: (branch: string) => this.updateUpstreamBranch(branch),
         clearActiveExecution: () => this.clearActiveExecution(),
+        cancelDisconnectGrace: () => this.cancelDisconnectGrace(),
         getExecution: async (executionId: string) => {
           const execution = await this.executionQueries.get(executionId as ExecutionId);
           if (!execution) return null;
@@ -375,29 +381,15 @@ export class CloudAgentSession extends DurableObject {
       const ingestHandler = await this.getIngestHandler();
       const disconnectedExecutionId = ingestHandler.handleIngestClose(ws);
 
-      // If the wrapper disconnected while its execution was still active, fail it immediately
+      // If the wrapper disconnected while its execution was still active, start a
+      // grace period before failing. This gives the wrapper time to reconnect
+      // (exponential backoff: 1s, 2s, 4s, 8s, 16s ≈ 31s total window).
       if (disconnectedExecutionId) {
         const activeExecutionId = await this.executionQueries.getActiveExecutionId();
         if (activeExecutionId === disconnectedExecutionId) {
           const execution = await this.executionQueries.get(activeExecutionId);
-          // Only act if execution is still running or pending (not already terminal)
           if (execution && (execution.status === 'running' || execution.status === 'pending')) {
-            logger
-              .withFields({
-                sessionId: this.sessionId,
-                executionId: activeExecutionId,
-                wsCloseCode: code,
-                wsCloseReason: reason,
-              })
-              .warn('Wrapper disconnected while execution active - marking as failed');
-
-            await this.failExecution({
-              executionId: activeExecutionId,
-              status: 'failed',
-              error: 'Wrapper disconnected',
-              streamEventType: 'wrapper_disconnected',
-              streamPayload: { wsCloseCode: code, wsCloseReason: reason },
-            });
+            this.startDisconnectGrace(activeExecutionId, code, reason);
           }
         }
       }
@@ -1210,6 +1202,91 @@ export class CloudAgentSession extends DurableObject {
   }
 
   /**
+   * Cancel any pending disconnect grace timer.
+   * Called when the wrapper reconnects, when another codepath fails the
+   * execution, or defensively before starting a new grace timer.
+   */
+  private cancelDisconnectGrace(): void {
+    if (this.disconnectGraceTimer) {
+      clearTimeout(this.disconnectGraceTimer);
+      this.disconnectGraceTimer = null;
+    }
+  }
+
+  /**
+   * Start the disconnect grace period for a wrapper that just disconnected.
+   * Gives the wrapper time to reconnect (exponential backoff: ~31s window)
+   * before marking the execution as failed.
+   */
+  private startDisconnectGrace(
+    executionId: ExecutionId,
+    wsCloseCode: number,
+    wsCloseReason: string
+  ): void {
+    logger
+      .withFields({
+        sessionId: this.sessionId,
+        executionId,
+        wsCloseCode,
+        wsCloseReason,
+        graceMs: DISCONNECT_GRACE_MS,
+      })
+      .warn('Wrapper disconnected — starting grace period before marking as failed');
+
+    this.cancelDisconnectGrace();
+
+    this.disconnectGraceTimer = setTimeout(() => {
+      this.disconnectGraceTimer = null;
+      void this.handleDisconnectGraceExpired(executionId, wsCloseCode, wsCloseReason);
+    }, DISCONNECT_GRACE_MS);
+  }
+
+  /**
+   * Handle expiration of the disconnect grace period.
+   * Re-checks whether the wrapper reconnected or the execution completed
+   * during the grace window before failing it.
+   */
+  private async handleDisconnectGraceExpired(
+    executionId: ExecutionId,
+    wsCloseCode: number,
+    wsCloseReason: string
+  ): Promise<void> {
+    // Re-check: wrapper may have reconnected during grace period
+    const ingestHandler = await this.getIngestHandler();
+    if (ingestHandler.hasActiveConnection(executionId)) {
+      logger
+        .withFields({ executionId })
+        .info('Wrapper reconnected during grace period — skipping failure');
+      return;
+    }
+
+    // Re-check execution state (may have completed normally during grace period)
+    const currentExecution = await this.executionQueries.get(executionId);
+    if (
+      !currentExecution ||
+      (currentExecution.status !== 'running' && currentExecution.status !== 'pending')
+    ) {
+      logger
+        .withFields({
+          executionId,
+          status: currentExecution?.status,
+        })
+        .info('Execution no longer active during grace period — skipping failure');
+      return;
+    }
+
+    logger.withFields({ executionId }).warn('Grace period expired — marking execution as failed');
+
+    await this.failExecution({
+      executionId,
+      status: 'failed',
+      error: 'Wrapper disconnected',
+      streamEventType: 'wrapper_disconnected',
+      streamPayload: { wsCloseCode, wsCloseReason },
+    });
+  }
+
+  /**
    * Fail an execution with full cleanup.
    * Idempotent — safe to call if execution is already terminal.
    *
@@ -1229,6 +1306,10 @@ export class CloudAgentSession extends DurableObject {
     streamPayload?: Record<string, unknown>;
   }): Promise<boolean> {
     const { executionId, status, error, streamEventType, streamPayload } = params;
+
+    // Clear disconnect grace timer — prevents double-failure if another codepath
+    // already failed the execution while the timer was pending.
+    this.cancelDisconnectGrace();
 
     // 1. Update status (enqueues callback notification on terminal)
     const statusResult = await this.updateExecutionStatus({
