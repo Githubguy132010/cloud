@@ -292,8 +292,13 @@ export async function syncAllReposForOwner(params: {
   }
 
   // Only advance owner-level freshness when every repo actually synced.
-  // Skipped repos (alerts unavailable) still have stale findings.
-  if (totalResult.errors === 0 && totalResult.skipped === 0) {
+  // Skipped repos (alerts unavailable) and stale repos (deleted/transferred)
+  // still have stale findings.
+  if (
+    totalResult.errors === 0 &&
+    totalResult.skipped === 0 &&
+    totalResult.staleRepos.length === 0
+  ) {
     await updateLastSyncedAt(owner);
   }
 
