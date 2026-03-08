@@ -7,7 +7,7 @@ import {
   kilocode_users,
   organization_memberships,
 } from '@kilocode/db/schema';
-import { and, asc, count, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, lte, not, like, or, sql } from 'drizzle-orm';
 import type { QueueOwner, SecurityAgentConfig, SecurityFindingAnalysis } from '../types.js';
 import {
   AUTO_ANALYSIS_OWNER_CAP,
@@ -541,7 +541,15 @@ export async function setFindingCompleted(
       analysis_completed_at: sql`now()`.mapWith(String),
       updated_at: sql`now()`.mapWith(String),
     })
-    .where(eq(security_findings.id, findingId));
+    .where(
+      and(
+        eq(security_findings.id, findingId),
+        or(
+          isNull(security_findings.ignored_reason),
+          not(like(security_findings.ignored_reason, 'superseded:%'))
+        )
+      )
+    );
 }
 
 export async function setFindingFailed(
@@ -557,5 +565,13 @@ export async function setFindingFailed(
       analysis_completed_at: sql`now()`.mapWith(String),
       updated_at: sql`now()`.mapWith(String),
     })
-    .where(eq(security_findings.id, findingId));
+    .where(
+      and(
+        eq(security_findings.id, findingId),
+        or(
+          isNull(security_findings.ignored_reason),
+          not(like(security_findings.ignored_reason, 'superseded:%'))
+        )
+      )
+    );
 }
