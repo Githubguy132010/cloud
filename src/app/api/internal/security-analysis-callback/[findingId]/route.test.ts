@@ -311,6 +311,26 @@ describe('POST /api/internal/security-analysis-callback/[findingId]', () => {
       );
     });
 
+    it('skips processing when finding has been superseded', async () => {
+      mockGetSecurityFindingById.mockResolvedValue(
+        createMockFinding({
+          status: 'ignored',
+          ignored_reason: 'superseded:finding-canonical-1',
+          ignored_by: 'system',
+        })
+      );
+      const req = makeRequest(FINDING_ID, completedPayload);
+
+      const response = await POST(req, makeParams(FINDING_ID));
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.success).toBe(true);
+      expect(body.message).toBe('Superseded finding ignored');
+      expect(mockUpdateAnalysisStatus).not.toHaveBeenCalled();
+      expect(mockTransitionAutoAnalysisQueueFromCallback).not.toHaveBeenCalled();
+    });
+
     it('skips processing when finding is already completed', async () => {
       mockGetSecurityFindingById.mockResolvedValue(
         createMockFinding({ analysis_status: 'completed' })

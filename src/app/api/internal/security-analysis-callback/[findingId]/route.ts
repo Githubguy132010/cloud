@@ -133,6 +133,16 @@ export async function POST(
       return NextResponse.json({ success: true, message: 'Stale callback ignored' });
     }
 
+    // Skip if finding was superseded — the analysis result is no longer relevant.
+    if (finding.ignored_reason?.startsWith('superseded:')) {
+      log('Finding was superseded, skipping callback', {
+        findingId,
+        ignoredReason: finding.ignored_reason,
+        callbackStatus: payload.status,
+      });
+      return NextResponse.json({ success: true, message: 'Superseded finding ignored' });
+    }
+
     // Skip if already in a terminal state
     if (finding.analysis_status === 'completed' || finding.analysis_status === 'failed') {
       log('Finding already in terminal state, skipping callback', {

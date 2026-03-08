@@ -501,9 +501,10 @@ async function supersedeDuplicateFindings(
  * Remove superseded findings from the auto-analysis queue so the worker
  * doesn't analyze findings that are no longer open.
  *
- * Also clears `analysis_status` on the findings themselves so a lease
- * acquired between supersede and dequeue doesn't keep the finding
- * counted against the owner's concurrency cap.
+ * Clears `analysis_status` for `pending` findings so they no longer count
+ * against the owner's concurrency cap. Already-running analyses are left
+ * alone — the callback route guards against superseded findings, so those
+ * jobs will be discarded when they report back.
  */
 async function dequeueSupersededFindings(db: WorkerDb, findingIds: string[]): Promise<number> {
   if (findingIds.length === 0) return 0;
@@ -530,8 +531,12 @@ async function dequeueSupersededFindings(db: WorkerDb, findingIds: string[]): Pr
       )
       .returning({ id: security_analysis_queue.id });
 
-    // Clear any in-flight analysis_status so countRunningAnalyses no longer
-    // counts these superseded findings against the owner's concurrency cap.
+    // Clear pending analysis_status so countRunningAnalyses no longer counts
+    // these superseded findings against the owner's concurrency cap.
+    // Running analyses are left alone — the callback route checks
+    // finding.ignored_reason and will skip superseded findings when the job
+    // completes, avoiding a race where we clear the status and the callback
+    // immediately writes it back.
     await db
       .update(security_findings)
       .set({
@@ -541,10 +546,7 @@ async function dequeueSupersededFindings(db: WorkerDb, findingIds: string[]): Pr
       .where(
         and(
           inArray(security_findings.id, findingIds),
-          or(
-            eq(security_findings.analysis_status, 'pending'),
-            eq(security_findings.analysis_status, 'running')
-          )
+          eq(security_findings.analysis_status, 'pending')
         )
       );
 
