@@ -11,12 +11,10 @@ import type {
 import type { ExecutionParams as _ExecutionParams } from './schema.js';
 import { generateSandboxId } from './sandbox-id.js';
 import {
-  checkDiskSpace,
-  cleanupStaleWorkspaces,
+  checkDiskAndCleanBeforeSetup,
   cloneGitHubRepo,
   cloneGitRepo,
   cleanupWorkspace,
-  getBaseWorkspacePath,
   getSessionHomePath,
   getSessionWorkspacePath,
   manageBranch,
@@ -826,6 +824,9 @@ export class SessionService {
 
     logger.info('Initiating session');
 
+    // Check disk space before creating any directories; clean stale workspaces if low
+    await checkDiskAndCleanBeforeSetup(sandbox, orgId, userId, sessionId);
+
     const { workspacePath, sessionHome } = await setupWorkspace(sandbox, userId, orgId, sessionId);
 
     const context = this.buildContext({
@@ -861,9 +862,6 @@ export class SessionService {
       undefined, // appendSystemPrompt
       mcpServers
     );
-
-    // Check disk space before clone; clean up stale workspaces if low
-    await SessionService.checkDiskAndCleanIfLow(session, sandbox, orgId, userId, sessionId);
 
     // Clone repository using appropriate method
     // Shallow clone (depth: 1) can be enabled for faster checkout and reduced disk usage
@@ -1169,6 +1167,9 @@ export class SessionService {
 
     logger.info('Initiating session from existing kilo session');
 
+    // Check disk space before creating any directories; clean stale workspaces if low
+    await checkDiskAndCleanBeforeSetup(sandbox, orgId, userId, sessionId);
+
     // Setup workspace (same as initiate)
     const { workspacePath, sessionHome } = await setupWorkspace(sandbox, userId, orgId, sessionId);
 
@@ -1210,9 +1211,6 @@ export class SessionService {
       existingMetadata?.appendSystemPrompt,
       mcpServers
     );
-
-    // Check disk space before clone; clean up stale workspaces if low
-    await SessionService.checkDiskAndCleanIfLow(session, sandbox, orgId, userId, sessionId);
 
     // Clone repository using appropriate method
     if (gitUrl) {
@@ -1344,6 +1342,9 @@ export class SessionService {
 
     logger.info('Resuming session');
 
+    // Check disk space before creating any directories; clean stale workspaces if low
+    await checkDiskAndCleanBeforeSetup(sandbox, orgId, userId, sessionId);
+
     const workspacePath = getSessionWorkspacePath(orgId, userId, sessionId);
     const sessionHome = getSessionHomePath(sessionId);
 
@@ -1395,9 +1396,6 @@ export class SessionService {
     const repoCheck = await session.exec(`test -d ${workspacePath}/.git && echo exists`);
     const repoExists = repoCheck.stdout?.includes('exists') ?? false;
     const isColdStart = !repoExists;
-
-    // Check disk space; clean up stale workspaces if low
-    await SessionService.checkDiskAndCleanIfLow(session, sandbox, orgId, userId, sessionId);
 
     // Only re-run setup if we had to reclone (cold start)
     if (isColdStart) {
@@ -1534,24 +1532,6 @@ export class SessionService {
       return SessionService.interruptWithPkill(session, sessionContext, executionId);
     }
     return SessionService.interruptWithSandboxApi(sandbox, session, sessionContext);
-  }
-
-  private static async checkDiskAndCleanIfLow(
-    session: ExecutionSession,
-    sandbox: SandboxInstance,
-    orgId: string | undefined,
-    userId: string,
-    sessionId: string
-  ): Promise<void> {
-    const diskSpace = await checkDiskSpace(session);
-    if (diskSpace.isLow) {
-      await cleanupStaleWorkspaces(
-        session,
-        sandbox,
-        getBaseWorkspacePath(orgId, userId),
-        sessionId
-      );
-    }
   }
 
   /**
