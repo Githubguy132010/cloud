@@ -253,7 +253,7 @@ export async function getOwnerConfig(
     selectedRepos = allRepos.map(r => r.full_name);
   }
 
-  if (selectedRepos.length === 0) return null;
+  if (selectedRepos.length === 0 && missingSelectedRepoCount === 0) return null;
 
   if (missingSelectedRepoCount > 0) {
     console.warn(`${missingSelectedRepoCount} selected repo(s) no longer accessible for owner`, {
@@ -672,6 +672,56 @@ async function pruneStaleReposFromConfig(
   );
 }
 
+/** Remove selected_repository_ids that are no longer accessible via the GitHub installation.
+ *  Unlike pruneStaleReposFromConfig (which prunes by repo name after sync), this handles
+ *  repos that silently vanished from the installation and were never synced at all. */
+async function pruneMissingSelectedRepos(
+  db: WorkerDb,
+  owner: SecurityReviewOwner,
+  accessibleRepoIds: Set<number>
+): Promise<void> {
+  const rows = await db
+    .select({
+      id: agent_configs.id,
+      config: agent_configs.config,
+    })
+    .from(agent_configs)
+    .where(
+      and(
+        eq(agent_configs.agent_type, 'security_scan'),
+        eq(agent_configs.platform, 'github'),
+        ownerFilter(owner)
+      )
+    )
+    .limit(1);
+
+  if (rows.length === 0) return;
+
+  const parsed = securityAgentConfigSchema.partial().safeParse(rows[0].config);
+  if (!parsed.success) return;
+  const config = parsed.data;
+
+  if (
+    config.repository_selection_mode !== 'selected' ||
+    !config.selected_repository_ids ||
+    config.selected_repository_ids.length === 0
+  ) {
+    return;
+  }
+
+  const prunedIds = config.selected_repository_ids.filter(id => accessibleRepoIds.has(id));
+  if (prunedIds.length === config.selected_repository_ids.length) return;
+
+  const removedCount = config.selected_repository_ids.length - prunedIds.length;
+  const updatedConfig = { ...config, selected_repository_ids: prunedIds };
+  await db
+    .update(agent_configs)
+    .set({ config: updatedConfig, updated_at: sql`now()` })
+    .where(eq(agent_configs.id, rows[0].id));
+
+  console.warn(`Pruned ${removedCount} inaccessible repo ID(s) from config`);
+}
+
 export async function syncOwner(params: {
   db: WorkerDb;
   gitTokenService: GitTokenService;
@@ -728,6 +778,18 @@ export async function syncOwner(params: {
       await pruneStaleReposFromConfig(database, owner, totalResult.staleRepos, config.repoNameToId);
     } catch (error) {
       console.error('Failed to prune stale repos from config', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Prune selected repo IDs that silently vanished from the installation
+  if (config.missingSelectedRepoCount > 0) {
+    try {
+      const accessibleRepoIds = new Set(config.repoNameToId.values());
+      await pruneMissingSelectedRepos(database, owner, accessibleRepoIds);
+    } catch (error) {
+      console.error('Failed to prune missing selected repos from config', {
         error: error instanceof Error ? error.message : String(error),
       });
     }

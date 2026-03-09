@@ -429,14 +429,14 @@ export async function getEnabledSecurityReviewConfigs(): Promise<EnabledSecurity
       selectedRepos = allRepositories.map(r => r.full_name);
     }
 
-    if (selectedRepos.length === 0) {
-      log(`No selected repositories for config ${config.id}, skipping`);
-      continue;
-    }
-
     const owner: SecurityReviewOwner = orgId
       ? { organizationId: orgId }
       : { userId: userId as string };
+
+    if (selectedRepos.length === 0 && missingSelectedRepoCount === 0) {
+      log(`No selected repositories for config ${config.id}, skipping`);
+      continue;
+    }
 
     if (missingSelectedRepoCount > 0) {
       warn(
@@ -508,6 +508,43 @@ async function pruneStaleReposFromConfig(
   });
 }
 
+/** Remove selected_repository_ids that are no longer accessible via the GitHub installation.
+ *  Unlike pruneStaleReposFromConfig (which prunes by repo name after sync), this handles
+ *  repos that silently vanished from the installation and were never synced at all. */
+async function pruneMissingSelectedRepos(
+  owner: SecurityReviewOwner,
+  accessibleRepoIds: Set<number>
+): Promise<void> {
+  const agentOwner = toAgentConfigOwner(owner);
+  const configWithStatus = await getSecurityAgentConfigWithStatus(agentOwner);
+  if (!configWithStatus) return;
+
+  const { config, isEnabled } = configWithStatus;
+
+  if (
+    config.repository_selection_mode !== 'selected' ||
+    !config.selected_repository_ids ||
+    config.selected_repository_ids.length === 0
+  ) {
+    return;
+  }
+
+  const prunedIds = config.selected_repository_ids.filter(id => accessibleRepoIds.has(id));
+  if (prunedIds.length === config.selected_repository_ids.length) return;
+
+  const removedCount = config.selected_repository_ids.length - prunedIds.length;
+  warn(`Pruning ${removedCount} inaccessible repo ID(s) from security config`, { owner });
+
+  await upsertAgentConfigForOwner({
+    owner: agentOwner,
+    agentType: SECURITY_SCAN_AGENT_TYPE,
+    platform: SECURITY_SCAN_PLATFORM,
+    config: { ...config, selected_repository_ids: prunedIds },
+    isEnabled,
+    createdBy: 'system-sync-prune',
+  });
+}
+
 export async function runFullSync(): Promise<{
   totalSynced: number;
   totalErrors: number;
@@ -540,6 +577,23 @@ export async function runFullSync(): Promise<{
           captureException(pruneError, {
             tags: { operation: 'runFullSync', step: 'pruneStaleRepos' },
             extra: { owner: config.owner, staleRepos: result.staleRepos },
+          });
+        }
+      }
+
+      if (config.missingSelectedRepoCount > 0) {
+        try {
+          const accessibleRepoIds = new Set(config.repoNameToId.values());
+          await pruneMissingSelectedRepos(config.owner, accessibleRepoIds);
+        } catch (pruneError) {
+          logError('Failed to prune missing selected repos from config', {
+            error: pruneError,
+            missingCount: config.missingSelectedRepoCount,
+            owner: config.owner,
+          });
+          captureException(pruneError, {
+            tags: { operation: 'runFullSync', step: 'pruneMissingSelectedRepos' },
+            extra: { owner: config.owner, missingCount: config.missingSelectedRepoCount },
           });
         }
       }
