@@ -1232,6 +1232,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     imageVariant: string | null;
     trackedImageTag: string | null;
     trackedImageDigest: string | null;
+    googleConnected: boolean;
     pendingDestroyMachineId: string | null;
     pendingDestroyVolumeId: string | null;
     pendingPostgresMarkOnFinalize: boolean;
@@ -1265,6 +1266,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       imageVariant: this.imageVariant,
       trackedImageTag: this.trackedImageTag,
       trackedImageDigest: this.trackedImageDigest,
+      googleConnected: this.googleCredentials !== null,
       pendingDestroyMachineId: this.pendingDestroyMachineId,
       pendingDestroyVolumeId: this.pendingDestroyVolumeId,
       pendingPostgresMarkOnFinalize: this.pendingPostgresMarkOnFinalize,

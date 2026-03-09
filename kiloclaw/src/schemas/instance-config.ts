@@ -80,7 +80,7 @@ export const ChannelsPatchSchema = z.object({
 
 export const ProvisionRequestSchema = z.object({
   userId: z.string().min(1),
-  ...InstanceConfigSchema.shape,
+  ...InstanceConfigSchema.omit({ googleCredentials: true }).shape,
 });
 
 export type ProvisionRequest = z.infer<typeof ProvisionRequestSchema>;

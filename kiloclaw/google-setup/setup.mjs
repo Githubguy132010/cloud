@@ -69,13 +69,12 @@ if (!validateRes.ok) {
   process.exit(1);
 }
 
-// Verify the API key is a valid JWT by calling an authenticated endpoint
-const authCheckRes = await fetch(`${workerUrl}/api/admin/google-credentials`, {
-  method: 'DELETE',
+// Verify the API key is a valid JWT by calling a read-only authenticated endpoint
+const authCheckRes = await fetch(`${workerUrl}/api/admin/storage`, {
   headers: authHeaders,
 });
 
-// 401/403 = bad key. Any other response (including 200/500) means the key is valid.
+// 401/403 = bad key. Any other response (including 410/500) means the key is valid.
 if (authCheckRes.status === 401 || authCheckRes.status === 403) {
   console.error('Invalid API key. Check your key and try again.');
   process.exit(1);

@@ -6,6 +6,7 @@ function mockDeps() {
   return {
     mkdirSync: vi.fn(),
     writeFileSync: vi.fn(),
+    unlinkSync: vi.fn(),
   } satisfies GwsCredentialsDeps;
 }
 
@@ -65,6 +66,27 @@ describe('writeGwsCredentials', () => {
     const deps = mockDeps();
     const result = writeGwsCredentials({}, '/tmp/gws-test', deps);
 
+    expect(result).toBe(false);
+  });
+
+  it('removes stale credential files when env vars are absent', () => {
+    const deps = mockDeps();
+    const dir = '/tmp/gws-test';
+    writeGwsCredentials({}, dir, deps);
+
+    expect(deps.unlinkSync).toHaveBeenCalledWith(path.join(dir, 'client_secret.json'));
+    expect(deps.unlinkSync).toHaveBeenCalledWith(path.join(dir, 'credentials.json'));
+  });
+
+  it('ignores missing files during cleanup', () => {
+    const deps = mockDeps();
+    deps.unlinkSync.mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    const dir = '/tmp/gws-test';
+
+    // Should not throw
+    const result = writeGwsCredentials({}, dir, deps);
     expect(result).toBe(false);
   });
 });

@@ -15,11 +15,13 @@ const CREDENTIALS_FILE = 'credentials.json';
 export type GwsCredentialsDeps = {
   mkdirSync: (dir: string, opts: { recursive: boolean }) => void;
   writeFileSync: (path: string, data: string, opts: { mode: number }) => void;
+  unlinkSync: (path: string) => void;
 };
 
 const defaultDeps: GwsCredentialsDeps = {
   mkdirSync: (dir, opts) => fs.mkdirSync(dir, opts),
   writeFileSync: (p, data, opts) => fs.writeFileSync(p, data, opts),
+  unlinkSync: p => fs.unlinkSync(p),
 };
 
 /**
@@ -35,6 +37,16 @@ export function writeGwsCredentials(
   const credentials = env.GOOGLE_CREDENTIALS_JSON;
 
   if (!clientSecret || !credentials) {
+    // Clean up stale credential files from a previous run (e.g. after disconnect)
+    for (const file of [CLIENT_SECRET_FILE, CREDENTIALS_FILE]) {
+      const filePath = path.join(configDir, file);
+      try {
+        deps.unlinkSync(filePath);
+        console.log(`[gws] Removed stale ${filePath}`);
+      } catch {
+        // File doesn't exist — nothing to clean up
+      }
+    }
     return false;
   }
 
