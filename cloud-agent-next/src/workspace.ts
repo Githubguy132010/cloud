@@ -313,7 +313,7 @@ export type GitAuthorConfig = {
 };
 
 export const LOW_DISK_THRESHOLD_MB = 2048; // 2GB
-export const STALE_DIR_MIN_AGE_SECONDS = 600; // 10 minutes — protect sessions mid-setup
+export const STALE_DIR_MIN_AGE_SECONDS = 1200; // 20 minutes — protect sessions mid-setup
 
 /**
  * Result of disk space check with structured fields.
