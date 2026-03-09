@@ -563,13 +563,20 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
     // 1. Read from both legacy channels + new encryptedSecrets into field-keyed working set.
     //    encryptedSecrets stores env var names; reverse-map back to field keys.
+    //    Non-catalog keys (generic secrets) are tracked separately to preserve them on write.
     const currentSecrets: Record<string, EncryptedEnvelope | null> = {
       ...(this.channels ?? {}),
     };
+    const nonCatalogSecrets: Record<string, EncryptedEnvelope> = {};
     if (this.encryptedSecrets) {
       for (const [key, value] of Object.entries(this.encryptedSecrets)) {
-        const fieldKey = ENV_VAR_TO_FIELD_KEY.get(key) ?? key;
-        currentSecrets[fieldKey] = value;
+        const fieldKey = ENV_VAR_TO_FIELD_KEY.get(key);
+        if (fieldKey) {
+          currentSecrets[fieldKey] = value;
+        } else {
+          // Non-catalog secret (e.g. OPENAI_API_KEY) — preserve as-is in storage
+          nonCatalogSecrets[key] = value;
+        }
       }
     }
 
@@ -630,7 +637,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
     // 4. Remap field keys → env var names for encryptedSecrets storage.
     //    buildEnvVars/mergeEnvVarsWithSecrets expects env var names as keys.
-    const remappedSecrets: Record<string, EncryptedEnvelope> = {};
+    //    Non-catalog secrets are merged back unchanged.
+    const remappedSecrets: Record<string, EncryptedEnvelope> = { ...nonCatalogSecrets };
     for (const [key, value] of Object.entries(cleanedSecrets)) {
       const envName = FIELD_KEY_TO_ENV_VAR.get(key) ?? key;
       remappedSecrets[envName] = value;
