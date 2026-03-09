@@ -65,6 +65,8 @@ const PromptTemplateSchema = z.object({
   summaryCommandUpdate: z.string(),
   inlineCommentsApi: z.string(),
   fixLinkTemplate: z.string(),
+  // Incremental review workflow (used instead of `workflow` when a previous review exists)
+  incrementalReviewWorkflow: z.string().optional(),
   // Per-style overrides (optional — only needed for non-default styles like roast)
   styleGuidance: z.record(z.string(), z.string()).optional(),
   commentFormatOverrides: z.record(z.string(), z.string()).optional(),
@@ -257,7 +259,21 @@ export async function generateReviewPrompt(
   prompt += template.hardConstraints + '\n\n';
 
   // 5. Workflow with placeholders replaced
-  prompt += replacePlaceholders(template.workflow) + '\n\n';
+  // Use incremental workflow when we have a previous completed review SHA and a summary comment
+  if (
+    previousHeadSha &&
+    template.incrementalReviewWorkflow &&
+    existingReviewState?.summaryComment
+  ) {
+    const activeCount = existingReviewState.inlineComments?.filter(c => !c.isOutdated).length ?? 0;
+    const incrementalWorkflow = template.incrementalReviewWorkflow
+      .replace(/{PREVIOUS_SHA}/g, previousHeadSha)
+      .replace(/{PREVIOUS_SUMMARY}/g, existingReviewState.summaryComment.body)
+      .replace(/{ACTIVE_COMMENT_COUNT}/g, String(activeCount));
+    prompt += replacePlaceholders(incrementalWorkflow) + '\n\n';
+  } else {
+    prompt += replacePlaceholders(template.workflow) + '\n\n';
+  }
 
   // 6. What to review
   prompt += template.whatToReview + '\n\n';
