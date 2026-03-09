@@ -361,6 +361,7 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
     };
     skipBalanceCheck?: boolean;
     agentVersion?: string;
+    previousCloudAgentSessionId?: string;
   }): Promise<{ status: CodeReviewStatus }> {
     this.state = {
       reviewId: params.reviewId,
@@ -371,6 +372,7 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
       updatedAt: new Date().toISOString(),
       skipBalanceCheck: params.skipBalanceCheck,
       agentVersion: params.agentVersion,
+      previousCloudAgentSessionId: params.previousCloudAgentSessionId,
     };
     await this.saveState();
 
@@ -527,7 +529,11 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
     });
 
     if (agentVersion === 'v2') {
-      await this.runWithCloudAgentNext();
+      if (this.state.previousCloudAgentSessionId) {
+        await this.runWithCloudAgentNextFollowup();
+      } else {
+        await this.runWithCloudAgentNext();
+      }
     } else {
       await this.runWithCloudAgent();
     }
@@ -700,6 +706,129 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
         totalExecutionTime: `${minutes}m ${seconds}s`,
         timestamp: new Date().toISOString(),
       });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // cloud-agent-next follow-up flow (session continuation)
+  // Uses sendMessageV2 to reuse an existing session from a previous review.
+  // Falls back to fresh session (prepareSession + initiate) on failure.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Orchestration via cloud-agent-next with session continuation.
+   * Calls sendMessageV2 on an existing session from a previous review.
+   * On failure (404, 409, etc.), falls back to runWithCloudAgentNext() for a fresh session.
+   */
+  private async runWithCloudAgentNextFollowup(): Promise<void> {
+    const previousSessionId = this.state.previousCloudAgentSessionId!;
+
+    console.log('[CodeReviewOrchestrator] Attempting session continuation via sendMessageV2', {
+      reviewId: this.state.reviewId,
+      previousCloudAgentSessionId: previousSessionId,
+    });
+
+    try {
+      await this.updateStatus('running');
+
+      // Build headers for sendMessageV2 (protectedProcedure — Bearer token only)
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${this.state.authToken}`,
+        'Content-Type': 'application/json',
+      };
+      if (this.state.skipBalanceCheck) {
+        headers['x-skip-balance-check'] = 'true';
+      }
+
+      const callbackTarget = {
+        url: `${this.env.API_URL}/api/internal/code-review-status/${this.state.reviewId}`,
+        headers: {
+          'X-Internal-Secret': this.env.INTERNAL_API_SECRET,
+        },
+      };
+
+      const sendMessageInput = {
+        cloudAgentSessionId: previousSessionId,
+        prompt: this.state.sessionInput.prompt,
+        mode: this.state.sessionInput.mode,
+        model: this.state.sessionInput.model,
+        variant: this.state.sessionInput.variant,
+        githubToken: this.state.sessionInput.githubToken,
+        gitToken: this.state.sessionInput.gitToken,
+        callbackTarget,
+      };
+
+      console.log('[CodeReviewOrchestrator] Calling sendMessageV2', {
+        reviewId: this.state.reviewId,
+        cloudAgentSessionId: previousSessionId,
+        callbackUrl: callbackTarget.url,
+      });
+
+      const response = await fetch(`${this.env.CLOUD_AGENT_NEXT_URL}/trpc/sendMessageV2`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(sendMessageInput),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`sendMessageV2 failed (${response.status}): ${errorText}`);
+      }
+
+      const result: Record<string, unknown> = await response.json();
+      const data = (result?.result as Record<string, unknown>)?.data as
+        | Record<string, unknown>
+        | undefined;
+      if (!data || typeof data.executionId !== 'string') {
+        throw new Error(
+          `Unexpected sendMessageV2 response shape: ${JSON.stringify(result).slice(0, 500)}`
+        );
+      }
+
+      // Store session ID (reusing the previous one) and execution ID
+      await this.updateStatus('running', {
+        sessionId: previousSessionId,
+      });
+
+      console.log('[CodeReviewOrchestrator] Follow-up execution started via sendMessageV2', {
+        reviewId: this.state.reviewId,
+        cloudAgentSessionId: previousSessionId,
+        executionId: data.executionId,
+        status: data.status,
+      });
+
+      // Done — cloud-agent-next callback will deliver terminal status
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      console.warn(
+        '[CodeReviewOrchestrator] sendMessageV2 failed, falling back to fresh session',
+        {
+          reviewId: this.state.reviewId,
+          previousCloudAgentSessionId: previousSessionId,
+          error: errorMessage,
+        }
+      );
+
+      // Reset status to running (it may have been set to running already, but ensure clean state)
+      // Clear previousCloudAgentSessionId so the fresh session path doesn't try followup again
+      this.state.previousCloudAgentSessionId = undefined;
+
+      try {
+        await this.runWithCloudAgentNext();
+      } catch (freshError) {
+        // runWithCloudAgentNext handles its own error/status updates, so this catch
+        // is only for unexpected throws that bypass its internal error handling
+        const freshErrorMessage =
+          freshError instanceof Error ? freshError.message : 'Unknown error';
+        console.error(
+          '[CodeReviewOrchestrator] Fresh session fallback also failed',
+          {
+            reviewId: this.state.reviewId,
+            error: freshErrorMessage,
+          }
+        );
+      }
     }
   }
 
