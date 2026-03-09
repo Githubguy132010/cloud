@@ -19,7 +19,11 @@ import {
   getOrphanedRepositoriesWithFindingCounts,
   deleteFindingsByRepository as deleteFindingsByRepositoryDb,
 } from '@/lib/security-agent/db/security-findings';
-import { canStartAnalysis } from '@/lib/security-agent/db/security-analysis';
+import { getDashboardStats } from '@/lib/security-agent/db/dashboard-stats';
+import {
+  canStartAnalysis,
+  enqueueBacklogFindings,
+} from '@/lib/security-agent/db/security-analysis';
 import {
   hasSecurityReviewPermissions,
   getReauthorizeUrl,
@@ -48,6 +52,7 @@ import {
   StartAnalysisInputSchema,
   GetAnalysisInputSchema,
   DeleteFindingsByRepoInputSchema,
+  GetDashboardStatsInputSchema,
   type SaveSecurityConfigInput,
   type ListFindingsInput,
   type TriggerSyncInput,
@@ -57,6 +62,7 @@ import {
   type StartAnalysisInput,
   type GetAnalysisInput,
   type DeleteFindingsByRepoInput,
+  type GetDashboardStatsInput,
 } from '@/lib/security-agent/core/schemas';
 import {
   DEFAULT_SECURITY_AGENT_TRIAGE_MODEL,
@@ -286,6 +292,33 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
           },
           ctx.user.id
         );
+
+        // Enqueue backlog findings when include_existing becomes active — either
+        // because it was just toggled ON, or because auto-analysis was re-enabled
+        // while include_existing was already ON.
+        const wasAutoAnalysisOn = existingConfig?.config.auto_analysis_enabled ?? false;
+        const isAutoAnalysisOn =
+          input.autoAnalysisEnabled ?? existingConfig?.config.auto_analysis_enabled ?? false;
+        const wasIncludeExisting = existingConfig?.config.auto_analysis_include_existing ?? false;
+        const isNowIncludeExisting = input.autoAnalysisIncludeExisting ?? wasIncludeExisting;
+
+        const includeExistingJustTurnedOn = isNowIncludeExisting && !wasIncludeExisting;
+        const autoAnalysisReEnabled =
+          isAutoAnalysisOn && !wasAutoAnalysisOn && isNowIncludeExisting;
+
+        if (isAutoAnalysisOn && (includeExistingJustTurnedOn || autoAnalysisReEnabled)) {
+          enqueueBacklogFindings({
+            owner: securityOwner,
+            autoAnalysisMinSeverity:
+              input.autoAnalysisMinSeverity ??
+              existingConfig?.config.auto_analysis_min_severity ??
+              'high',
+          }).catch(error => {
+            // Fire-and-forget: don't fail the config save if backlog enqueue errors.
+            // The next sync cron will pick up any missed findings.
+            console.error('Failed to enqueue backlog findings', error);
+          });
+        }
 
         trackSecurityAgentConfigSaved({
           distinctId: ctx.user.id,
@@ -531,6 +564,7 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
           status: input.status,
           severity: input.severity,
           outcomeFilter: input.outcomeFilter,
+          overdue: input.overdue,
           sortBy: input.sortBy,
           limit: input.limit,
           offset: input.offset,
@@ -1148,6 +1182,39 @@ export function createSecurityAgentHandlers<TExtra = {}>(deps: SecurityAgentDeps
         skipped: result.skipped,
         errors: result.errors,
       };
+    },
+
+    // -----------------------------------------------------------------------
+    // 18. getDashboardStats
+    // -----------------------------------------------------------------------
+    getDashboardStats: {
+      inputSchema: GetDashboardStatsInputSchema,
+      handler: async ({
+        ctx,
+        input: rawInput,
+      }: {
+        ctx: TRPCContext;
+        input: GetDashboardStatsInput & TExtra;
+      }) => {
+        const input = rawInput;
+        const securityOwner = deps.resolveSecurityOwner(ctx, input);
+        const owner = deps.resolveOwner(ctx, input);
+
+        // Get config for SLA targets
+        const config = await getSecurityAgentConfigWithStatus(owner);
+        const slaConfig = {
+          slaCriticalDays: config?.config.sla_critical_days ?? 15,
+          slaHighDays: config?.config.sla_high_days ?? 30,
+          slaMediumDays: config?.config.sla_medium_days ?? 45,
+          slaLowDays: config?.config.sla_low_days ?? 90,
+        };
+
+        return getDashboardStats({
+          owner: securityOwner,
+          repoFullName: input.repoFullName,
+          slaConfig,
+        });
+      },
     },
   };
 }
