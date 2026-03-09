@@ -149,12 +149,14 @@ export const personalReviewAgentRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const owner = { type: 'user' as const, id: ctx.user.id, userId: ctx.user.id };
       const platform = input?.platform ?? 'github';
-      const [config, isCloudAgentNextFlagEnabled] = await Promise.all([
+      const [config, isCloudAgentNextFlagEnabled, isPrGateFlagEnabled] = await Promise.all([
         getAgentConfigForOwner(owner, 'code_review', platform),
         isFeatureFlagEnabled('code-review-cloud-agent-next', ctx.user.id),
+        isFeatureFlagEnabled('code-review-pr-gate', ctx.user.id),
       ]);
       const isCloudAgentNextEnabled =
         isCloudAgentNextFlagEnabled || process.env.NODE_ENV === 'development';
+      const isPrGateEnabled = isPrGateFlagEnabled || process.env.NODE_ENV === 'development';
 
       if (!config) {
         // Return default configuration
@@ -171,6 +173,7 @@ export const personalReviewAgentRouter = createTRPCRouter({
           selectedRepositoryIds: [],
           manuallyAddedRepositories: [],
           isCloudAgentNextEnabled,
+          isPrGateEnabled,
         };
       }
 
@@ -188,6 +191,7 @@ export const personalReviewAgentRouter = createTRPCRouter({
         selectedRepositoryIds: cfg.selected_repository_ids || [],
         manuallyAddedRepositories: cfg.manually_added_repositories || [],
         isCloudAgentNextEnabled,
+        isPrGateEnabled,
       };
     }),
 
