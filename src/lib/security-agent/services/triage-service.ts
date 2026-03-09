@@ -281,19 +281,14 @@ export async function triageSecurityFinding(options: {
             return createFallbackTriage('Insufficient credits for triage API');
           }
 
+          // Models are user-specified, so provider errors (404 = delisted model,
+          // 5xx = provider outage) are expected and not actionable on our side.
+          // Log but don't report to Sentry.
           logError('Triage API error', {
             correlationId,
             findingId: finding.id,
             status: result.status,
-          });
-          captureException(new Error(`Triage API error: ${result.status}`), {
-            tags: { operation: 'triageSecurityFinding' },
-            extra: {
-              findingId: finding.id,
-              status: result.status,
-              error: result.error,
-              correlationId,
-            },
+            model,
           });
 
           span.setAttribute('security_agent.status', 'error');
@@ -301,9 +296,9 @@ export async function triageSecurityFinding(options: {
 
           addBreadcrumb({
             category: 'security-agent.triage',
-            message: 'Triage fallback used',
+            message: `Triage fallback used (model=${model}, status=${result.status})`,
             level: 'warning',
-            data: { correlationId, findingId: finding.id, isFallback: true },
+            data: { correlationId, findingId: finding.id, model, isFallback: true },
           });
 
           return createFallbackTriage(`API error: ${result.status}`);
