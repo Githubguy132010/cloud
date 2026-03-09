@@ -443,7 +443,7 @@ export async function findPreviousCompletedReview(
           eq(cloud_agent_code_reviews.status, 'completed')
         )
       )
-      .orderBy(desc(cloud_agent_code_reviews.completed_at))
+      .orderBy(desc(cloud_agent_code_reviews.created_at))
       .limit(1);
 
     return review || null;
