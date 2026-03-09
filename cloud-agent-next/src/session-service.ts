@@ -1467,12 +1467,10 @@ export class SessionService {
       platform: context.platform,
     });
 
-    // Wrap post-clone steps so that a transient failure (e.g. `kilo import`)
-    // removes the workspace directory. Without this, `.git` survives and the
-    // next retry sees `isColdStart = false`, skipping the full restore flow —
-    // leaving the session in a broken half-initialized state.
-    // `SessionSnapshotRestoreError` (404) is permanent and is re-thrown without
-    // cleanup since retrying won't help.
+    // Wrap post-clone steps so that any failure removes the workspace
+    // directory. Without this, `.git` survives and the next retry sees
+    // `isColdStart = false`, skipping the full restore flow — leaving the
+    // session in a broken half-initialized state.
     try {
       // Write auth file BEFORE kilo import so KiloSessions.bootstrap() can authenticate
       await writeAuthFile(sandbox, context.sessionHome, kilocodeToken);
@@ -1517,10 +1515,6 @@ export class SessionService {
         await runSetupCommands(session, context, metadata.setupCommands, false); // lenient
       }
     } catch (error) {
-      if (error instanceof SessionSnapshotRestoreError) {
-        throw error;
-      }
-
       // Remove the workspace and sessionHome so the next retry sees a true
       // cold start and re-runs the full restore from scratch.
       logger

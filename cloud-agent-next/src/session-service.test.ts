@@ -1009,7 +1009,7 @@ describe('SessionService', () => {
       expect(mockCleanupWorkspace).toHaveBeenCalledWith(fakeSession, workspacePath, sessionHome);
     });
 
-    it('does not remove workspace when SessionSnapshotRestoreError (404) is thrown', async () => {
+    it('removes workspace when SessionSnapshotRestoreError (404) is thrown', async () => {
       const mockDOGetMetadata = vi.fn();
       const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
       const envWithIngest: PersistenceEnv = {
@@ -1070,8 +1070,9 @@ describe('SessionService', () => {
         })
       ).rejects.toThrow('session not found');
 
-      // cleanupWorkspace should NOT have been called for 404 errors (permanent failure)
-      expect(mockCleanupWorkspace).not.toHaveBeenCalled();
+      const workspacePath = `/workspace/${orgId}/${userId}/sessions/${sessionId}`;
+      const sessionHome = `/home/${sessionId}`;
+      expect(mockCleanupWorkspace).toHaveBeenCalledWith(fakeSession, workspacePath, sessionHome);
     });
   });
 
