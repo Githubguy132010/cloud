@@ -154,6 +154,7 @@ export async function getProvider(
         force_reasoning: true,
         opencode_settings: null,
         extra_body: null,
+        interleaved_format: null,
       },
     };
   }
