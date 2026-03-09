@@ -424,7 +424,7 @@ export async function findActiveReviewsForPR(
  * Stores the GitHub Check Run ID on a code review record.
  * Called after creating the initial check run so we can update it later.
  */
-export async function updateCheckRunId(reviewId: string, checkRunId: bigint): Promise<void> {
+export async function updateCheckRunId(reviewId: string, checkRunId: number): Promise<void> {
   try {
     await db
       .update(cloud_agent_code_reviews)
@@ -436,7 +436,7 @@ export async function updateCheckRunId(reviewId: string, checkRunId: bigint): Pr
   } catch (error) {
     captureException(error, {
       tags: { operation: 'updateCheckRunId' },
-      extra: { reviewId, checkRunId: checkRunId.toString() },
+      extra: { reviewId, checkRunId },
     });
     throw error;
   }

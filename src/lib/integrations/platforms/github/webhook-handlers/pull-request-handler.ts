@@ -210,7 +210,7 @@ export async function handlePullRequestCodeReview(
     // 7. Create GitHub Check Run (PR gate) — skip for lite (read-only) app
     const appType = integration.github_app_type ?? 'standard';
     if (appType !== 'lite') {
-      let checkRunId: bigint | undefined;
+      let checkRunId: number | undefined;
       try {
         const detailsUrl = `${APP_URL}/code-reviews/${reviewId}`;
         checkRunId = await createCheckRun(
@@ -229,7 +229,7 @@ export async function handlePullRequestCodeReview(
         );
         await updateCheckRunId(reviewId, checkRunId);
         logExceptInTest(
-          `Created check run ${checkRunId.toString()} for ${repository.full_name}#${pull_request.number}`
+          `Created check run ${checkRunId} for ${repository.full_name}#${pull_request.number}`
         );
       } catch (checkRunError) {
         // Non-blocking — the review still proceeds even if the check run fails
@@ -247,7 +247,7 @@ export async function handlePullRequestCodeReview(
               { status: 'completed', conclusion: 'cancelled' }
             );
             logExceptInTest(
-              `Cancelled orphaned check run ${checkRunId.toString()} for ${repository.full_name}#${pull_request.number}`
+              `Cancelled orphaned check run ${checkRunId} for ${repository.full_name}#${pull_request.number}`
             );
           } catch (cancelError) {
             logExceptInTest('Failed to cancel orphaned check run:', cancelError);

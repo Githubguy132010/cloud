@@ -2045,8 +2045,8 @@ export const cloud_agent_code_reviews = pgTable(
     agent_version: text().default('v1'),
 
     // PR gate check tracking
-    // GitHub Check Run ID (bigint because GitHub IDs can be large); null for GitLab or pre-feature reviews
-    check_run_id: bigint({ mode: 'bigint' }),
+    // GitHub Check Run ID; null for GitLab or pre-feature reviews
+    check_run_id: bigint({ mode: 'number' }),
 
     // Usage tracking (populated on completion by orchestrator)
     model: text(), // LLM model slug used (e.g., 'anthropic/claude-sonnet-4.6')

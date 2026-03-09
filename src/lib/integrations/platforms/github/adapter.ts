@@ -801,7 +801,7 @@ export async function createCheckRun(
     output?: CheckRunOutput;
   } = {},
   appType: GitHubAppType = 'standard'
-): Promise<bigint> {
+): Promise<number> {
   const tokenData = await generateGitHubInstallationToken(installationId, appType);
   const octokit = new Octokit({ auth: tokenData.token });
 
@@ -822,7 +822,7 @@ export async function createCheckRun(
     checkRunId: data.id,
   });
 
-  return BigInt(data.id);
+  return data.id;
 }
 
 /**
@@ -836,7 +836,7 @@ export async function updateCheckRun(
   installationId: string,
   owner: string,
   repo: string,
-  checkRunId: bigint,
+  checkRunId: number,
   options: {
     status?: 'queued' | 'in_progress' | 'completed';
     conclusion?: CheckRunConclusion;
@@ -845,18 +845,13 @@ export async function updateCheckRun(
   },
   appType: GitHubAppType = 'standard'
 ): Promise<void> {
-  const numericCheckRunId = Number(checkRunId);
-  if (!Number.isSafeInteger(numericCheckRunId)) {
-    throw new Error(`Check run ID ${checkRunId} exceeds safe integer range`);
-  }
-
   const tokenData = await generateGitHubInstallationToken(installationId, appType);
   const octokit = new Octokit({ auth: tokenData.token });
 
   await octokit.checks.update({
     owner,
     repo,
-    check_run_id: numericCheckRunId,
+    check_run_id: checkRunId,
     ...(options.status ? { status: options.status } : {}),
     ...(options.conclusion ? { conclusion: options.conclusion } : {}),
     ...(options.detailsUrl ? { details_url: options.detailsUrl } : {}),
@@ -867,7 +862,7 @@ export async function updateCheckRun(
   logExceptInTest('[updateCheckRun] Updated check run', {
     owner,
     repo,
-    checkRunId: checkRunId.toString(),
+    checkRunId,
     status: options.status,
     conclusion: options.conclusion,
   });

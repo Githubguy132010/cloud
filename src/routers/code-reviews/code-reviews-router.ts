@@ -90,7 +90,7 @@ async function recreatePRGateCheck(review: CloudAgentCodeReview) {
           { status: 'completed', conclusion: 'cancelled' }
         );
         logExceptInTest(
-          `[retrigger] Cancelled orphaned check run ${checkRunId.toString()} for ${review.repo_full_name}#${review.pr_number}`
+          `[retrigger] Cancelled orphaned check run ${checkRunId} for ${review.repo_full_name}#${review.pr_number}`
         );
       } catch (cancelError) {
         logExceptInTest('[retrigger] Failed to cancel orphaned check run:', cancelError);
@@ -98,7 +98,7 @@ async function recreatePRGateCheck(review: CloudAgentCodeReview) {
       throw dbError;
     }
     logExceptInTest(
-      `[retrigger] Created check run ${checkRunId.toString()} for ${review.repo_full_name}#${review.pr_number}`
+      `[retrigger] Created check run ${checkRunId} for ${review.repo_full_name}#${review.pr_number}`
     );
   } else if (platform === PLATFORM.GITLAB) {
     const storedPrat = review.platform_project_id
