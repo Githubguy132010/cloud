@@ -124,6 +124,8 @@ export function resolveTemplate(
   return {
     template: {
       ...remoteTemplate,
+      incrementalReviewWorkflow:
+        remoteTemplate.incrementalReviewWorkflow ?? localTemplate.incrementalReviewWorkflow,
       styleGuidance: mergeStyleOverrides(localTemplate.styleGuidance, remoteTemplate.styleGuidance),
       commentFormatOverrides: mergeStyleOverrides(
         localTemplate.commentFormatOverrides,
