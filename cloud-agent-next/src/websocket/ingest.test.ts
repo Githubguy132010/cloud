@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { describe, expect, it, vi } from 'vitest';
 import { createIngestHandler, type IngestDOContext, type IngestAttachment } from './ingest.js';
 import type { EventQueries } from '../session/queries/index.js';
