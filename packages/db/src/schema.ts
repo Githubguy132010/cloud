@@ -1711,6 +1711,9 @@ export const agent_configs = pgTable(
     // Status
     is_enabled: boolean().notNull().default(true),
 
+    // Generic runtime state (e.g. security_scan agents store { last_synced_at: string })
+    runtime_state: jsonb().$type<Record<string, unknown>>().default({}),
+
     // Metadata
     created_by: text().notNull(),
     created_at: timestamp({ withTimezone: true, mode: 'string' }).defaultNow().notNull(),
