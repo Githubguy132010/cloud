@@ -908,13 +908,8 @@ describe('SessionService', () => {
 
     it('removes workspace when kilo import fails during cold start so retry can reclone', async () => {
       const mockDOGetMetadata = vi.fn();
-      const payload = JSON.stringify({ info: {}, messages: [{ info: {}, parts: [] }] });
-      const fetchMock = vi.fn().mockResolvedValue(new Response(payload));
       const envWithIngest: PersistenceEnv = {
         ...mockEnv,
-        SESSION_INGEST: {
-          fetch: fetchMock,
-        } as unknown as PersistenceEnv['SESSION_INGEST'],
         CLOUD_AGENT_SESSION: {
           idFromName: vi.fn(() => 'mock-do-id' as unknown as DurableObjectId),
           get: vi.fn(() => ({
@@ -929,12 +924,12 @@ describe('SessionService', () => {
           if (cmd.includes('test -d') && cmd.includes('.git')) {
             return Promise.resolve({ success: true, exitCode: 1, stdout: '', stderr: '' });
           }
-          if (cmd.includes('kilo import')) {
+          if (cmd.includes('kilo-restore-session')) {
             return Promise.resolve({
               success: false,
               exitCode: 1,
-              stdout: '',
-              stderr: 'import failed',
+              stdout: '{"error":"import failed"}',
+              stderr: 'restore script failed',
             });
           }
           return Promise.resolve({ success: true, exitCode: 0, stdout: '', stderr: '' });
@@ -976,7 +971,7 @@ describe('SessionService', () => {
           kilocodeModel: 'test-model',
           env: envWithIngest,
         })
-      ).rejects.toThrow('Session snapshot import failed');
+      ).rejects.toThrow('Cold-start session restore failed');
 
       const workspacePath = `/workspace/${orgId}/${userId}/sessions/${sessionId}`;
       const sessionHome = `/home/${sessionId}`;
@@ -985,12 +980,8 @@ describe('SessionService', () => {
 
     it('removes workspace when SessionSnapshotRestoreError (404) is thrown', async () => {
       const mockDOGetMetadata = vi.fn();
-      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
       const envWithIngest: PersistenceEnv = {
         ...mockEnv,
-        SESSION_INGEST: {
-          fetch: fetchMock,
-        } as unknown as PersistenceEnv['SESSION_INGEST'],
         CLOUD_AGENT_SESSION: {
           idFromName: vi.fn(() => 'mock-do-id' as unknown as DurableObjectId),
           get: vi.fn(() => ({
@@ -1001,10 +992,20 @@ describe('SessionService', () => {
         } as unknown as PersistenceEnv['CLOUD_AGENT_SESSION'],
       };
       const fakeSession = {
-        exec: vi
-          .fn()
-          .mockResolvedValueOnce({ success: true, exitCode: 1, stdout: '', stderr: '' })
-          .mockResolvedValue({ success: true, exitCode: 0, stdout: '', stderr: '' }),
+        exec: vi.fn().mockImplementation((cmd: string) => {
+          if (cmd.includes('test -d') && cmd.includes('.git')) {
+            return Promise.resolve({ success: true, exitCode: 1, stdout: '', stderr: '' });
+          }
+          if (cmd.includes('kilo-restore-session')) {
+            return Promise.resolve({
+              success: false,
+              exitCode: 1,
+              stdout: JSON.stringify({ code: 404, error: 'session not found' }),
+              stderr: '',
+            });
+          }
+          return Promise.resolve({ success: true, exitCode: 0, stdout: '', stderr: '' });
+        }),
         gitCheckout: vi.fn().mockResolvedValue({ success: true, exitCode: 0 }),
         writeFile: vi.fn().mockResolvedValue(undefined),
         deleteFile: vi.fn().mockResolvedValue(undefined),
