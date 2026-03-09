@@ -56,7 +56,7 @@ export class RawHtml {
 
 type TemplateVars = Record<string, string | RawHtml>;
 
-function renderTemplate(name: string, vars: TemplateVars): string {
+export function renderTemplate(name: string, vars: TemplateVars): string {
   const templatePath = path.join(process.cwd(), 'src', 'emails', `${name}.html`);
   const html = fs.readFileSync(templatePath, 'utf-8');
   return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {

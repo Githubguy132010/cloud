@@ -3,7 +3,14 @@ import { adminProcedure, createTRPCRouter } from '@/lib/trpc/init';
 import { NEXTAUTH_URL } from '@/lib/config.server';
 import { sendViaCustomerIo } from '@/lib/email-customerio';
 import { sendViaMailgun } from '@/lib/email-mailgun';
-import { templates, subjects, buildCreditsSection, RawHtml, type TemplateName } from '@/lib/email';
+import {
+  templates,
+  subjects,
+  buildCreditsSection,
+  renderTemplate,
+  RawHtml,
+  type TemplateName,
+} from '@/lib/email';
 import * as z from 'zod';
 
 const templateNames: [TemplateName, ...TemplateName[]] = [
@@ -106,26 +113,6 @@ function fixtureTemplateVars(template: TemplateName): Record<string, string | Ra
   throw new Error(`Unknown template: ${template}`);
 }
 
-import fs from 'fs';
-import path from 'path';
-
-function renderTemplateForPreview(
-  templateName: TemplateName,
-  vars: Record<string, string | RawHtml>
-): string {
-  const templatePath = path.join(process.cwd(), 'src', 'emails', `${templateName}.html`);
-  const html = fs.readFileSync(templatePath, 'utf-8');
-  const allVars: Record<string, string | RawHtml> = {
-    ...vars,
-    year: String(new Date().getFullYear()),
-  };
-  return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
-    const v = allVars[key];
-    if (v === undefined) return `{{${key}}}`;
-    return v instanceof RawHtml ? v.html : v;
-  });
-}
-
 export const emailTestingRouter = createTRPCRouter({
   getTemplates: adminProcedure.query(() => {
     return templateNames.map(name => ({ name, subject: subjects[name] }));
@@ -143,7 +130,7 @@ export const emailTestingRouter = createTRPCRouter({
         return {
           type: 'mailgun' as const,
           subject: subjects[input.template],
-          html: renderTemplateForPreview(input.template, vars),
+          html: renderTemplate(input.template, { ...vars, year: String(new Date().getFullYear()) }),
         };
       }
       const messageData: Record<string, string> = Object.fromEntries(
@@ -189,7 +176,10 @@ export const emailTestingRouter = createTRPCRouter({
       }
 
       const subject = subjects[input.template];
-      const html = renderTemplateForPreview(input.template, vars);
+      const html = renderTemplate(input.template, {
+        ...vars,
+        year: String(new Date().getFullYear()),
+      });
       const result = await sendViaMailgun({ to: input.recipient, subject, html });
       if (!result) {
         throw new TRPCError({
