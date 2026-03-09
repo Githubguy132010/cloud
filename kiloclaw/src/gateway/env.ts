@@ -1,8 +1,16 @@
 import { ALL_SECRET_ENV_VARS } from '@kilocode/kiloclaw-secret-catalog';
 import type { KiloClawEnv } from '../types';
-import type { EncryptedEnvelope, EncryptedChannelTokens } from '../schemas/instance-config';
+import type {
+  EncryptedEnvelope,
+  EncryptedChannelTokens,
+  GoogleCredentials,
+} from '../schemas/instance-config';
 import { deriveGatewayToken } from '../auth/gateway-token';
-import { mergeEnvVarsWithSecrets, decryptChannelTokens } from '../utils/encryption';
+import {
+  mergeEnvVarsWithSecrets,
+  decryptChannelTokens,
+  decryptWithPrivateKey,
+} from '../utils/encryption';
 import { validateUserEnvVarName } from '../utils/env-encryption';
 
 /**
@@ -15,6 +23,7 @@ export type UserConfig = {
   kilocodeApiKey?: string | null;
   kilocodeDefaultModel?: string | null;
   channels?: EncryptedChannelTokens;
+  googleCredentials?: GoogleCredentials;
 };
 
 /**
@@ -120,6 +129,18 @@ export async function buildEnvVars(
       const channelEnv = decryptChannelTokens(userConfig.channels, env.AGENT_ENV_VARS_PRIVATE_KEY);
       // All channel tokens are sensitive
       Object.assign(sensitive, channelEnv);
+    }
+
+    // Layer 4b: Decrypt Google credentials and pass as env vars
+    if (userConfig.googleCredentials && env.AGENT_ENV_VARS_PRIVATE_KEY) {
+      sensitive.GOOGLE_CLIENT_SECRET_JSON = decryptWithPrivateKey(
+        userConfig.googleCredentials.clientSecret,
+        env.AGENT_ENV_VARS_PRIVATE_KEY
+      );
+      sensitive.GOOGLE_CREDENTIALS_JSON = decryptWithPrivateKey(
+        userConfig.googleCredentials.credentials,
+        env.AGENT_ENV_VARS_PRIVATE_KEY
+      );
     }
   }
 

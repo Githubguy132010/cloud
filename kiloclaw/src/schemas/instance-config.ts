@@ -32,6 +32,13 @@ const envVarNameSchema = z
     'Uses reserved prefix (KILOCLAW_ENC_ or KILOCLAW_ENV_)'
   );
 
+export const GoogleCredentialsSchema = z.object({
+  clientSecret: EncryptedEnvelopeSchema, // client_secret.json contents
+  credentials: EncryptedEnvelopeSchema, // OAuth tokens (refresh token, etc.)
+});
+
+export type GoogleCredentials = z.infer<typeof GoogleCredentialsSchema>;
+
 export const InstanceConfigSchema = z.object({
   envVars: z.record(envVarNameSchema, z.string()).optional(),
   encryptedSecrets: z.record(envVarNameSchema, EncryptedEnvelopeSchema).optional(),
@@ -46,6 +53,7 @@ export const InstanceConfigSchema = z.object({
       slackAppToken: EncryptedEnvelopeSchema.optional(),
     })
     .optional(),
+  googleCredentials: GoogleCredentialsSchema.optional(),
   machineSize: MachineSizeSchema.optional(),
   // Region for Fly Volume/Machine. Comma-separated priority list of region codes or aliases.
   // Examples: "us,eu" (try US first, then Europe), "lhr" (London only).
@@ -111,6 +119,7 @@ export const PersistedStateSchema = z.object({
     })
     .nullable()
     .default(null),
+  googleCredentials: GoogleCredentialsSchema.nullable().default(null),
   provisionedAt: z.number().nullable().default(null),
   lastStartedAt: z.number().nullable().default(null),
   lastStoppedAt: z.number().nullable().default(null),

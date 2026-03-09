@@ -293,6 +293,38 @@ describe('buildEnvVars', () => {
     ).rejects.toThrow('valid shell identifier');
   });
 
+  // ─── Google credentials (Layer 4b) ───────────────────────────────────
+
+  it('decrypts Google credentials into sensitive bucket', async () => {
+    const env = createMockEnv({
+      AGENT_ENV_VARS_PRIVATE_KEY: testPrivateKey,
+    });
+    const result = await buildEnvVars(env, SANDBOX_ID, SECRET, {
+      googleCredentials: {
+        clientSecret: encryptForTest('{"client_id":"test"}', testPublicKey),
+        credentials: encryptForTest('{"refresh_token":"rt"}', testPublicKey),
+      },
+    });
+
+    expect(result.sensitive.GOOGLE_CLIENT_SECRET_JSON).toBe('{"client_id":"test"}');
+    expect(result.sensitive.GOOGLE_CREDENTIALS_JSON).toBe('{"refresh_token":"rt"}');
+    expect(result.env.GOOGLE_CLIENT_SECRET_JSON).toBeUndefined();
+    expect(result.env.GOOGLE_CREDENTIALS_JSON).toBeUndefined();
+  });
+
+  it('skips Google credential decryption when no private key configured', async () => {
+    const env = createMockEnv(); // no AGENT_ENV_VARS_PRIVATE_KEY
+    const result = await buildEnvVars(env, SANDBOX_ID, SECRET, {
+      googleCredentials: {
+        clientSecret: encryptForTest('{"client_id":"test"}', testPublicKey),
+        credentials: encryptForTest('{"refresh_token":"rt"}', testPublicKey),
+      },
+    });
+
+    expect(result.sensitive.GOOGLE_CLIENT_SECRET_JSON).toBeUndefined();
+    expect(result.sensitive.GOOGLE_CREDENTIALS_JSON).toBeUndefined();
+  });
+
   // ─── Catalog-derived SENSITIVE_KEYS equivalence ───────────────────────
   // Verifies that switching from hardcoded SENSITIVE_KEYS to catalog-derived
   // ALL_SECRET_ENV_VARS produces identical classification behavior.

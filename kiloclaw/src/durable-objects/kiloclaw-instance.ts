@@ -32,6 +32,7 @@ import {
   type InstanceConfig,
   type PersistedState,
   type EncryptedEnvelope,
+  type GoogleCredentials,
   type MachineSize,
 } from '../schemas/instance-config';
 import {
@@ -153,6 +154,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
   private kilocodeApiKeyExpiresAt: PersistedState['kilocodeApiKeyExpiresAt'] = null;
   private kilocodeDefaultModel: PersistedState['kilocodeDefaultModel'] = null;
   private channels: PersistedState['channels'] = null;
+  private googleCredentials: GoogleCredentials | null = null;
   private provisionedAt: number | null = null;
   private lastStartedAt: number | null = null;
   private lastStoppedAt: number | null = null;
@@ -199,6 +201,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       this.kilocodeApiKeyExpiresAt = s.kilocodeApiKeyExpiresAt;
       this.kilocodeDefaultModel = s.kilocodeDefaultModel;
       this.channels = s.channels;
+      this.googleCredentials = s.googleCredentials;
       this.provisionedAt = s.provisionedAt;
       this.lastStartedAt = s.lastStartedAt;
       this.lastStoppedAt = s.lastStoppedAt;
@@ -561,6 +564,34 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       slackBot: !!this.channels?.slackBotToken,
       slackApp: !!this.channels?.slackAppToken,
     };
+  }
+
+  /**
+   * Store encrypted Google credentials (client_secret.json + OAuth tokens).
+   * Does NOT restart the machine; the caller should prompt the user to restart.
+   */
+  async updateGoogleCredentials(
+    credentials: GoogleCredentials
+  ): Promise<{ googleConnected: boolean }> {
+    await this.loadState();
+
+    this.googleCredentials = credentials;
+    await this.ctx.storage.put({ googleCredentials: this.googleCredentials });
+
+    return { googleConnected: true };
+  }
+
+  /**
+   * Clear stored Google credentials.
+   * Does NOT restart the machine; the caller should prompt the user to restart.
+   */
+  async clearGoogleCredentials(): Promise<{ googleConnected: boolean }> {
+    await this.loadState();
+
+    this.googleCredentials = null;
+    await this.ctx.storage.put({ googleCredentials: null });
+
+    return { googleConnected: false };
   }
 
   /** KV cache key for pairing requests, scoped to the specific machine. */
@@ -1142,6 +1173,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     imageVariant: string | null;
     trackedImageTag: string | null;
     trackedImageDigest: string | null;
+    googleConnected: boolean;
   }> {
     await this.loadState();
 
@@ -1177,6 +1209,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       imageVariant: this.imageVariant,
       trackedImageTag: this.trackedImageTag,
       trackedImageDigest: this.trackedImageDigest,
+      googleConnected: this.googleCredentials !== null,
     };
   }
 
@@ -2694,6 +2727,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         kilocodeApiKey: this.kilocodeApiKey ?? undefined,
         kilocodeDefaultModel: this.kilocodeDefaultModel ?? undefined,
         channels: this.channels ?? undefined,
+        googleCredentials: this.googleCredentials ?? undefined,
       }
     );
 
