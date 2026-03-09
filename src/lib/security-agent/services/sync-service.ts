@@ -291,14 +291,12 @@ export async function syncAllReposForOwner(params: {
     throw firstError;
   }
 
-  // Only advance owner-level freshness when every repo actually synced.
-  // Skipped repos (alerts unavailable) and stale repos (deleted/transferred)
-  // still have stale findings.
-  if (
-    totalResult.errors === 0 &&
-    totalResult.skipped === 0 &&
-    totalResult.staleRepos.length === 0
-  ) {
+  // Only advance owner-level freshness when no repo had a real failure.
+  // Stale repos (deleted/transferred) block the update because they were
+  // selected for sync but never refreshed.  Skipped repos (Dependabot
+  // disabled) do NOT block — that's a permanent repo-level setting, and
+  // blocking here would leave the timestamp stuck forever.
+  if (totalResult.errors === 0 && totalResult.staleRepos.length === 0) {
     await updateLastSyncedAt(owner);
   }
 
