@@ -35,6 +35,7 @@ export const preferredModels = [
 export function isFreeModel(model: string): boolean {
   return (
     kiloFreeModels.some(m => m.public_id === model && m.is_enabled) ||
+    model === KILO_AUTO_FREE_MODEL.id ||
     (model ?? '').endsWith(':free') ||
     model === 'openrouter/free' ||
     isOpenRouterStealthModel(model ?? '')
@@ -69,10 +70,6 @@ export function isKiloStealthModel(model: string): boolean {
 
 function isOpenRouterStealthModel(model: string): boolean {
   return model.startsWith('openrouter/') && (model.endsWith('-alpha') || model.endsWith('-beta'));
-}
-
-export function extraRequiredProvider(model: string) {
-  return kiloFreeModels.find(m => m.public_id === model)?.inference_provider;
 }
 
 export function isDeadFreeModel(model: string): boolean {
