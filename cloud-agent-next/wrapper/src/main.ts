@@ -213,7 +213,12 @@ async function main() {
       },
       onReconnected: () => {
         logToFile('ingest WS reconnected');
-        state.clearLastError();
+        // Only clear DISCONNECT errors — preserve more severe errors
+        // (e.g. INFLIGHT_TIMEOUT) that may have been set during the reconnect window
+        const lastError = state.getLastError();
+        if (lastError?.code === 'DISCONNECT') {
+          state.clearLastError();
+        }
       },
     }
   );

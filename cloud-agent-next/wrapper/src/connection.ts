@@ -156,8 +156,11 @@ export function createConnectionManager(
 
   /**
    * Open the ingest WebSocket connection.
+   * @param expectedGeneration If provided, the connection is only accepted when
+   *   `generation` still matches. This prevents a stale reconnect from assigning
+   *   `ingestWs` and flushing buffered events after `close()` was called.
    */
-  async function openIngestWs(): Promise<void> {
+  async function openIngestWs(expectedGeneration?: number): Promise<void> {
     const job = state.currentJob;
     if (!job) {
       throw new Error('Cannot open ingest WS: no job context');
@@ -184,6 +187,19 @@ export function createConnectionManager(
 
       ws.onopen = () => {
         logToFile(`ingest WS connected to: ${wsUrl}`);
+        // Guard against stale reconnect: if close() was called while we were
+        // connecting, generation will have advanced and we must not adopt
+        // this socket or flush buffered events through it.
+        if (expectedGeneration !== undefined && expectedGeneration !== generation) {
+          logToFile('stale reconnect detected in onopen — discarding socket');
+          try {
+            ws.close();
+          } catch {
+            /* ignore */
+          }
+          reject(new Error('Stale reconnect'));
+          return;
+        }
         ingestWs = ws;
         flushBuffer();
         resolve();
@@ -429,7 +445,7 @@ export function createConnectionManager(
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       const gen = generation;
-      openIngestWs()
+      openIngestWs(gen)
         .then(() => {
           if (gen !== generation) {
             discardStaleReconnect();

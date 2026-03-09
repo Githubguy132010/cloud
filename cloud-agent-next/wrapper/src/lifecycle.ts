@@ -252,6 +252,13 @@ export function createLifecycleManager(
     const job = state.currentJob;
     if (!job) return;
 
+    // Skip post-completion tasks when aborted — the execution already failed
+    // (e.g. disconnect, fatal error) so auto-commit/condense on partial work is unsafe
+    if (isAborted) {
+      logToFile('skipping post-completion tasks — execution was aborted');
+      return;
+    }
+
     // Run auto-commit if enabled
     if (config.autoCommit) {
       logToFile('running auto-commit');
