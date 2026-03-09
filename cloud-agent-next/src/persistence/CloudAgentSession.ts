@@ -742,6 +742,7 @@ export class CloudAgentSession extends DurableObject {
     callbackTarget?: CallbackTarget;
     images?: Images;
     createdOnPlatform?: string;
+    gateThreshold?: 'off' | 'all' | 'warning' | 'critical';
     // Workspace metadata (set during prepareSession)
     workspacePath?: string;
     sessionHome?: string;
