@@ -13,6 +13,7 @@ import { registerHealthRoute } from './routes/health';
 import { registerGatewayRoutes } from './routes/gateway';
 import { registerConfigRoutes } from './routes/config';
 import { CONTROLLER_COMMIT, CONTROLLER_VERSION } from './version';
+import { writeGwsCredentials } from './gws-credentials';
 
 export type RuntimeConfig = {
   port: number;
@@ -112,6 +113,10 @@ async function handleHttpRequest(
 
 export async function startController(env: NodeJS.ProcessEnv = process.env): Promise<void> {
   const config = loadRuntimeConfig(env);
+
+  // Write Google Workspace CLI credentials if available
+  writeGwsCredentials(env as Record<string, string | undefined>);
+
   const supervisor = createSupervisor({
     gatewayArgs: config.gatewayArgs,
   });
