@@ -80,6 +80,8 @@ export type SessionInput = {
   gitToken?: string;
   /** Git platform type for correct token/env var handling */
   platform?: 'github' | 'gitlab';
+  /** Gate threshold — when not 'off', the agent should report gateResult in its callback */
+  gateThreshold?: 'off' | 'all' | 'warning' | 'critical';
 };
 
 export type CodeReviewPayload = {
@@ -341,6 +343,7 @@ export async function prepareReviewPayload(
     // GitHub: uses githubRepo (owner/repo format) + githubToken
     // GitLab: uses gitUrl (full HTTPS URL) + gitToken
     const variant = config.thinking_effort ?? undefined;
+    const gateThreshold = config.gate_threshold ?? 'off';
     const sessionInput: SessionInput =
       platform === PLATFORM.GITLAB
         ? {
@@ -354,6 +357,7 @@ export async function prepareReviewPayload(
             model: config.model_slug || DEFAULT_CODE_REVIEW_MODEL,
             variant,
             upstreamBranch: review.head_ref,
+            ...(gateThreshold !== 'off' ? { gateThreshold } : {}),
           }
         : {
             // GitHub: use owner/repo format
@@ -366,6 +370,7 @@ export async function prepareReviewPayload(
             model: config.model_slug || DEFAULT_CODE_REVIEW_MODEL,
             variant,
             upstreamBranch: review.head_ref,
+            ...(gateThreshold !== 'off' ? { gateThreshold } : {}),
           };
 
     if (isActiveReviewPromo('reviewer', sessionInput.model)) {
