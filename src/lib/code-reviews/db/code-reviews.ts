@@ -427,7 +427,8 @@ export async function findActiveReviewsForPR(
 export async function findPreviousCompletedReview(
   repoFullName: string,
   prNumber: number,
-  excludeSha: string
+  excludeSha: string,
+  platform: string = 'github'
 ): Promise<{ head_sha: string } | null> {
   try {
     const [review] = await db
@@ -437,6 +438,7 @@ export async function findPreviousCompletedReview(
         and(
           eq(cloud_agent_code_reviews.repo_full_name, repoFullName),
           eq(cloud_agent_code_reviews.pr_number, prNumber),
+          eq(cloud_agent_code_reviews.platform, platform),
           ne(cloud_agent_code_reviews.head_sha, excludeSha),
           eq(cloud_agent_code_reviews.status, 'completed')
         )
@@ -448,7 +450,7 @@ export async function findPreviousCompletedReview(
   } catch (error) {
     captureException(error, {
       tags: { operation: 'findPreviousCompletedReview' },
-      extra: { repoFullName, prNumber, excludeSha },
+      extra: { repoFullName, prNumber, excludeSha, platform },
     });
     throw error;
   }

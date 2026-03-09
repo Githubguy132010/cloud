@@ -322,7 +322,8 @@ export async function prepareReviewPayload(
         const previousReview = await findPreviousCompletedReview(
           review.repo_full_name,
           review.pr_number,
-          review.head_sha
+          review.head_sha,
+          platform
         );
         previousHeadSha = previousReview?.head_sha ?? null;
 
