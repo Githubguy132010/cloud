@@ -297,6 +297,19 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
       }
     }),
 
+  controllerVersion: adminProcedure.input(GatewayProcessSchema).query(async ({ input }) => {
+    try {
+      const client = new KiloClawInternalClient();
+      return await client.getControllerVersion(input.userId);
+    } catch (err) {
+      console.error('Failed to fetch controller version for user:', input.userId, err);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch controller version',
+      });
+    }
+  }),
+
   gatewayStatus: adminProcedure.input(GatewayProcessSchema).query(async ({ input }) => {
     try {
       const client = new KiloClawInternalClient();

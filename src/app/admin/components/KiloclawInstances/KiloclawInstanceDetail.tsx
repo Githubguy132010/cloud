@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 
 function formatRelativeTime(timestamp: string | null): string {
@@ -303,6 +304,21 @@ function VersionPinCard({ userId }: { userId: string }) {
   );
 }
 
+/** Returns true if calver `version` is >= `minVersion` (e.g. "2026.2.26"). Fails closed on malformed input. */
+function calverAtLeast(version: string | null | undefined, minVersion: string): boolean {
+  if (!version) return false;
+  const parts = version.split('.').map(Number);
+  const minParts = minVersion.split('.').map(Number);
+  for (let i = 0; i < minParts.length; i++) {
+    const a = parts[i] ?? 0;
+    const b = minParts[i] ?? 0;
+    if (Number.isNaN(a) || Number.isNaN(b)) return false;
+    if (a > b) return true;
+    if (a < b) return false;
+  }
+  return true; // equal
+}
+
 /** Strip ANSI escape codes so raw terminal output can render in a browser &lt;pre&gt;. */
 function stripAnsi(raw: string): string {
   // eslint-disable-next-line no-control-regex
@@ -370,6 +386,16 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
     enabled: gatewayControlsEnabled,
     refetchInterval: gatewayControlsEnabled ? 10000 : false,
   });
+
+  const { data: controllerVersion } = useQuery({
+    ...trpc.admin.kiloclawInstances.controllerVersion.queryOptions({
+      userId: data?.user_id ?? '',
+    }),
+    enabled: gatewayControlsEnabled,
+    staleTime: 5 * 60_000,
+  });
+
+  const supportsConfigRestore = calverAtLeast(controllerVersion?.version, '2026.2.26');
 
   const invalidateGatewayQueries = () => {
     if (!data?.user_id) return;
@@ -891,15 +917,26 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                       <Stethoscope className="mr-1 h-4 w-4" />
                       Run Doctor
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={restoreConfigMutation.isPending}
-                      onClick={() => setRestoreConfigDialogOpen(true)}
-                    >
-                      <RotateCcw className="mr-1 h-4 w-4" />
-                      Restore Default Config
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={
+                              !supportsConfigRestore || restoreConfigMutation.isPending
+                            }
+                            onClick={() => setRestoreConfigDialogOpen(true)}
+                          >
+                            <RotateCcw className="mr-1 h-4 w-4" />
+                            Restore Default Config
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {!supportsConfigRestore && (
+                        <TooltipContent>Unavailable until redeploy</TooltipContent>
+                      )}
+                    </Tooltip>
                   </div>
                 </>
               )}
@@ -1051,7 +1088,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
         />
 
         {/* Restore Default Config Confirmation Dialog */}
-        <Dialog
+        {supportsConfigRestore && <Dialog
           open={restoreConfigDialogOpen}
           onOpenChange={restoreConfigMutation.isPending ? undefined : setRestoreConfigDialogOpen}
         >
@@ -1097,7 +1134,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
               </Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
     </DetailPageWrapper>
   );
