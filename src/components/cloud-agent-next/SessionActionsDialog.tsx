@@ -13,6 +13,7 @@ import { Loader2, Copy, Check, Share2, GitFork } from 'lucide-react';
 import { useRawTRPCClient } from '@/lib/trpc/utils';
 import { toast } from 'sonner';
 import { CopyableCommand } from '@/components/CopyableCommand';
+import { OpenInEditorButton } from '@/app/share/[shareId]/open-in-editor-button';
 
 type SessionActionsDialogProps = {
   open: boolean;
@@ -182,14 +183,26 @@ export function SessionActionsDialog({
               <h3 className="text-sm font-medium">Fork Session</h3>
             </div>
             <p className="text-muted-foreground text-xs">
-              Fork this session to continue working on it in your CLI
+              Fork this session to continue working on it in your editor or CLI
             </p>
 
             {kiloSessionId ? (
-              <CopyableCommand
-                command={`kilo --session ${kiloSessionId} --cloud-fork`}
-                className="bg-muted rounded-md px-3 py-2 text-sm"
-              />
+              <div className="space-y-3">
+                <div className="flex justify-center">
+                  <OpenInEditorButton
+                    sessionId={kiloSessionId}
+                    pathOverride={`/s/${kiloSessionId}`}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-muted-foreground text-xs">Use this command in CLI:</p>
+                  <CopyableCommand
+                    command={`kilo --session ${kiloSessionId} --cloud-fork`}
+                    className="bg-muted rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
             ) : (
               <p className="text-muted-foreground text-center text-sm">
                 Session ID not available yet
