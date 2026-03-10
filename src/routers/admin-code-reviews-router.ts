@@ -29,6 +29,7 @@ const FilterSchema = z.object({
   userId: z.string().min(1).optional(), // Filter by specific user
   organizationId: z.string().uuid().optional(), // Filter by specific organization
   ownershipType: z.enum(['all', 'personal', 'organization']).optional().default('all'),
+  agentVersion: z.enum(['all', 'v1', 'v2']).optional().default('all'),
 });
 
 /**
@@ -64,16 +65,24 @@ function buildOwnershipFilter(
   return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
+/** Returns a SQL condition filtering by agent_version, or undefined for 'all'. */
+function buildAgentVersionFilter(agentVersion?: 'all' | 'v1' | 'v2'): SQL | undefined {
+  if (!agentVersion || agentVersion === 'all') return undefined;
+  return eq(cloud_agent_code_reviews.agent_version, agentVersion);
+}
+
 export const adminCodeReviewsRouter = createTRPCRouter({
   // Get overview KPIs
   getOverviewStats: adminProcedure.input(FilterSchema).query(async ({ input }) => {
-    const { startDate, endDate, userId, organizationId, ownershipType } = input;
+    const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
     const ownershipFilter = buildOwnershipFilter(userId, organizationId, ownershipType);
+    const agentVersionFilter = buildAgentVersionFilter(agentVersion);
 
     const conditions = [
       gte(cloud_agent_code_reviews.created_at, startDate),
       lt(cloud_agent_code_reviews.created_at, endDate),
       ownershipFilter,
+      agentVersionFilter,
     ].filter(Boolean) as SQL[];
 
     const result = await db
@@ -126,13 +135,15 @@ export const adminCodeReviewsRouter = createTRPCRouter({
 
   // Get daily time series data
   getDailyStats: adminProcedure.input(FilterSchema).query(async ({ input }) => {
-    const { startDate, endDate, userId, organizationId, ownershipType } = input;
+    const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
     const ownershipFilter = buildOwnershipFilter(userId, organizationId, ownershipType);
+    const agentVersionFilter = buildAgentVersionFilter(agentVersion);
 
     const conditions = [
       gte(cloud_agent_code_reviews.created_at, startDate),
       lt(cloud_agent_code_reviews.created_at, endDate),
       ownershipFilter,
+      agentVersionFilter,
     ].filter(Boolean) as SQL[];
 
     const result = await db
@@ -166,8 +177,9 @@ export const adminCodeReviewsRouter = createTRPCRouter({
 
   // Get error analysis (excludes "Insufficient credits" billing errors from the list)
   getErrorAnalysis: adminProcedure.input(FilterSchema).query(async ({ input }) => {
-    const { startDate, endDate, userId, organizationId, ownershipType } = input;
+    const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
     const ownershipFilter = buildOwnershipFilter(userId, organizationId, ownershipType);
+    const agentVersionFilter = buildAgentVersionFilter(agentVersion);
 
     const conditions = [
       eq(cloud_agent_code_reviews.status, 'failed'),
@@ -175,6 +187,7 @@ export const adminCodeReviewsRouter = createTRPCRouter({
       gte(cloud_agent_code_reviews.created_at, startDate),
       lt(cloud_agent_code_reviews.created_at, endDate),
       ownershipFilter,
+      agentVersionFilter,
     ].filter(Boolean) as SQL[];
 
     const result = await db
@@ -200,13 +213,15 @@ export const adminCodeReviewsRouter = createTRPCRouter({
 
   // Get user segmentation (note: this doesn't use filters since it shows top users/orgs for selection)
   getUserSegmentation: adminProcedure.input(FilterSchema).query(async ({ input }) => {
-    const { startDate, endDate, userId, organizationId, ownershipType } = input;
+    const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
     const ownershipFilter = buildOwnershipFilter(userId, organizationId, ownershipType);
+    const agentVersionFilter = buildAgentVersionFilter(agentVersion);
 
     const baseConditions = [
       gte(cloud_agent_code_reviews.created_at, startDate),
       lt(cloud_agent_code_reviews.created_at, endDate),
       ownershipFilter,
+      agentVersionFilter,
     ].filter(Boolean) as SQL[];
 
     // Personal vs Org breakdown
@@ -312,13 +327,15 @@ export const adminCodeReviewsRouter = createTRPCRouter({
 
   // Get CSV export data
   getExportData: adminProcedure.input(FilterSchema).query(async ({ input }) => {
-    const { startDate, endDate, userId, organizationId, ownershipType } = input;
+    const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
     const ownershipFilter = buildOwnershipFilter(userId, organizationId, ownershipType);
+    const agentVersionFilter = buildAgentVersionFilter(agentVersion);
 
     const conditions = [
       gte(cloud_agent_code_reviews.created_at, startDate),
       lt(cloud_agent_code_reviews.created_at, endDate),
       ownershipFilter,
+      agentVersionFilter,
     ].filter(Boolean) as SQL[];
 
     const result = await db
