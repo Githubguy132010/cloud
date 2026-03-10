@@ -10,7 +10,9 @@ import { exec } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const GWS_CONFIG_DIR = path.join(process.env.HOME ?? '/root', '.config', 'gws');
+// Use /root explicitly — OpenClaw changes HOME to the workspace dir at runtime,
+// but we need credentials at a stable, absolute path that gws can always find.
+const GWS_CONFIG_DIR = '/root/.config/gws';
 const CLIENT_SECRET_FILE = 'client_secret.json';
 const CREDENTIALS_FILE = 'credentials.json';
 
@@ -55,6 +57,10 @@ export function writeGwsCredentials(
   deps.mkdirSync(configDir, { recursive: true });
   deps.writeFileSync(path.join(configDir, CLIENT_SECRET_FILE), clientSecret, { mode: 0o600 });
   deps.writeFileSync(path.join(configDir, CREDENTIALS_FILE), credentials, { mode: 0o600 });
+
+  // Set env var so gws finds credentials even when HOME changes (OpenClaw sets
+  // HOME to the workspace dir, but credentials live under /root/.config/gws/).
+  env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE = path.join(configDir, CREDENTIALS_FILE);
 
   console.log(`[gws] Wrote credentials to ${configDir}`);
 

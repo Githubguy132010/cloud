@@ -18,14 +18,11 @@ describe('writeGwsCredentials', () => {
   it('writes credential files when both env vars are set', () => {
     const deps = mockDeps();
     const dir = '/tmp/gws-test';
-    const result = writeGwsCredentials(
-      {
-        GOOGLE_CLIENT_SECRET_JSON: '{"client_id":"test"}',
-        GOOGLE_CREDENTIALS_JSON: '{"refresh_token":"rt"}',
-      },
-      dir,
-      deps
-    );
+    const env: Record<string, string | undefined> = {
+      GOOGLE_CLIENT_SECRET_JSON: '{"client_id":"test"}',
+      GOOGLE_CREDENTIALS_JSON: '{"refresh_token":"rt"}',
+    };
+    const result = writeGwsCredentials(env, dir, deps);
 
     expect(result).toBe(true);
     expect(deps.mkdirSync).toHaveBeenCalledWith(dir, { recursive: true });
@@ -39,6 +36,7 @@ describe('writeGwsCredentials', () => {
       '{"refresh_token":"rt"}',
       { mode: 0o600 }
     );
+    expect(env.GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE).toBe(path.join(dir, 'credentials.json'));
   });
 
   it('skips when GOOGLE_CLIENT_SECRET_JSON is missing', () => {
