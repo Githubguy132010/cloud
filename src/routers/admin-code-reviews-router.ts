@@ -23,6 +23,23 @@ import {
  */
 const excludeInsufficientCreditsError = sql`COALESCE(${cloud_agent_code_reviews.error_message}, '') NOT LIKE '%Insufficient credits%'`;
 
+/**
+ * Categorize error messages into high-level buckets via SQL CASE WHEN.
+ * Pattern matching is ordered from most-specific to least-specific.
+ */
+const errorCategoryExpr = sql<string>`CASE
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%rate limit%' OR ${cloud_agent_code_reviews.error_message} LIKE '%Rate limit%' OR ${cloud_agent_code_reviews.error_message} LIKE '%429%' THEN 'Rate Limited'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%timeout%' OR ${cloud_agent_code_reviews.error_message} LIKE '%Timeout%' OR ${cloud_agent_code_reviews.error_message} LIKE '%ETIMEDOUT%' OR ${cloud_agent_code_reviews.error_message} LIKE '%timed out%' THEN 'Timeout'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%context window%' OR ${cloud_agent_code_reviews.error_message} LIKE '%token limit%' OR ${cloud_agent_code_reviews.error_message} LIKE '%too large%' OR ${cloud_agent_code_reviews.error_message} LIKE '%maximum context length%' THEN 'Context Window Exceeded'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%authentication%' OR ${cloud_agent_code_reviews.error_message} LIKE '%401%' OR ${cloud_agent_code_reviews.error_message} LIKE '%403%' OR ${cloud_agent_code_reviews.error_message} LIKE '%permission%' THEN 'Auth / Permission Error'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%not found%' OR ${cloud_agent_code_reviews.error_message} LIKE '%404%' THEN 'Not Found'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%500%' OR ${cloud_agent_code_reviews.error_message} LIKE '%502%' OR ${cloud_agent_code_reviews.error_message} LIKE '%503%' OR ${cloud_agent_code_reviews.error_message} LIKE '%internal server%' OR ${cloud_agent_code_reviews.error_message} LIKE '%Internal Server%' THEN 'Upstream Server Error'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%ECONNREFUSED%' OR ${cloud_agent_code_reviews.error_message} LIKE '%ECONNRESET%' OR ${cloud_agent_code_reviews.error_message} LIKE '%socket hang up%' OR ${cloud_agent_code_reviews.error_message} LIKE '%network%' THEN 'Network Error'
+  WHEN ${cloud_agent_code_reviews.error_message} LIKE '%parse%' OR ${cloud_agent_code_reviews.error_message} LIKE '%JSON%' OR ${cloud_agent_code_reviews.error_message} LIKE '%unexpected token%' THEN 'Parse Error'
+  WHEN ${cloud_agent_code_reviews.error_message} IS NULL THEN 'Unknown Error'
+  ELSE 'Other'
+END`;
+
 const FilterSchema = z.object({
   startDate: z.string().date(), // ISO date string YYYY-MM-DD
   endDate: z.string().date(), // ISO date string YYYY-MM-DD
@@ -219,25 +236,52 @@ export const adminCodeReviewsRouter = createTRPCRouter({
       agentVersionFilter,
     ].filter(Boolean) as SQL[];
 
-    const result = await db
+    // Categorized error summary
+    const categorized = await db
       .select({
-        error_type: sql<string>`COALESCE(SUBSTRING(${cloud_agent_code_reviews.error_message} FROM 1 FOR 100), 'Unknown Error')`,
+        category: errorCategoryExpr,
         count: sql<number>`COUNT(*)`,
         first_occurrence: sql<string>`MIN(${cloud_agent_code_reviews.created_at})::text`,
         last_occurrence: sql<string>`MAX(${cloud_agent_code_reviews.created_at})::text`,
       })
       .from(cloud_agent_code_reviews)
       .where(and(...conditions))
-      .groupBy(sql`SUBSTRING(${cloud_agent_code_reviews.error_message} FROM 1 FOR 100)`)
+      .groupBy(errorCategoryExpr)
+      .orderBy(desc(sql`COUNT(*)`));
+
+    // Raw error messages (top 50, for drill-down table)
+    const raw = await db
+      .select({
+        error_type: sql<string>`COALESCE(SUBSTRING(${cloud_agent_code_reviews.error_message} FROM 1 FOR 200), 'Unknown Error')`,
+        category: errorCategoryExpr,
+        count: sql<number>`COUNT(*)`,
+        first_occurrence: sql<string>`MIN(${cloud_agent_code_reviews.created_at})::text`,
+        last_occurrence: sql<string>`MAX(${cloud_agent_code_reviews.created_at})::text`,
+      })
+      .from(cloud_agent_code_reviews)
+      .where(and(...conditions))
+      .groupBy(
+        sql`SUBSTRING(${cloud_agent_code_reviews.error_message} FROM 1 FOR 200)`,
+        errorCategoryExpr
+      )
       .orderBy(desc(sql`COUNT(*)`))
       .limit(50);
 
-    return result.map(row => ({
-      errorType: row.error_type,
-      count: Number(row.count) || 0,
-      firstOccurrence: row.first_occurrence,
-      lastOccurrence: row.last_occurrence,
-    }));
+    return {
+      categories: categorized.map(row => ({
+        category: row.category,
+        count: Number(row.count) || 0,
+        firstOccurrence: row.first_occurrence,
+        lastOccurrence: row.last_occurrence,
+      })),
+      details: raw.map(row => ({
+        errorType: row.error_type,
+        category: row.category,
+        count: Number(row.count) || 0,
+        firstOccurrence: row.first_occurrence,
+        lastOccurrence: row.last_occurrence,
+      })),
+    };
   }),
 
   // Get user segmentation (note: this doesn't use filters since it shows top users/orgs for selection)

@@ -11,17 +11,30 @@ import {
 } from '@/components/ui/table';
 import { formatDate } from '@/lib/admin-utils';
 
-type ErrorData = {
-  errorType: string;
+type CategoryData = {
+  category: string;
   count: number;
   firstOccurrence: string;
   lastOccurrence: string;
 };
 
-export function CodeReviewErrorAnalysis({ data }: { data: ErrorData[] }) {
-  const totalErrors = data.reduce((sum, error) => sum + error.count, 0);
+type DetailData = {
+  errorType: string;
+  category: string;
+  count: number;
+  firstOccurrence: string;
+  lastOccurrence: string;
+};
 
-  if (data.length === 0) {
+type ErrorAnalysisData = {
+  categories: CategoryData[];
+  details: DetailData[];
+};
+
+export function CodeReviewErrorAnalysis({ data }: { data: ErrorAnalysisData }) {
+  const totalErrors = data.details.reduce((sum, error) => sum + error.count, 0);
+
+  if (data.details.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -42,7 +55,7 @@ export function CodeReviewErrorAnalysis({ data }: { data: ErrorData[] }) {
       <CardHeader>
         <CardTitle>Error Analysis</CardTitle>
         <CardDescription>
-          {data.length} unique error types, {totalErrors.toLocaleString()} total failures
+          {data.details.length} unique error types, {totalErrors.toLocaleString()} total failures
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -50,7 +63,8 @@ export function CodeReviewErrorAnalysis({ data }: { data: ErrorData[] }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[50%]">Error Type</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="w-[40%]">Error Type</TableHead>
                 <TableHead className="text-right">Count</TableHead>
                 <TableHead className="text-right">% of Errors</TableHead>
                 <TableHead>First Seen</TableHead>
@@ -58,8 +72,9 @@ export function CodeReviewErrorAnalysis({ data }: { data: ErrorData[] }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((error, idx) => (
+              {data.details.map((error, idx) => (
                 <TableRow key={idx}>
+                  <TableCell className="text-xs">{error.category}</TableCell>
                   <TableCell
                     className="max-w-[400px] truncate font-mono text-xs"
                     title={error.errorType}
