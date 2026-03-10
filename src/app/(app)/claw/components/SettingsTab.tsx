@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useOpenRouterModels } from '@/app/api/openrouter/hooks';
 import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
 import type { KiloClawDashboardStatus } from '@/lib/kiloclaw/types';
+import { calverAtLeast } from '@/lib/kiloclaw/version';
 import type { useKiloClawMutations } from '@/hooks/useKiloClaw';
 import { useControllerVersion, useKiloClawConfig, useKiloClawMyPin } from '@/hooks/useKiloClaw';
 import { useDefaultModelSelection } from '../hooks/useDefaultModelSelection';
@@ -54,21 +55,6 @@ export const KILOCODE_CATALOG_IDS = new Set([
 /** Strip surrounding quotes — bun build --define wraps values in extra quotes. */
 function cleanVersion(v: string | null | undefined): string | null {
   return v?.replace(/^["']|["']$/g, '') || null;
-}
-
-/** Returns true if calver `version` is >= `minVersion` (e.g. "2026.2.26"). Fails closed on malformed input. */
-function calverAtLeast(version: string | null | undefined, minVersion: string): boolean {
-  if (!version) return false;
-  const parts = version.split('.').map(Number);
-  const minParts = minVersion.split('.').map(Number);
-  for (let i = 0; i < minParts.length; i++) {
-    const a = parts[i] ?? 0;
-    const b = minParts[i] ?? 0;
-    if (Number.isNaN(a) || Number.isNaN(b)) return false;
-    if (a > b) return true;
-    if (a < b) return false;
-  }
-  return true; // equal
 }
 
 function ChannelSection({

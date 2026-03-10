@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/lib/trpc/utils';
+import { calverAtLeast } from '@/lib/kiloclaw/version';
 import {
   Select,
   SelectContent,
@@ -304,21 +305,6 @@ function VersionPinCard({ userId }: { userId: string }) {
   );
 }
 
-/** Returns true if calver `version` is >= `minVersion` (e.g. "2026.2.26"). Fails closed on malformed input. */
-function calverAtLeast(version: string | null | undefined, minVersion: string): boolean {
-  if (!version) return false;
-  const parts = version.split('.').map(Number);
-  const minParts = minVersion.split('.').map(Number);
-  for (let i = 0; i < minParts.length; i++) {
-    const a = parts[i] ?? 0;
-    const b = minParts[i] ?? 0;
-    if (Number.isNaN(a) || Number.isNaN(b)) return false;
-    if (a > b) return true;
-    if (a < b) return false;
-  }
-  return true; // equal
-}
-
 /** Strip ANSI escape codes so raw terminal output can render in a browser &lt;pre&gt;. */
 function stripAnsi(raw: string): string {
   // eslint-disable-next-line no-control-regex
@@ -446,6 +432,9 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
       onSuccess: () => {
         invalidateGatewayQueries();
       },
+      onError: err => {
+        toast.error(`Failed to run doctor: ${err.message}`);
+      },
     })
   );
 
@@ -502,7 +491,12 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
   }
 
   const isActive = data.destroyed_at === null;
-  const gatewayActionPending = isGatewayStarting || isGatewayStopping || isGatewayRestarting;
+  const gatewayActionPending =
+    isGatewayStarting ||
+    isGatewayStopping ||
+    isGatewayRestarting ||
+    runDoctorMutation.isPending ||
+    restoreConfigMutation.isPending;
 
   return (
     <DetailPageWrapper subtitle={data.user_email ?? data.user_id}>
@@ -908,7 +902,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={runDoctorMutation.isPending}
+                      disabled={gatewayActionPending}
                       onClick={() => {
                         runDoctorMutation.reset();
                         setDoctorDialogOpen(true);
@@ -923,7 +917,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                           <Button
                             size="sm"
                             variant="destructive"
-                            disabled={!supportsConfigRestore || restoreConfigMutation.isPending}
+                            disabled={!supportsConfigRestore || gatewayActionPending}
                             onClick={() => setRestoreConfigDialogOpen(true)}
                           >
                             <RotateCcw className="mr-1 h-4 w-4" />
@@ -1110,14 +1104,14 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                 <Button
                   variant="secondary"
                   onClick={() => setRestoreConfigDialogOpen(false)}
-                  disabled={restoreConfigMutation.isPending}
+                  disabled={gatewayActionPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={() => void restoreConfigMutation.mutateAsync({ userId: data.user_id })}
-                  disabled={restoreConfigMutation.isPending}
+                  disabled={gatewayActionPending}
                 >
                   {restoreConfigMutation.isPending ? (
                     <>
