@@ -139,8 +139,6 @@ export function CodeReviewDetailClient({ reviewId }: CodeReviewDetailClientProps
     label: review.status,
   };
   const StatusIcon = statusInfo.icon;
-  const isActive = ['pending', 'queued', 'running'].includes(status);
-  const canStream = ['running', 'queued'].includes(status);
   const canRetry = ['failed', 'cancelled', 'interrupted'].includes(status);
   const canCancel = ['pending', 'queued', 'running'].includes(status);
   const prLabel = review.platform === 'gitlab' ? 'MR' : 'PR';
@@ -179,10 +177,17 @@ export function CodeReviewDetailClient({ reviewId }: CodeReviewDetailClientProps
             <span>by @{review.pr_author}</span>
           </div>
         </div>
-        <Badge variant={statusInfo.variant} className="mt-1 gap-1.5 text-sm whitespace-nowrap">
-          <StatusIcon className={`h-4 w-4 ${status === 'running' ? 'animate-spin' : ''}`} />
-          {statusInfo.label}
-        </Badge>
+        <div className="flex items-center gap-2">
+          {review.agent_version && (
+            <Badge variant="outline" className="mt-1 text-xs whitespace-nowrap">
+              {review.agent_version}
+            </Badge>
+          )}
+          <Badge variant={statusInfo.variant} className="mt-1 gap-1.5 text-sm whitespace-nowrap">
+            <StatusIcon className={`h-4 w-4 ${status === 'running' ? 'animate-spin' : ''}`} />
+            {statusInfo.label}
+          </Badge>
+        </div>
       </div>
 
       {/* Details card */}
@@ -301,17 +306,15 @@ export function CodeReviewDetailClient({ reviewId }: CodeReviewDetailClientProps
         </CardContent>
       </Card>
 
-      {/* Stream view for active reviews */}
-      {(canStream || isActive) && (
-        <CodeReviewStreamView
-          reviewId={reviewId}
-          onComplete={() => {
-            void queryClient.invalidateQueries({
-              queryKey: trpc.codeReviews.get.queryKey({ reviewId }),
-            });
-          }}
-        />
-      )}
+      {/* Session log / live stream */}
+      <CodeReviewStreamView
+        reviewId={reviewId}
+        onComplete={() => {
+          void queryClient.invalidateQueries({
+            queryKey: trpc.codeReviews.get.queryKey({ reviewId }),
+          });
+        }}
+      />
     </PageContainer>
   );
 }
