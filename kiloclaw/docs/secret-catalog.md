@@ -16,7 +16,7 @@ Catalog entry (data)
     +--> Boot script decrypts and patches openclaw.json
 ```
 
-Adding a new secret type requires **only a new catalog entry**. No component, router, or worker changes are needed.
+Adding a new secret type usually requires only a new catalog entry. New `channel` entries still need the `isEntryConfigured()` bridge updated until the config endpoint returns per-entry status.
 
 ## Adding a new secret type
 
