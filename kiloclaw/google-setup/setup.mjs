@@ -200,6 +200,7 @@ if (!tokenRes.ok) {
 const tokens = await tokenRes.json();
 // Build a credentials object similar to what gws stores
 const credentialsObj = {
+  type: 'authorized_user',
   ...tokens,
   client_id,
   client_secret,
