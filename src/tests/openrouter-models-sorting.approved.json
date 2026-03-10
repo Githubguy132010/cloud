@@ -598,7 +598,7 @@
       "id": "morph-warp-grep-v2",
       "canonical_slug": "morph-warp-grep-v2",
       "hugging_face_id": "",
-      "name": "Morph: WarpGrep V2 (free)",
+      "name": "Morph: WarpGrep V2",
       "created": 1756238927,
       "description": "A code search subagent that finds relevant code in a separate context window — no embeddings, no indexing.",
       "context_length": 256000,
