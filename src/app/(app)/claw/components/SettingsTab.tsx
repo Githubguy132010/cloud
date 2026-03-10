@@ -237,7 +237,7 @@ function GoogleAccountSection({
 
   function handleCopy() {
     if (!command) return;
-    navigator.clipboard.writeText(command);
+    void navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
