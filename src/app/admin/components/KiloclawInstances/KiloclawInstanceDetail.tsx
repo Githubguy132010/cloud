@@ -923,9 +923,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                           <Button
                             size="sm"
                             variant="destructive"
-                            disabled={
-                              !supportsConfigRestore || restoreConfigMutation.isPending
-                            }
+                            disabled={!supportsConfigRestore || restoreConfigMutation.isPending}
                             onClick={() => setRestoreConfigDialogOpen(true)}
                           >
                             <RotateCcw className="mr-1 h-4 w-4" />
@@ -1088,53 +1086,55 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
         />
 
         {/* Restore Default Config Confirmation Dialog */}
-        {supportsConfigRestore && <Dialog
-          open={restoreConfigDialogOpen}
-          onOpenChange={restoreConfigMutation.isPending ? undefined : setRestoreConfigDialogOpen}
-        >
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle className="text-destructive flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Restore Default Config
-              </DialogTitle>
-              <DialogDescription className="pt-3">
-                This will rewrite openclaw.json to defaults based on the machine&apos;s current
-                environment variables and restart the gateway process. Any manual config changes
-                made via the Control UI will be lost.
-                <span className="text-foreground mt-2 block font-medium">
-                  User: {data.user_email ?? data.user_id}
-                </span>
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="secondary"
-                onClick={() => setRestoreConfigDialogOpen(false)}
-                disabled={restoreConfigMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => void restoreConfigMutation.mutateAsync({ userId: data.user_id })}
-                disabled={restoreConfigMutation.isPending}
-              >
-                {restoreConfigMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    Restoring...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="mr-1 h-4 w-4" />
-                    Restore &amp; Restart
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>}
+        {supportsConfigRestore && (
+          <Dialog
+            open={restoreConfigDialogOpen}
+            onOpenChange={restoreConfigMutation.isPending ? undefined : setRestoreConfigDialogOpen}
+          >
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="text-destructive flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Restore Default Config
+                </DialogTitle>
+                <DialogDescription className="pt-3">
+                  This will rewrite openclaw.json to defaults based on the machine&apos;s current
+                  environment variables and restart the gateway process. Any manual config changes
+                  made via the Control UI will be lost.
+                  <span className="text-foreground mt-2 block font-medium">
+                    User: {data.user_email ?? data.user_id}
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="secondary"
+                  onClick={() => setRestoreConfigDialogOpen(false)}
+                  disabled={restoreConfigMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => void restoreConfigMutation.mutateAsync({ userId: data.user_id })}
+                  disabled={restoreConfigMutation.isPending}
+                >
+                  {restoreConfigMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      Restoring...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="mr-1 h-4 w-4" />
+                      Restore &amp; Restart
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </DetailPageWrapper>
   );
