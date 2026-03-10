@@ -6,8 +6,12 @@
  */
 
 import { db } from '@/lib/drizzle';
-import { cloud_agent_code_reviews } from '@kilocode/db/schema';
-import { eq, and, desc, count, ne, inArray } from 'drizzle-orm';
+import {
+  cloud_agent_code_reviews,
+  microdollar_usage,
+  microdollar_usage_metadata,
+} from '@kilocode/db/schema';
+import { eq, and, desc, count, ne, inArray, sql, sum } from 'drizzle-orm';
 import { captureException } from '@sentry/nextjs';
 import type { CreateReviewParams, CodeReviewStatus, ListReviewsParams, Owner } from '../core';
 import type { CloudAgentCodeReview } from '@kilocode/db/schema';
@@ -477,5 +481,67 @@ export async function userOwnsReview(reviewId: string, userId: string): Promise<
       extra: { reviewId, userId },
     });
     throw error;
+  }
+}
+
+/**
+ * Result of aggregating billing usage for a session.
+ */
+export type SessionUsageSummary = {
+  model: string;
+  totalTokensIn: number;
+  totalTokensOut: number;
+  totalCostMusd: number;
+};
+
+/**
+ * Aggregates LLM usage from the billing tables for a given kilo session ID.
+ *
+ * This is the fallback path for v2 (cloud-agent-next) reviews where the
+ * orchestrator does not accumulate usage from SSE events.  The billing
+ * system (processUsage → microdollar_usage) already records per-request
+ * usage keyed by session_id, so we aggregate here.
+ *
+ * Returns the model with the highest token volume (the primary review model)
+ * along with totals across all LLM calls in the session.
+ */
+export async function getSessionUsageFromBilling(
+  cliSessionId: string
+): Promise<SessionUsageSummary | null> {
+  try {
+    const rows = await db
+      .select({
+        model: microdollar_usage.model,
+        totalTokensIn: sum(microdollar_usage.input_tokens).mapWith(Number),
+        totalTokensOut: sum(microdollar_usage.output_tokens).mapWith(Number),
+        totalCostMusd: sum(microdollar_usage.cost).mapWith(Number),
+      })
+      .from(microdollar_usage)
+      .innerJoin(
+        microdollar_usage_metadata,
+        eq(microdollar_usage.id, microdollar_usage_metadata.id)
+      )
+      .where(eq(microdollar_usage_metadata.session_id, cliSessionId))
+      .groupBy(microdollar_usage.model)
+      .orderBy(
+        sql`sum(${microdollar_usage.input_tokens} + ${microdollar_usage.output_tokens}) desc`
+      )
+      .limit(1);
+
+    const row = rows[0];
+    if (!row?.model || row.totalTokensIn == null) return null;
+
+    return {
+      model: row.model,
+      totalTokensIn: row.totalTokensIn,
+      totalTokensOut: row.totalTokensOut ?? 0,
+      totalCostMusd: row.totalCostMusd ?? 0,
+    };
+  } catch (error) {
+    captureException(error, {
+      tags: { operation: 'getSessionUsageFromBilling' },
+      extra: { cliSessionId },
+    });
+    return null;
   }
 }
