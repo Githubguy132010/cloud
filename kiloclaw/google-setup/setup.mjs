@@ -261,4 +261,4 @@ if (!postRes.ok) {
 console.log('\nGoogle account connected!');
 console.log('Credentials sent to your kiloclaw instance.');
 console.log('\nYour bot can now use Gmail, Calendar, and Docs.');
-console.log('Restart your instance to activate.');
+console.log('Redeploy your kiloclaw instance to activate.');

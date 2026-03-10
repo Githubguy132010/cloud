@@ -97,7 +97,7 @@ describe('writeGwsCredentials', () => {
   it('calls installGwsSkills when credentials are written', async () => {
     const { exec } = await import('node:child_process');
     const deps = mockDeps();
-    (exec as ReturnType<typeof vi.fn>).mockClear();
+    (exec as unknown as ReturnType<typeof vi.fn>).mockClear();
 
     writeGwsCredentials(
       {
@@ -117,7 +117,7 @@ describe('writeGwsCredentials', () => {
   it('does not call installGwsSkills when credentials are absent', async () => {
     const { exec } = await import('node:child_process');
     const deps = mockDeps();
-    (exec as ReturnType<typeof vi.fn>).mockClear();
+    (exec as unknown as ReturnType<typeof vi.fn>).mockClear();
 
     writeGwsCredentials({}, '/tmp/gws-test', deps);
 
@@ -128,7 +128,7 @@ describe('writeGwsCredentials', () => {
 describe('installGwsSkills', () => {
   it('runs npx skills add command', async () => {
     const { exec } = await import('node:child_process');
-    (exec as ReturnType<typeof vi.fn>).mockClear();
+    (exec as unknown as ReturnType<typeof vi.fn>).mockClear();
 
     installGwsSkills();
 
