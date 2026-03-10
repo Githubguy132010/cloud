@@ -3,6 +3,8 @@
 import {
   AlertCircle,
   AlertTriangle,
+  Check,
+  Copy,
   Hash,
   Package,
   RotateCcw,
@@ -212,6 +214,90 @@ function ChannelSection({
         {channel.help}
         {dirtyChannels.size > 0 && ' Hit Redeploy to apply channel changes.'}
       </p>
+    </div>
+  );
+}
+
+const DOCKER_COMMAND = `docker run -it --network host kilocode/google-setup \\
+  --api-key="YOUR_API_KEY"`;
+
+function GoogleAccountSection({
+  connected,
+  mutations,
+}: {
+  connected: boolean;
+  mutations: ClawMutations;
+}) {
+  const [copied, setCopied] = useState(false);
+  const isDisconnecting = mutations.disconnectGoogle.isPending;
+
+  function handleCopy() {
+    navigator.clipboard.writeText(DOCKER_COMMAND.replace(/\\\n\s+/g, ' '));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div>
+      <h3 className="text-foreground mb-1 text-sm font-medium">Google Account</h3>
+      <p className="text-muted-foreground mb-4 text-xs">
+        Connect your Google account to give your bot access to Gmail, Calendar, and Docs.
+      </p>
+
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Badge variant={connected ? 'default' : 'secondary'}>
+            {connected ? 'Connected' : 'Not connected'}
+          </Badge>
+        </div>
+
+        {!connected && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs">
+              Run this command to connect your Google account. Replace{' '}
+              <code className="bg-muted rounded px-1">YOUR_API_KEY</code> with your API key from the{' '}
+              <a href="/profile" className="text-foreground underline">
+                Profile page
+              </a>
+              .
+            </p>
+            <div className="relative">
+              <pre className="bg-muted overflow-x-auto rounded-md p-3 pr-10 text-xs">
+                <code>{DOCKER_COMMAND}</code>
+              </pre>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-1 right-1 h-7 w-7 p-0"
+                onClick={handleCopy}
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {connected && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isDisconnecting}
+            onClick={() => {
+              mutations.disconnectGoogle.mutate(undefined, {
+                onSuccess: () => toast.success('Google account disconnected. Redeploy to apply.'),
+                onError: err => toast.error(`Failed to disconnect: ${err.message}`),
+              });
+            }}
+          >
+            <X className="h-4 w-4" />
+            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -439,6 +525,10 @@ export function SettingsTab({
           ))}
         </div>
       </div>
+
+      <Separator />
+
+      <GoogleAccountSection connected={status.googleConnected} mutations={mutations} />
 
       <Separator />
 
