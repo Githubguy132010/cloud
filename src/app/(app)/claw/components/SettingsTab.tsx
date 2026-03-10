@@ -254,6 +254,22 @@ function GoogleAccountSection({
           <Badge variant={connected ? 'default' : 'secondary'}>
             {connected ? 'Connected' : 'Not connected'}
           </Badge>
+          {connected && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isDisconnecting}
+              onClick={() => {
+                mutations.disconnectGoogle.mutate(undefined, {
+                  onSuccess: () => toast.success('Google account disconnected. Redeploy to apply.'),
+                  onError: err => toast.error(`Failed to disconnect: ${err.message}`),
+                });
+              }}
+            >
+              <X className="h-4 w-4" />
+              {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+            </Button>
+          )}
         </div>
 
         {!connected && command && (
@@ -279,23 +295,6 @@ function GoogleAccountSection({
               </Button>
             </div>
           </div>
-        )}
-
-        {connected && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isDisconnecting}
-            onClick={() => {
-              mutations.disconnectGoogle.mutate(undefined, {
-                onSuccess: () => toast.success('Google account disconnected. Redeploy to apply.'),
-                onError: err => toast.error(`Failed to disconnect: ${err.message}`),
-              });
-            }}
-          >
-            <X className="h-4 w-4" />
-            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
-          </Button>
         )}
       </div>
     </div>
