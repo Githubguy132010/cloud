@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { useOpenRouterModels } from '@/app/api/openrouter/hooks';
 import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
 import type { KiloClawDashboardStatus } from '@/lib/kiloclaw/types';
-import { calverAtLeast } from '@/lib/kiloclaw/version';
+import { calverAtLeast, cleanVersion } from '@/lib/kiloclaw/version';
 import type { useKiloClawMutations } from '@/hooks/useKiloClaw';
 import { useControllerVersion, useKiloClawConfig, useKiloClawMyPin } from '@/hooks/useKiloClaw';
 import { useDefaultModelSelection } from '../hooks/useDefaultModelSelection';
@@ -51,11 +51,6 @@ export const KILOCODE_CATALOG_IDS = new Set([
   'x-ai/grok-code-fast-1',
   'moonshotai/kimi-k2.5',
 ]);
-
-/** Strip surrounding quotes — bun build --define wraps values in extra quotes. */
-function cleanVersion(v: string | null | undefined): string | null {
-  return v?.replace(/^["']|["']$/g, '') || null;
-}
 
 function ChannelSection({
   channel,

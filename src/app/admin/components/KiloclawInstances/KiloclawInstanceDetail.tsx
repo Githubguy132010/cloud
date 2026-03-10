@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/lib/trpc/utils';
-import { calverAtLeast } from '@/lib/kiloclaw/version';
+import { calverAtLeast, cleanVersion } from '@/lib/kiloclaw/version';
 import {
   Select,
   SelectContent,
@@ -381,7 +381,10 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
     staleTime: 5 * 60_000,
   });
 
-  const supportsConfigRestore = calverAtLeast(controllerVersion?.version, '2026.2.26');
+  const supportsConfigRestore = calverAtLeast(
+    cleanVersion(controllerVersion?.version),
+    '2026.2.26'
+  );
 
   const invalidateGatewayQueries = () => {
     if (!data?.user_id) return;
@@ -1167,7 +1170,6 @@ function RunDoctorDialog({
     }
     if (!open) {
       hasFired.current = false;
-      mutationRef.current.reset();
     }
   }, [open]);
 
@@ -1175,7 +1177,7 @@ function RunDoctorDialog({
   const result = rawResult ? { ...rawResult, output: stripAnsi(rawResult.output) } : rawResult;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={mutation.isPending ? undefined : onOpenChange}>
       <DialogContent className="sm:max-w-[750px]">
         <DialogHeader>
           <DialogTitle>OpenClaw Doctor</DialogTitle>
@@ -1223,7 +1225,11 @@ function RunDoctorDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={mutation.isPending}
+          >
             Close
           </Button>
         </DialogFooter>

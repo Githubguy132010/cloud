@@ -1,3 +1,8 @@
+/** Strip surrounding quotes; bun build --define can wrap values in extra quotes. */
+export function cleanVersion(version: string | null | undefined): string | null {
+  return version?.replace(/^["']|["']$/g, '') || null;
+}
+
 /** Returns true if calver `version` is >= `minVersion` (e.g. "2026.2.26"). Fails closed on malformed input. */
 export function calverAtLeast(
   version: string | null | undefined,
