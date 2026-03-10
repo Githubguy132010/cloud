@@ -188,9 +188,27 @@ assertEq('Public key is valid PEM', true, pubKeyJson.publicKey?.includes('BEGIN 
 
 bold(`2. Provision test instance (userId=${USER_ID})`);
 
-await internalPost('/api/platform/provision', { userId: USER_ID });
-// Provision may partially fail (Fly API) but DO state is created. Verify via google-credentials.
-green('Provision request sent');
+// Fire off provision without waiting — it can take 60s+ to create Fly app + machine.
+// We only need the DO to exist for google-credentials tests, so poll status instead.
+const provisionController = new AbortController();
+const provisionPromise = fetch(`${WORKER_URL}/api/platform/provision`, {
+  method: 'POST',
+  headers: { 'x-internal-api-key': INTERNAL_SECRET, 'content-type': 'application/json' },
+  body: JSON.stringify({ userId: USER_ID }),
+  signal: provisionController.signal,
+}).catch(() => {});
+green('Provision request fired (not waiting for completion)');
+
+// Poll status until the DO is reachable (google-credentials endpoint works once DO exists)
+for (let i = 0; i < 30; i++) {
+  const { status } = await internalGet(`/api/platform/status?userId=${USER_ID}`);
+  if (status !== 404) {
+    green('Instance DO reachable');
+    break;
+  }
+  await new Promise(r => setTimeout(r, 1000));
+}
+provisionController.abort();
 
 // ---------------------------------------------------------------------------
 // 3. Platform API: store Google credentials
