@@ -150,8 +150,8 @@ async function getReviewUsageData(reviewId: string) {
   }
 
   // Fallback: aggregate from billing tables (covers v2 / cloud-agent-next reviews)
-  if (review?.cli_session_id) {
-    const billing = await getSessionUsageFromBilling(review.cli_session_id);
+  if (review?.cli_session_id && review.created_at) {
+    const billing = await getSessionUsageFromBilling(review.cli_session_id, review.created_at);
     if (billing) {
       // Back-fill the code_reviews record so we don't repeat this aggregation
       updateCodeReviewUsage(reviewId, {
