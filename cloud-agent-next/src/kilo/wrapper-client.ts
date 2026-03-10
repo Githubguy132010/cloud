@@ -338,7 +338,7 @@ export class WrapperClient {
           try {
             await this.session.exec(`pkill -f -- '${sessionMarker}'`);
           } catch {
-            // Process may already be dead â ignore
+            // Process may already be dead - ignore
           }
 
           logger.warn('Wrapper startup failed, retrying', diagnostics);
