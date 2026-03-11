@@ -14,6 +14,7 @@ import path from 'node:path';
 // Use /root explicitly — OpenClaw changes HOME to the workspace dir at runtime,
 // but we need credentials at a stable, absolute path that gog can always find.
 const GOG_CONFIG_DIR = '/root/.config/gogcli';
+const CONFIG_FILE = 'config.json';
 const CREDENTIALS_FILE = 'credentials.json';
 const KEYRING_DIR = 'keyring';
 
@@ -202,7 +203,18 @@ export async function writeGogCredentials(
 
     console.log(`[gog] Wrote keyring entry for ${email}`);
 
-    // Set env vars for gog discovery
+    // Write config.json so gog uses the file keyring backend.
+    // This is more reliable than env vars since gog may be invoked as a
+    // grandchild process (controller → OpenClaw gateway → gog) and env
+    // vars set on process.env may not propagate through all layers.
+    d.writeFileSync(
+      path.join(configDir, CONFIG_FILE),
+      JSON.stringify({ keyring_backend: 'file' }),
+      { mode: 0o600 }
+    );
+    console.log(`[gog] Wrote config to ${configDir}/${CONFIG_FILE}`);
+
+    // Set env vars as a belt-and-suspenders fallback
     env.GOG_KEYRING_BACKEND = 'file';
     env.GOG_KEYRING_PASSWORD = '';
     env.GOG_ACCOUNT = email;
