@@ -115,7 +115,7 @@ async function trpcPost<T>(
     throw new CloudAgentNextError(procedure, response.status, errorText);
   }
 
-  const json: Record<string, unknown> = await response.json();
+  const json = (await response.json()) as Record<string, unknown>;
   const data = (json?.result as Record<string, unknown> | undefined)?.data;
   if (data === undefined) {
     throw new Error(

@@ -690,7 +690,10 @@ export class CodeReviewOrchestrator extends DurableObject<Env> {
    * On failure (404, 409, etc.), falls back to runWithCloudAgentNext() for a fresh session.
    */
   private async runWithCloudAgentNextFollowup(): Promise<void> {
-    const previousSessionId = this.state.previousCloudAgentSessionId!;
+    const previousSessionId = this.state.previousCloudAgentSessionId;
+    if (!previousSessionId) {
+      throw new Error('runWithCloudAgentNextFollowup called without previousCloudAgentSessionId');
+    }
     const client = this.getCloudAgentNextClient();
 
     console.log('[CodeReviewOrchestrator] Attempting session continuation via sendMessageV2', {
