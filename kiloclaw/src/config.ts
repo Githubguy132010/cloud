@@ -66,3 +66,33 @@ export const HEALTH_PROBE_INTERVAL_MS = 3_000;
 
 /** Auto-destroy provisioned instances that never started after this duration */
 export const STALE_PROVISION_THRESHOLD_MS = 8 * 60 * 60 * 1000; // 8 hours
+
+/** Proactive API key refresh: trigger when key expires within this window. */
+export const PROACTIVE_REFRESH_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/**
+ * Minimum controller version that supports POST /_kilo/env/patch.
+ * Set to the calver of the release that includes the env patch endpoint.
+ * NOTE: update this to the actual release version at merge time.
+ */
+export const MIN_ENV_PATCH_CONTROLLER_VERSION = [2026, 3, 12] as const;
+
+/**
+ * Compare a calver version string (e.g. "2026.3.8") against a minimum.
+ * Returns true if the version is >= the minimum.
+ *
+ * Lexicographic comparison doesn't work for calver because segments are
+ * not zero-padded (e.g. "2026.10.1" < "2026.4.1" lexicographically).
+ */
+export function isCalverAtLeast(
+  version: string,
+  minimum: readonly [number, number, number]
+): boolean {
+  const parts = version.split('.').map(Number);
+  if (parts.length < 3 || parts.some(Number.isNaN)) return false;
+  for (let i = 0; i < 3; i++) {
+    if (parts[i] > minimum[i]) return true;
+    if (parts[i] < minimum[i]) return false;
+  }
+  return true; // equal
+}

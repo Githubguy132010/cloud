@@ -12,6 +12,7 @@ import { createSupervisor } from './supervisor';
 import { registerHealthRoute } from './routes/health';
 import { registerGatewayRoutes } from './routes/gateway';
 import { registerConfigRoutes } from './routes/config';
+import { registerEnvRoutes } from './routes/env';
 import { CONTROLLER_COMMIT, CONTROLLER_VERSION } from './version';
 
 export type RuntimeConfig = {
@@ -120,6 +121,7 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
   registerHealthRoute(app, supervisor, config.expectedToken);
   registerGatewayRoutes(app, supervisor, config.expectedToken);
   registerConfigRoutes(app, supervisor, config.expectedToken);
+  registerEnvRoutes(app, supervisor, config.expectedToken);
   app.all(
     '*',
     createHttpProxy({

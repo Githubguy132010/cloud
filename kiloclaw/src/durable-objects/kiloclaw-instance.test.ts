@@ -2984,3 +2984,267 @@ describe('restartGateway image tag override', () => {
     expect(storage._store.get('imageVariant')).toBeNull();
   });
 });
+
+// ============================================================================
+// Proactive API key refresh via reconciliation
+// ============================================================================
+
+describe('reconcileApiKeyExpiry', () => {
+  /** Set up fetch mock to handle controller version + env patch RPCs alongside
+   *  the default health-probe responses. */
+  function mockControllerFetch(opts: {
+    versionResponse?: { version: string; commit: string };
+    versionStatus?: number;
+    versionError?: boolean;
+    envPatchResponse?: { ok: boolean; signaled: boolean };
+    envPatchStatus?: number;
+    envPatchError?: boolean;
+  }) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, _init?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/_kilo/version')) {
+          if (opts.versionError) {
+            return Promise.reject(new Error('network failure'));
+          }
+          return Promise.resolve({
+            ok: (opts.versionStatus ?? 200) >= 200 && (opts.versionStatus ?? 200) < 300,
+            status: opts.versionStatus ?? 200,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(opts.versionResponse ?? { version: '2026.3.12', commit: 'abc' })
+              ),
+          });
+        }
+        if (typeof url === 'string' && url.includes('/_kilo/env/patch')) {
+          if (opts.envPatchError) {
+            return Promise.reject(new Error('push failed'));
+          }
+          return Promise.resolve({
+            ok: (opts.envPatchStatus ?? 200) >= 200 && (opts.envPatchStatus ?? 200) < 300,
+            status: opts.envPatchStatus ?? 200,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(opts.envPatchResponse ?? { ok: true, signaled: true })
+              ),
+          });
+        }
+        // Default: health probe
+        if (typeof url === 'string' && url.includes('/_kilo/gateway/status')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ state: 'running' }),
+          });
+        }
+        return Promise.resolve({ ok: true, status: 200 });
+      })
+    );
+  }
+
+  /** Helper: seed a running instance with an API key that expires soon */
+  function nearExpiryOverrides(hoursUntilExpiry = 24) {
+    return {
+      flyMachineId: 'machine-1',
+      flyAppName: 'acct-test',
+      kilocodeApiKey: 'old-jwt',
+      kilocodeApiKeyExpiresAt: new Date(Date.now() + hoursUntilExpiry * 3600000).toISOString(),
+    };
+  }
+
+  it('refreshes key when near expiry with new controller', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    // Machine status for reconcileMachine + reconcileMachineMount
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+    (flyClient.updateMachine as Mock).mockResolvedValue({});
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.12', commit: 'abc' },
+      envPatchResponse: { ok: true, signaled: true },
+    });
+
+    await instance.alarm();
+
+    // Should have persisted new expiry
+    const newExpiresAt = storage._store.get('kilocodeApiKeyExpiresAt') as string;
+    expect(newExpiresAt).toBeDefined();
+    expect(newExpiresAt).not.toBe(nearExpiryOverrides(24).kilocodeApiKeyExpiresAt);
+
+    // Should have updated Fly machine config with skip_launch
+    expect(flyClient.updateMachine).toHaveBeenCalledWith(
+      expect.any(Object),
+      'machine-1',
+      expect.objectContaining({ env: expect.any(Object) as unknown }),
+      { skipLaunch: true }
+    );
+  });
+
+  it('skips refresh when key is far from expiry', async () => {
+    const { instance, storage } = createInstance();
+    // 15 days away — well beyond the 7-day threshold
+    await seedRunning(storage, nearExpiryOverrides(15 * 24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    // No controller calls should be made
+    mockControllerFetch({});
+
+    await instance.alarm();
+
+    // Key should remain unchanged
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+
+  it('skips refresh on old controller version', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.8', commit: 'old' },
+    });
+
+    await instance.alarm();
+
+    // Key should remain unchanged
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+
+  it('skips refresh when version check returns null (404)', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    mockControllerFetch({
+      versionStatus: 404,
+    });
+
+    await instance.alarm();
+
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+
+  it('skips refresh on version check network failure', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    mockControllerFetch({ versionError: true });
+
+    await instance.alarm();
+
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+
+  it('retries on push error (key unchanged)', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.12', commit: 'abc' },
+      envPatchError: true,
+    });
+
+    await instance.alarm();
+
+    // Key should remain unchanged — retry on next alarm
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+
+  it('retries when signaled is false', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.12', commit: 'abc' },
+      envPatchResponse: { ok: true, signaled: false },
+    });
+
+    await instance.alarm();
+
+    // Key should remain unchanged — gateway wasn't signaled
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+
+  it('persists key even when Fly config update fails', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    // First getMachine for reconcileMachine, second for API key refresh
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+    // updateMachine fails (Fly config update is best-effort)
+    (flyClient.updateMachine as Mock).mockRejectedValue(new Error('fly api down'));
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.12', commit: 'abc' },
+      envPatchResponse: { ok: true, signaled: true },
+    });
+
+    await instance.alarm();
+
+    // Key should still be persisted despite Fly config update failure
+    const newKey = storage._store.get('kilocodeApiKey') as string;
+    expect(newKey).toBeDefined();
+    expect(newKey).not.toBe('old-jwt');
+    expect(storage._store.get('kilocodeApiKeyExpiresAt')).toBeDefined();
+  });
+
+  it('skips when instance is not running', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, {
+      ...nearExpiryOverrides(24),
+      status: 'stopped',
+    });
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'stopped',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+
+    await instance.alarm();
+
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
+  });
+});
