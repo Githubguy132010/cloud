@@ -476,23 +476,6 @@ export const kiloclawRouter = createTRPCRouter({
     };
   }),
 
-  connectGoogle: baseProcedure
-    .input(
-      z.object({
-        clientSecretJson: z.string().min(1),
-        credentialsJson: z.string().min(1),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const client = new KiloClawInternalClient();
-      return client.updateGoogleCredentials(ctx.user.id, {
-        googleCredentials: {
-          clientSecret: encryptKiloClawSecret(input.clientSecretJson),
-          credentials: encryptKiloClawSecret(input.credentialsJson),
-        },
-      });
-    }),
-
   disconnectGoogle: baseProcedure.mutation(async ({ ctx }) => {
     const client = new KiloClawInternalClient();
     return client.clearGoogleCredentials(ctx.user.id);
