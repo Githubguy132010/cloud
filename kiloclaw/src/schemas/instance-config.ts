@@ -4,8 +4,8 @@ import { IMAGE_TAG_RE, IMAGE_TAG_MAX_LENGTH } from '../lib/image-tag-validation'
 
 export const EncryptedEnvelopeSchema = z.object({
   // AES-256-GCM ciphertext: 16-byte IV + ciphertext + 16-byte tag, base64-encoded.
-  // 32 KiB headroom for larger payloads like gog config tarballs.
-  encryptedData: z.string().max(32768),
+  // 64 KiB headroom for larger payloads like gog config tarballs.
+  encryptedData: z.string().max(65536),
   // RSA-2048 OAEP ciphertext of the 32-byte DEK, base64-encoded (~344 chars).
   encryptedDEK: z.string().max(1024),
   algorithm: z.literal('rsa-aes-256-gcm'),
