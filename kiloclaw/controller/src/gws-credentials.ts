@@ -15,6 +15,7 @@ import path from 'node:path';
 const GWS_CONFIG_DIR = '/root/.config/gws';
 const CLIENT_SECRET_FILE = 'client_secret.json';
 const CREDENTIALS_FILE = 'credentials.json';
+const TOKEN_CACHE_FILE = 'token_cache.json';
 
 export type GwsCredentialsDeps = {
   mkdirSync: (dir: string, opts: { recursive: boolean }) => void;
@@ -42,7 +43,7 @@ export function writeGwsCredentials(
 
   if (!clientSecret || !credentials) {
     // Clean up stale credential files from a previous run (e.g. after disconnect)
-    for (const file of [CLIENT_SECRET_FILE, CREDENTIALS_FILE]) {
+    for (const file of [CLIENT_SECRET_FILE, CREDENTIALS_FILE, TOKEN_CACHE_FILE]) {
       const filePath = path.join(configDir, file);
       try {
         deps.unlinkSync(filePath);
@@ -55,6 +56,15 @@ export function writeGwsCredentials(
   }
 
   deps.mkdirSync(configDir, { recursive: true });
+
+  // Remove stale token cache — gws encrypts it with machine-specific keys, so a
+  // cache from a previous container (or the setup image) can't be decrypted here.
+  try {
+    deps.unlinkSync(path.join(configDir, TOKEN_CACHE_FILE));
+  } catch {
+    // File doesn't exist — nothing to clean up
+  }
+
   deps.writeFileSync(path.join(configDir, CLIENT_SECRET_FILE), clientSecret, { mode: 0o600 });
   deps.writeFileSync(path.join(configDir, CREDENTIALS_FILE), credentials, { mode: 0o600 });
 

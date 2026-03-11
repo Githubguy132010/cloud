@@ -95,6 +95,7 @@ describe('writeGwsCredentials', () => {
 
     expect(deps.unlinkSync).toHaveBeenCalledWith(path.join(dir, 'client_secret.json'));
     expect(deps.unlinkSync).toHaveBeenCalledWith(path.join(dir, 'credentials.json'));
+    expect(deps.unlinkSync).toHaveBeenCalledWith(path.join(dir, 'token_cache.json'));
   });
 
   it('ignores missing files during cleanup', () => {
@@ -107,6 +108,21 @@ describe('writeGwsCredentials', () => {
     // Should not throw
     const result = writeGwsCredentials({}, dir, deps);
     expect(result).toBe(false);
+  });
+
+  it('removes stale token cache when writing fresh credentials', () => {
+    const deps = mockDeps();
+    const dir = '/tmp/gws-test';
+    writeGwsCredentials(
+      {
+        GOOGLE_CLIENT_SECRET_JSON: '{"client_id":"test"}',
+        GOOGLE_CREDENTIALS_JSON: '{"refresh_token":"rt"}',
+      },
+      dir,
+      deps
+    );
+
+    expect(deps.unlinkSync).toHaveBeenCalledWith(path.join(dir, 'token_cache.json'));
   });
 
   it('calls installGwsSkills when credentials are written', async () => {
