@@ -3,11 +3,7 @@ import type { FlyClientConfig } from '../../fly/client';
 import type { FlyMachineConfig } from '../../fly/types';
 import type { PersistedState } from '../../schemas/instance-config';
 import * as fly from '../../fly/client';
-import {
-  SELF_HEAL_THRESHOLD,
-  STARTUP_TIMEOUT_SECONDS,
-  STALE_PROVISION_THRESHOLD_MS,
-} from '../../config';
+import { SELF_HEAL_THRESHOLD, STARTUP_TIMEOUT_SECONDS } from '../../config';
 import {
   METADATA_RECOVERY_COOLDOWN_MS,
   BOUND_MACHINE_RECOVERY_COOLDOWN_MS,
@@ -19,7 +15,7 @@ import { METADATA_KEY_USER_ID } from '../machine-config';
 import type { InstanceMutableState, DestroyResult } from './types';
 import { storageUpdate, resetMutableState } from './state';
 import { reconcileLog } from './log';
-import { ensureVolume } from './fly-machines';
+import { ensureVolume, staleProvisionAgeMs } from './fly-machines';
 
 /**
  * Check actual Fly state against DO state and fix drift.
@@ -58,19 +54,6 @@ export async function reconcileWithFly(
   }
 
   await reconcileVolume(flyConfig, ctx, state, env, reason);
-}
-
-function staleProvisionAgeMs(state: InstanceMutableState): number | null {
-  if (
-    state.status === 'provisioned' &&
-    !state.flyMachineId &&
-    !state.lastStartedAt &&
-    state.provisionedAt
-  ) {
-    const age = Date.now() - state.provisionedAt;
-    if (age > STALE_PROVISION_THRESHOLD_MS) return age;
-  }
-  return null;
 }
 
 // ---- Volume reconciliation ----
