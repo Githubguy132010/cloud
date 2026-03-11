@@ -158,6 +158,25 @@ describe('writeKiloCliConfig', () => {
     expect(written).toHaveLength(0);
   });
 
+  it('skips patch gracefully when config file contains corrupt JSON', () => {
+    const { deps, written } = fakeDeps('not valid json {{{');
+    const env = baseEnv({
+      KILOCLAW_FRESH_INSTALL: 'false',
+      KILOCODE_API_BASE_URL: 'https://tunnel.example.com/',
+    });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const result = writeKiloCliConfig(env, '/tmp/kilo', deps);
+
+    expect(result).toBe(true);
+    expect(written).toHaveLength(0); // no write on corrupt JSON
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[kilo-cli] Failed to patch config'),
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('seeds config and then patches base URL on fresh install', () => {
     const { deps, written } = fakeDeps();
 

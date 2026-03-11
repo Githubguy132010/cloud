@@ -61,20 +61,24 @@ export function writeKiloCliConfig(
   // Patch config on every boot (if it exists).
   // Only writes when a change is actually made to avoid silent no-op writes.
   if (deps.existsSync(configPath) && env.KILOCODE_API_BASE_URL) {
-    // JSON structure is open-ended (user may add arbitrary keys), so we use `any`
-    // rather than a strict schema. The patch only touches provider.kilo.options.baseURL.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const config: any = JSON.parse(deps.readFileSync(configPath, 'utf8'));
+    try {
+      // JSON structure is open-ended (user may add arbitrary keys), so we use `any`
+      // rather than a strict schema. The patch only touches provider.kilo.options.baseURL.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config: any = JSON.parse(deps.readFileSync(configPath, 'utf8'));
 
-    // Override the kilo provider's base URL for local dev (e.g., ngrok tunnel).
-    // In production this env var is not set and the built-in default is used.
-    config.provider = config.provider || {};
-    config.provider.kilo = config.provider.kilo || {};
-    config.provider.kilo.options = config.provider.kilo.options || {};
-    config.provider.kilo.options.baseURL = env.KILOCODE_API_BASE_URL;
-    console.log('[kilo-cli] Patched base URL: ' + env.KILOCODE_API_BASE_URL);
+      // Override the kilo provider's base URL for local dev (e.g., ngrok tunnel).
+      // In production this env var is not set and the built-in default is used.
+      config.provider = config.provider || {};
+      config.provider.kilo = config.provider.kilo || {};
+      config.provider.kilo.options = config.provider.kilo.options || {};
+      config.provider.kilo.options.baseURL = env.KILOCODE_API_BASE_URL;
+      console.log('[kilo-cli] Patched base URL: ' + env.KILOCODE_API_BASE_URL);
 
-    deps.writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+      deps.writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+    } catch (err) {
+      console.error('[kilo-cli] Failed to patch config (corrupt JSON?), skipping:', err);
+    }
   }
 
   return true;
