@@ -65,6 +65,7 @@ export async function createOrgAutoTopUpSetupCheckoutSession(
         kiloUserId,
         organizationId,
         amountCents: String(amountCents),
+        rewardful: 'false',
       },
       setup_future_usage: 'off_session',
     },
