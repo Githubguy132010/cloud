@@ -36,17 +36,14 @@ const workerUrl = workerUrlArg
   : 'https://claw.kilo.ai';
 
 if (!token) {
-  console.error(
-    'Usage: docker run -it --network host kilocode/google-setup --token=<session-jwt>'
-  );
+  console.error('Usage: docker run -it --network host kilocode/google-setup --token=<session-jwt>');
   process.exit(1);
 }
 
 // Validate worker URL scheme — reject non-HTTPS except for localhost dev.
 try {
   const parsed = new URL(workerUrl);
-  const isLocalhost =
-    parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
   if (parsed.protocol !== 'https:' && !isLocalhost) {
     console.error(
       `Error: --worker-url must use HTTPS (got ${parsed.protocol}). HTTP is only allowed for localhost.`
@@ -131,13 +128,18 @@ function ask(question) {
 function runCommand(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: 'inherit', ...opts });
-    child.on('close', code => (code === 0 ? resolve() : reject(new Error(`${cmd} exited with code ${code}`))));
+    child.on('close', code =>
+      code === 0 ? resolve() : reject(new Error(`${cmd} exited with code ${code}`))
+    );
     child.on('error', reject);
   });
 }
 
 function runCommandOutput(cmd, args) {
-  return execSync([cmd, ...args].join(' '), { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  return execSync([cmd, ...args].join(' '), {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  }).trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -208,7 +210,10 @@ if (projectChoice === '2') {
   let projects = [];
   try {
     const projectsJson = runCommandOutput('gcloud', [
-      'projects', 'list', '--format=json(projectId,name)', '--sort-by=name',
+      'projects',
+      'list',
+      '--format=json(projectId,name)',
+      '--sort-by=name',
     ]);
     projects = JSON.parse(projectsJson);
   } catch {
@@ -352,12 +357,12 @@ const { code, redirectUri } = await new Promise((resolve, reject) => {
 
   let timer;
 
-  server.on('error', (err) => {
+  server.on('error', err => {
     clearTimeout(timer);
     reject(new Error(`OAuth callback server failed: ${err.message}`));
   });
 
-  server.listen(0, '127.0.0.1', () => {
+  server.listen(0, () => {
     callbackPort = server.address().port;
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', clientId);
@@ -372,10 +377,13 @@ const { code, redirectUri } = await new Promise((resolve, reject) => {
     console.log(`Waiting for OAuth callback on port ${callbackPort}...`);
   });
 
-  timer = setTimeout(() => {
-    server.close();
-    reject(new Error('OAuth flow timed out (5 minutes)'));
-  }, 5 * 60 * 1000);
+  timer = setTimeout(
+    () => {
+      server.close();
+      reject(new Error('OAuth flow timed out (5 minutes)'));
+    },
+    5 * 60 * 1000
+  );
   timer.unref();
 });
 
