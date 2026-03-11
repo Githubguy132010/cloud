@@ -32,6 +32,8 @@ describe('writeGogCredentials', () => {
     const result = await writeGogCredentials(env, dir, deps);
 
     expect(result).toBe(true);
+    // Should remove stale config before extracting
+    expect(deps.rmSync).toHaveBeenCalledWith(dir, { recursive: true, force: true });
     expect(deps.mkdirSync).toHaveBeenCalledWith('/root/.config', { recursive: true });
 
     // Should write temp tarball file
@@ -78,6 +80,21 @@ describe('writeGogCredentials', () => {
     expect(result).toBe(false);
     expect(deps.rmSync).toHaveBeenCalledWith(dir, { recursive: true, force: true });
     expect(deps.mkdirSync).not.toHaveBeenCalled();
+  });
+
+  it('removes existing config dir before extracting new tarball', async () => {
+    const deps = mockDeps();
+    const callOrder: string[] = [];
+    deps.rmSync.mockImplementation(() => callOrder.push('rmSync'));
+    deps.mkdirSync.mockImplementation(() => callOrder.push('mkdirSync'));
+    deps.execFileSync.mockImplementation(() => callOrder.push('execFileSync'));
+
+    const env: Record<string, string | undefined> = {
+      GOOGLE_GOG_CONFIG_TARBALL: FAKE_TARBALL_BASE64,
+    };
+    await writeGogCredentials(env, '/root/.config/gogcli', deps);
+
+    expect(callOrder).toEqual(['rmSync', 'mkdirSync', 'execFileSync']);
   });
 
   it('cleans up temp tarball even if extraction fails', async () => {

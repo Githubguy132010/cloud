@@ -53,6 +53,10 @@ export async function writeGogCredentials(
     return false;
   }
 
+  // Remove stale config from a previous connection before extracting the new bundle.
+  // Without this, files present in the old tarball but absent from the new one linger.
+  d.rmSync(configDir, { recursive: true, force: true });
+
   // Decode tarball and extract to /root/.config/
   const parentDir = path.dirname(configDir);
   d.mkdirSync(parentDir, { recursive: true });
