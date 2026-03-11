@@ -6,6 +6,7 @@ import { insertTestUser } from '@/tests/helpers/user.helper';
 import type { User } from '@kilocode/db/schema';
 
 let testUser: User;
+let surveyTestUser: User;
 
 describe('user router - updateProfile', () => {
   beforeAll(async () => {
@@ -126,5 +127,71 @@ describe('user router - updateProfile', () => {
     const result = await caller.user.updateProfile({});
 
     expect(result).toEqual({ success: true });
+  });
+});
+
+describe('user router - submitCustomerSource', () => {
+  beforeAll(async () => {
+    surveyTestUser = await insertTestUser({
+      google_user_email: 'survey-test@example.com',
+      google_user_name: 'Survey Test User',
+    });
+  });
+
+  afterEach(async () => {
+    await db
+      .update(kilocode_users)
+      .set({ customer_source: null })
+      .where(eq(kilocode_users.id, surveyTestUser.id));
+  });
+
+  it('saves the customer source to the database', async () => {
+    const caller = await createCallerForUser(surveyTestUser.id);
+    const result = await caller.user.submitCustomerSource({ source: 'A YouTube video' });
+
+    expect(result).toEqual({ success: true });
+
+    const updated = await db.query.kilocode_users.findFirst({
+      where: eq(kilocode_users.id, surveyTestUser.id),
+    });
+    expect(updated?.customer_source).toBe('A YouTube video');
+  });
+
+  it('overwrites a previous response', async () => {
+    const caller = await createCallerForUser(surveyTestUser.id);
+
+    await caller.user.submitCustomerSource({ source: 'First answer' });
+    await caller.user.submitCustomerSource({ source: 'Updated answer' });
+
+    const updated = await db.query.kilocode_users.findFirst({
+      where: eq(kilocode_users.id, surveyTestUser.id),
+    });
+    expect(updated?.customer_source).toBe('Updated answer');
+  });
+
+  it('rejects empty strings', async () => {
+    const caller = await createCallerForUser(surveyTestUser.id);
+
+    await expect(caller.user.submitCustomerSource({ source: '' })).rejects.toThrow();
+  });
+
+  it('rejects strings over 1000 characters', async () => {
+    const caller = await createCallerForUser(surveyTestUser.id);
+
+    const longString = 'a'.repeat(1001);
+    await expect(caller.user.submitCustomerSource({ source: longString })).rejects.toThrow();
+  });
+
+  it('accepts a string at the max length of 1000', async () => {
+    const caller = await createCallerForUser(surveyTestUser.id);
+    const maxString = 'a'.repeat(1000);
+
+    const result = await caller.user.submitCustomerSource({ source: maxString });
+    expect(result).toEqual({ success: true });
+
+    const updated = await db.query.kilocode_users.findFirst({
+      where: eq(kilocode_users.id, surveyTestUser.id),
+    });
+    expect(updated?.customer_source).toBe(maxString);
   });
 });
