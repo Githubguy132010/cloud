@@ -54,6 +54,7 @@ RUN npm install -g mcporter@0.7.3
 # Install summarize (web page summarization CLI)
 RUN npm install -g @steipete/summarize@0.11.1
 
+
 # Install Go (available at runtime for users to `go install` additional tools)
 ENV GO_VERSION=1.26.0
 RUN ARCH="$(dpkg --print-architecture)" \
@@ -75,6 +76,11 @@ RUN GOBIN=/usr/local/bin go install github.com/steipete/gogcli/cmd/gog@v0.11.0 \
     && GOBIN=/usr/local/bin go install github.com/xdevplatform/xurl@v1.0.3 \
     && GOBIN=/usr/local/bin go install github.com/steipete/gifgrep/cmd/gifgrep@v0.2.3 \
     && go clean -cache -modcache
+
+# Install uv (Python package manager, available at runtime).
+# Install to /usr/local/bin so the binary survives the Fly Volume mount at /root.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
+    && uv --version
 
 # Install pinned Bun (build-time only) and compile the controller bundle.
 ARG BUN_VERSION=1.2.4
@@ -101,8 +107,8 @@ RUN mkdir -p /root/.openclaw \
     && mkdir -p /root/clawd/skills
 
 # Copy startup script
-# Build cache bust: 2026-02-27-v57-openclaw-2026.2.26-1password-arch-fix
-RUN echo "7"
+# Build cache bust: 2026-03-10-v59-uv-pip-global-prefix
+RUN echo "9"
 COPY start-openclaw.sh /usr/local/bin/start-openclaw.sh
 COPY openclaw-pairing-list.js /usr/local/bin/openclaw-pairing-list.js
 COPY openclaw-device-pairing-list.js /usr/local/bin/openclaw-device-pairing-list.js
