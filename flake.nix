@@ -42,7 +42,8 @@
 
           env = {
             # Node.js TLS: extra CA certificates for the wrangler Node.js process.
-            NODE_EXTRA_CA_CERTS = "/etc/ssl/certs/ca-certificates.crt";
+            # Use the Nix-managed CA bundle so this works on both Linux and macOS.
+            NODE_EXTRA_CA_CERTS = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
           };
 
           shellHook = ''
@@ -51,7 +52,11 @@
             # NixOS doesn't create /etc/ssl/cert.pem, so force-export SSL_CERT_FILE here.
             # We use shellHook (not env) because nixpkgs stdenv also sets SSL_CERT_FILE
             # internally, which silently wins over the env attribute.
-            export SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+            # Guard to Linux only: macOS ships its own trust store and the hard-coded
+            # /etc/ssl/certs/ca-certificates.crt path does not exist there.
+            ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+              export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            ''}
           '';
         };
     in
