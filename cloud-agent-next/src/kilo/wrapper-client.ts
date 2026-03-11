@@ -118,7 +118,7 @@ const ERROR_STATUS_CODES: Record<string, number> = {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Max attempts for wrapper startup (1 retry on transient failures like Bun SIGILL) */
+/** Max attempts for wrapper startup (1 retry on transient failures like Bun SIGILL or briefly unreachable kilo server) */
 const MAX_WRAPPER_START_ATTEMPTS = 2;
 
 /** Delay between wrapper startup retries to allow transient issues (e.g. kilo server briefly unreachable) to resolve */
@@ -320,8 +320,11 @@ export class WrapperClient {
           if (content) {
             wrapperFileLog = content;
           }
-        } catch {
-          // Log file may not exist if the wrapper crashed before writing anything
+        } catch (logFileError) {
+          logger.debug('Failed to read wrapper log file', {
+            wrapperLogPath,
+            error: logFileError instanceof Error ? logFileError.message : String(logFileError),
+          });
         }
 
         const diagnostics = {
