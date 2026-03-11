@@ -1632,7 +1632,17 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         }
       }
 
-      await fly.stopMachineAndWait(flyConfig, this.flyMachineId);
+      // Try to stop the machine first for a clean config swap.
+      // If the stop times out (e.g. Fly auto-restart races the poll),
+      // fall through — updateMachine on a running machine triggers a
+      // restart with the new config, which achieves the same result.
+      try {
+        await fly.stopMachineAndWait(flyConfig, this.flyMachineId);
+      } catch (stopErr) {
+        const isTimeout = stopErr instanceof fly.FlyApiError && stopErr.status === 408;
+        if (!isTimeout) throw stopErr;
+        console.warn('[DO] restartGateway: stop timed out, will update in-place:', stopErr.message);
+      }
 
       const { envVars, minSecretsVersion } = await this.buildUserEnvVars();
       const guest = guestFromSize(this.machineSize);
