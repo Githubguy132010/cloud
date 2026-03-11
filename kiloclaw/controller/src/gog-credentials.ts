@@ -65,7 +65,7 @@ export async function writeGogCredentials(
   d.writeFileSync(tmpTarball, Buffer.from(tarballBase64, 'base64'));
 
   try {
-    d.execFileSync('tar', ['xzf', tmpTarball, '-C', parentDir]);
+    d.execFileSync('tar', ['xzf', tmpTarball, '-C', parentDir, '--no-absolute-names']);
     console.log(`[gog] Extracted config tarball to ${configDir}`);
   } finally {
     try {
