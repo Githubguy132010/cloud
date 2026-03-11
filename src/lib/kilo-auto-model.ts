@@ -3,6 +3,7 @@ import {
   CLAUDE_SONNET_CURRENT_MODEL_ID,
 } from '@/lib/providers/anthropic';
 import { minimax_m25_free_model } from '@/lib/providers/minimax';
+import { kimi_k25_free_model } from '@/lib/providers/moonshotai';
 import type { OpenRouterReasoningConfig } from '@/lib/providers/openrouter/types';
 import type { ModelSettings, OpenCodeSettings, Verbosity } from '@kilocode/db/schema-types';
 
@@ -51,6 +52,25 @@ export const KILO_AUTO_FREE_MODEL: AutoModel = {
   opencode_settings: undefined,
 };
 
+export const KILO_AUTO_BALANCED_MODEL: AutoModel = {
+  id: 'kilo-auto/balanced',
+  name: 'Kilo Auto Balanced',
+  description: 'Automatically routes your request to a balanced mix of price and performance.',
+  context_length: Math.min(
+    kimi_k25_free_model.context_length,
+    minimax_m25_free_model.context_length
+  ),
+  max_completion_tokens: Math.min(
+    kimi_k25_free_model.max_completion_tokens,
+    minimax_m25_free_model.max_completion_tokens
+  ),
+  prompt_price: '0.000002',
+  completion_price: '0.000008',
+  supports_images: false,
+  roocode_settings: undefined,
+  opencode_settings: undefined,
+};
+
 export const KILO_AUTO_SMALL_MODEL: AutoModel = {
   id: 'kilo-auto/small',
   name: 'Kilo Auto Small',
@@ -67,7 +87,12 @@ export const KILO_AUTO_SMALL_MODEL: AutoModel = {
   },
 };
 
-export const AUTO_MODELS = [KILO_AUTO_FRONTIER_MODEL, KILO_AUTO_FREE_MODEL, KILO_AUTO_SMALL_MODEL];
+export const AUTO_MODELS = [
+  KILO_AUTO_FRONTIER_MODEL,
+  KILO_AUTO_BALANCED_MODEL,
+  KILO_AUTO_FREE_MODEL,
+  KILO_AUTO_SMALL_MODEL,
+];
 
 export function isKiloAutoModel(model: string) {
   return AUTO_MODELS.some(m => m.id === model) || legacyMapping[model] !== undefined;
@@ -79,7 +104,7 @@ type ResolvedAutoModel = {
   verbosity?: Verbosity;
 };
 
-const CODE_MODEL: ResolvedAutoModel = {
+const FRONTIER_CODE_MODEL: ResolvedAutoModel = {
   model: CLAUDE_SONNET_CURRENT_MODEL_ID,
   reasoning: { enabled: true },
   verbosity: 'low',
@@ -87,7 +112,7 @@ const CODE_MODEL: ResolvedAutoModel = {
 
 // Mode → model mappings for kilo-auto/frontier routing.
 // Add/remove/modify entries here to change routing behavior.
-const MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
+const FRONTIER_MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
   // Opus modes (planning, reasoning, orchestration, debugging)
   [
     'plan',
@@ -119,7 +144,30 @@ const MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
     'explore',
     { model: CLAUDE_SONNET_CURRENT_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' },
   ],
-  ['code', CODE_MODEL],
+  ['code', FRONTIER_CODE_MODEL],
+]);
+
+const KIMI_K25_MODEL_ID = kimi_k25_free_model.internal_id;
+const MINIMAX_M25_MODEL_ID = minimax_m25_free_model.internal_id;
+
+const BALANCED_CODE_MODEL: ResolvedAutoModel = {
+  model: MINIMAX_M25_MODEL_ID,
+  reasoning: { enabled: true },
+  verbosity: 'low',
+};
+
+// Mode → model mappings for kilo-auto/balanced routing.
+// Uses Kimi K2.5 where Frontier uses Opus, Minimax M2.5 where Frontier uses Sonnet.
+const BALANCED_MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
+  ['plan', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
+  ['general', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' }],
+  ['architect', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
+  ['orchestrator', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
+  ['ask', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
+  ['debug', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
+  ['build', { model: MINIMAX_M25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' }],
+  ['explore', { model: MINIMAX_M25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' }],
+  ['code', BALANCED_CODE_MODEL],
 ]);
 
 const legacyMapping: Record<string, string | undefined> = {
@@ -147,5 +195,8 @@ export function resolveAutoModel(model: string, modeHeader: string | null): Reso
     return { model: 'openai/gpt-5-nano' };
   }
   const mode = modeHeader?.trim().toLowerCase() ?? '';
-  return MODE_TO_MODEL.get(mode) ?? CODE_MODEL;
+  if (mappedModel === KILO_AUTO_BALANCED_MODEL.id) {
+    return BALANCED_MODE_TO_MODEL.get(mode) ?? BALANCED_CODE_MODEL;
+  }
+  return FRONTIER_MODE_TO_MODEL.get(mode) ?? FRONTIER_CODE_MODEL;
 }
