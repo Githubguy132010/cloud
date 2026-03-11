@@ -229,6 +229,51 @@ export const adminCodeReviewsRouter = createTRPCRouter({
     }));
   }),
 
+  // Get cancellation reasons analysis
+  getCancellationAnalysis: adminProcedure.input(FilterSchema).query(async ({ input }) => {
+    const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
+    const ownershipFilter = buildOwnershipFilter(userId, organizationId, ownershipType);
+    const agentVersionFilter = buildAgentVersionFilter(agentVersion);
+
+    const conditions = [
+      eq(cloud_agent_code_reviews.status, 'cancelled'),
+      gte(cloud_agent_code_reviews.created_at, startDate),
+      lt(cloud_agent_code_reviews.created_at, endDate),
+      ownershipFilter,
+      agentVersionFilter,
+    ].filter(Boolean) as SQL[];
+
+    const cancellationReasonExpr = sql<string>`CASE
+      WHEN ${cloud_agent_code_reviews.error_message} LIKE '%superseded%' OR ${cloud_agent_code_reviews.error_message} LIKE '%Superseded%' THEN 'Superseded by new commit'
+      WHEN ${cloud_agent_code_reviews.error_message} LIKE '%paid model%' OR ${cloud_agent_code_reviews.error_message} LIKE '%add credits%' OR ${cloud_agent_code_reviews.error_message} LIKE '%Add credits%' THEN 'No credits (billing)'
+      WHEN ${cloud_agent_code_reviews.error_message} LIKE '%Stream timeout%' OR ${cloud_agent_code_reviews.error_message} LIKE '%stream timeout%' THEN 'Stream timeout'
+      WHEN ${cloud_agent_code_reviews.error_message} LIKE '%cancelled%' OR ${cloud_agent_code_reviews.error_message} LIKE '%canceled%' THEN 'Explicitly cancelled'
+      WHEN ${cloud_agent_code_reviews.error_message} LIKE '%Killed%' OR ${cloud_agent_code_reviews.error_message} LIKE '%SIGKILL%' OR ${cloud_agent_code_reviews.error_message} LIKE '%SIGTERM%' THEN 'Process killed'
+      WHEN ${cloud_agent_code_reviews.error_message} LIKE '%Interrupted%' THEN 'User interrupted'
+      WHEN ${cloud_agent_code_reviews.error_message} IS NULL THEN 'No reason provided'
+      ELSE 'Other'
+    END`;
+
+    const reasons = await db
+      .select({
+        reason: cancellationReasonExpr,
+        count: sql<number>`COUNT(*)`,
+        first_occurrence: sql<string>`MIN(${cloud_agent_code_reviews.created_at})::text`,
+        last_occurrence: sql<string>`MAX(${cloud_agent_code_reviews.created_at})::text`,
+      })
+      .from(cloud_agent_code_reviews)
+      .where(and(...conditions))
+      .groupBy(cancellationReasonExpr)
+      .orderBy(desc(sql`COUNT(*)`));
+
+    return reasons.map(row => ({
+      reason: row.reason,
+      count: Number(row.count) || 0,
+      firstOccurrence: row.first_occurrence,
+      lastOccurrence: row.last_occurrence,
+    }));
+  }),
+
   // Get error analysis (excludes "Insufficient credits" billing errors from the list)
   getErrorAnalysis: adminProcedure.input(FilterSchema).query(async ({ input }) => {
     const { startDate, endDate, userId, organizationId, ownershipType, agentVersion } = input;
