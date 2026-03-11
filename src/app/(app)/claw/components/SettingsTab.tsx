@@ -77,6 +77,7 @@ function GoogleAccountSection({
     trpc.kiloclaw.getGoogleSetupCommand.queryOptions(undefined, {
       enabled: !connected,
       refetchInterval: 50 * 60 * 1000,
+      refetchOnWindowFocus: false,
     })
   );
   const [copied, setCopied] = useState(false);
