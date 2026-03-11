@@ -402,6 +402,10 @@ EOFPATCH
 # here so it's inherited by the gateway and all child processes
 # (controller → gateway → gog). Without this, the keyring library prompts
 # for a password on a missing TTY and fails.
+# NOTE: GOG_KEYRING_PASSWORD must match in all three locations:
+#   - here (start-openclaw.sh)
+#   - controller/src/gog-credentials.ts
+#   - google-setup/setup.mjs
 export GOG_KEYRING_PASSWORD="kiloclaw"
 
 # ============================================================

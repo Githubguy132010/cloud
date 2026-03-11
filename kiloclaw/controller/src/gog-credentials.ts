@@ -72,6 +72,10 @@ export async function writeGogCredentials(
   }
 
   // Set env vars for gog runtime
+  // NOTE: GOG_KEYRING_PASSWORD must match in all three locations:
+  //   - here (controller/src/gog-credentials.ts)
+  //   - kiloclaw/start-openclaw.sh
+  //   - kiloclaw/google-setup/setup.mjs
   env.GOG_KEYRING_BACKEND = 'file';
   env.GOG_KEYRING_PASSWORD = 'kiloclaw';
   if (env.GOOGLE_ACCOUNT_EMAIL) {

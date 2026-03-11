@@ -297,6 +297,10 @@ function encryptEnvelope(plaintext, pemKey) {
 }
 
 const gogHome = '/tmp/gogcli-home';
+// NOTE: GOG_KEYRING_PASSWORD must match in all three locations:
+//   - here (google-setup/setup.mjs)
+//   - controller/src/gog-credentials.ts
+//   - start-openclaw.sh
 const gogEnv = {
   ...process.env,
   HOME: gogHome,
