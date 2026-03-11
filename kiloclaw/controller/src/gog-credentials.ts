@@ -50,6 +50,9 @@ export async function writeGogCredentials(
   if (!tarballBase64) {
     // Clean up stale config from a previous run (e.g. after disconnect)
     d.rmSync(configDir, { recursive: true, force: true });
+    delete env.GOG_KEYRING_BACKEND;
+    delete env.GOG_KEYRING_PASSWORD;
+    delete env.GOG_ACCOUNT;
     return false;
   }
 

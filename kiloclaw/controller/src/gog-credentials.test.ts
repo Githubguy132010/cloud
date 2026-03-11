@@ -83,6 +83,20 @@ describe('writeGogCredentials', () => {
     expect(deps.mkdirSync).not.toHaveBeenCalled();
   });
 
+  it('clears gog env vars when tarball env var is absent', async () => {
+    const deps = mockDeps();
+    const env: Record<string, string | undefined> = {
+      GOG_KEYRING_BACKEND: 'file',
+      GOG_KEYRING_PASSWORD: 'kiloclaw',
+      GOG_ACCOUNT: 'user@gmail.com',
+    };
+    await writeGogCredentials(env, '/root/.config/gogcli', deps);
+
+    expect(env.GOG_KEYRING_BACKEND).toBeUndefined();
+    expect(env.GOG_KEYRING_PASSWORD).toBeUndefined();
+    expect(env.GOG_ACCOUNT).toBeUndefined();
+  });
+
   it('removes existing config dir before extracting new tarball', async () => {
     const deps = mockDeps();
     const callOrder: string[] = [];
