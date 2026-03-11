@@ -90,10 +90,17 @@ async function reconcileApiKeyExpiry(
   const timeUntilExpiry = expiresAtMs - Date.now();
   if (timeUntilExpiry > PROACTIVE_REFRESH_THRESHOLD_MS) return;
 
-  // Check controller version — skip if too old for /_kilo/env/patch.
-  // getControllerVersion() returns null on 404/401 (old/unauth controller).
-  // Network errors throw — catch them so a transient version-check failure
-  // doesn't block the rest of reconciliation.
+  reconcileLog(reason, 'api_key_expiry_approaching', {
+    user_id: userId,
+    expires_at: state.kilocodeApiKeyExpiresAt,
+    hours_remaining: Math.round(timeUntilExpiry / 3600000),
+  });
+
+  // 1. Check controller version to decide push strategy.
+  //    getControllerVersion() returns null on 404/401 (old/unauth controller).
+  //    Network errors throw — if we can't reach the machine at all, bail out
+  //    since we can't verify its state.
+  let canPush = false;
   let controllerInfo: { version: string } | null;
   try {
     controllerInfo = await gateway.getControllerVersion(state, env);
@@ -106,32 +113,21 @@ async function reconcileApiKeyExpiry(
   }
 
   if (!controllerInfo) {
-    // Null means 404 or 401 — either an old image without /_kilo/version,
-    // or a token/auth mismatch. Log distinctly so ops can spot auth regressions.
-    reconcileLog(reason, 'api_key_refresh_skipped_no_version', {
+    reconcileLog(reason, 'api_key_refresh_no_version', {
       user_id: userId,
       hours_remaining: Math.round(timeUntilExpiry / 3600000),
     });
-    return;
-  }
-
-  if (!isCalverAtLeast(controllerInfo.version, MIN_ENV_PATCH_CONTROLLER_VERSION)) {
-    reconcileLog(reason, 'api_key_refresh_skipped_old_controller', {
+  } else if (!isCalverAtLeast(controllerInfo.version, MIN_ENV_PATCH_CONTROLLER_VERSION)) {
+    reconcileLog(reason, 'api_key_refresh_old_controller', {
       user_id: userId,
       controller_version: controllerInfo.version,
       min_required: MIN_ENV_PATCH_CONTROLLER_VERSION.join('.'),
-      hours_remaining: Math.round(timeUntilExpiry / 3600000),
     });
-    return;
+  } else {
+    canPush = true;
   }
 
-  reconcileLog(reason, 'api_key_expiry_approaching', {
-    user_id: userId,
-    expires_at: state.kilocodeApiKeyExpiresAt,
-    hours_remaining: Math.round(timeUntilExpiry / 3600000),
-  });
-
-  // 1. Mint
+  // 2. Mint fresh key.
   let mintTimeout: ReturnType<typeof setTimeout>;
   let freshKey: { token: string; expiresAt: string } | null;
   try {
@@ -153,29 +149,35 @@ async function reconcileApiKeyExpiry(
     return;
   }
 
-  // 2. Push to controller
-  let result: { ok: boolean; signaled: boolean } | null;
-  try {
-    result = await gateway.patchEnvOnMachine(state, env, {
-      KILOCODE_API_KEY: freshKey.token,
-    });
-  } catch (err) {
-    reconcileLog(reason, 'api_key_push_error', {
-      user_id: userId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return;
+  // 3. If the controller supports it, push the key to process.env and
+  //    signal the gateway (graceful in-process restart via SIGUSR1).
+  let pushed = false;
+  if (canPush) {
+    try {
+      const result = await gateway.patchEnvOnMachine(state, env, {
+        KILOCODE_API_KEY: freshKey.token,
+      });
+      pushed = result?.signaled ?? false;
+      if (!pushed) {
+        reconcileLog(reason, 'api_key_push_not_signaled', {
+          user_id: userId,
+          result: result ? `ok=${result.ok} signaled=${result.signaled}` : 'null',
+        });
+      }
+    } catch (err) {
+      reconcileLog(reason, 'api_key_push_error', {
+        user_id: userId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
-  if (!result?.signaled) {
-    reconcileLog(reason, 'api_key_push_not_signaled', {
-      user_id: userId,
-      result: result ? `ok=${result.ok} signaled=${result.signaled}` : 'null',
-    });
-    return;
-  }
-
-  // 3. Update Fly machine config (best-effort, no restart)
+  // 4. Update Fly machine config with the fresh encrypted key.
+  //    - If pushed: skipLaunch (key is already live in the running process).
+  //    - If not pushed and machine is running: let updateMachine restart it
+  //      so the gateway boots with the new key.
+  //    - If not pushed and machine is stopped/other: skipLaunch to avoid
+  //      accidentally starting a stopped machine. Next start picks up the key.
   try {
     const machine = await fly.getMachine(flyConfig, machineId);
     const updatedEnv = { ...machine.config.env };
@@ -184,12 +186,18 @@ async function reconcileApiKeyExpiry(
     const { key: envKey } = await appStub.ensureEnvKey(userId);
     updatedEnv[`${ENCRYPTED_ENV_PREFIX}KILOCODE_API_KEY`] = encryptEnvValue(envKey, freshKey.token);
 
+    const needsRestart = !pushed && machine.state === 'started';
+
     await fly.updateMachine(
       flyConfig,
       machineId,
       { ...machine.config, env: updatedEnv },
-      { skipLaunch: true }
+      { skipLaunch: !needsRestart }
     );
+
+    if (needsRestart) {
+      reconcileLog(reason, 'api_key_machine_restarted', { user_id: userId });
+    }
   } catch (err) {
     console.warn(
       '[reconcile] Failed to update Fly machine config with fresh key:',
@@ -197,7 +205,7 @@ async function reconcileApiKeyExpiry(
     );
   }
 
-  // 4. Persist new expiry to DO state
+  // 5. Persist new expiry to DO state.
   state.kilocodeApiKey = freshKey.token;
   state.kilocodeApiKeyExpiresAt = freshKey.expiresAt;
   await ctx.storage.put(
@@ -210,6 +218,7 @@ async function reconcileApiKeyExpiry(
   reconcileLog(reason, 'api_key_refreshed', {
     user_id: userId,
     new_expires_at: freshKey.expiresAt,
+    pushed,
   });
 }
 

@@ -68,7 +68,7 @@ export const HEALTH_PROBE_INTERVAL_MS = 3_000;
 export const STALE_PROVISION_THRESHOLD_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 /** Proactive API key refresh: trigger when key expires within this window. */
-export const PROACTIVE_REFRESH_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const PROACTIVE_REFRESH_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
 /**
  * Minimum controller version that supports POST /_kilo/env/patch.
