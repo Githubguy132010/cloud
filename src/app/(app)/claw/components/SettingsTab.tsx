@@ -90,7 +90,10 @@ function GoogleAccountSection({
 }) {
   const trpc = useTRPC();
   const { data: setupData } = useQuery(
-    trpc.kiloclaw.getGoogleSetupCommand.queryOptions(undefined, { enabled: !connected })
+    trpc.kiloclaw.getGoogleSetupCommand.queryOptions(undefined, {
+      enabled: !connected,
+      refetchInterval: 50 * 60 * 1000,
+    })
   );
   const [copied, setCopied] = useState(false);
   const isDisconnecting = mutations.disconnectGoogle.isPending;

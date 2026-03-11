@@ -200,7 +200,7 @@ const { code, redirectUri } = await new Promise((resolve, reject) => {
     reject(new Error(`OAuth callback server failed: ${err.message}`));
   });
 
-  server.listen(0, () => {
+  server.listen(0, '127.0.0.1', () => {
     callbackPort = server.address().port;
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', client_id);
