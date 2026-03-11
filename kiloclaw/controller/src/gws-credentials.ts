@@ -48,8 +48,8 @@ export function writeGwsCredentials(
       try {
         deps.unlinkSync(filePath);
         console.log(`[gws] Removed stale ${filePath}`);
-      } catch {
-        // File doesn't exist — nothing to clean up
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
       }
     }
     return false;
@@ -61,8 +61,8 @@ export function writeGwsCredentials(
   // cache from a previous container (or the setup image) can't be decrypted here.
   try {
     deps.unlinkSync(path.join(configDir, TOKEN_CACHE_FILE));
-  } catch {
-    // File doesn't exist — nothing to clean up
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
 
   deps.writeFileSync(path.join(configDir, CLIENT_SECRET_FILE), clientSecret, { mode: 0o600 });

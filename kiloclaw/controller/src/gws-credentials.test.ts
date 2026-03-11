@@ -101,7 +101,7 @@ describe('writeGwsCredentials', () => {
   it('ignores missing files during cleanup', () => {
     const deps = mockDeps();
     deps.unlinkSync.mockImplementation(() => {
-      throw new Error('ENOENT');
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
     });
     const dir = '/tmp/gws-test';
 
