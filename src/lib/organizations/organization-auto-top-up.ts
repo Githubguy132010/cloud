@@ -48,6 +48,9 @@ export async function createOrgAutoTopUpSetupCheckoutSession(
     ],
     invoice_creation: {
       enabled: true,
+      invoice_data: {
+        metadata: { rewardful: 'false' },
+      },
     },
     customer_update: {
       name: 'auto',
@@ -65,7 +68,6 @@ export async function createOrgAutoTopUpSetupCheckoutSession(
         kiloUserId,
         organizationId,
         amountCents: String(amountCents),
-        rewardful: 'false',
       },
       setup_future_usage: 'off_session',
     },

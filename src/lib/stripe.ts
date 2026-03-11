@@ -77,7 +77,6 @@ export type StripeTopupMetadata = {
   type?: string;
   kiloUserId?: User['id'];
   organizationId?: Organization['id'] | null;
-  rewardful?: string;
 };
 
 export async function detachAllPaymentMethods(user: User) {
@@ -924,6 +923,9 @@ export async function createAutoTopUpSetupCheckoutSession(
     ],
     invoice_creation: {
       enabled: true,
+      invoice_data: {
+        metadata: { rewardful: 'false' },
+      },
     },
     customer_update: {
       name: 'auto',
@@ -940,7 +942,6 @@ export async function createAutoTopUpSetupCheckoutSession(
         type: 'auto-topup-setup',
         kiloUserId,
         amountCents: String(amountCents),
-        rewardful: 'false',
       },
       // KEY CONFIGURATION: This saves the payment method for future off-session charges
       setup_future_usage: 'off_session',
@@ -993,6 +994,9 @@ export async function getStripeTopUpCheckoutUrl(
     line_items: line_items,
     invoice_creation: {
       enabled: true,
+      invoice_data: {
+        metadata: { rewardful: 'false' },
+      },
     },
     customer_update: {
       name: 'auto',
@@ -1009,7 +1013,6 @@ export async function getStripeTopUpCheckoutUrl(
         type: 'stripe-checkout-topup',
         kiloUserId,
         organizationId: organizationId ?? null,
-        rewardful: 'false',
       } satisfies StripeTopupMetadata,
     },
     saved_payment_method_options: {
