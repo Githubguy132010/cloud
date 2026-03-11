@@ -67,7 +67,10 @@ export const KILO_AUTO_BALANCED_MODEL: AutoModel = {
   prompt_price: '0.000002',
   completion_price: '0.000008',
   supports_images: false,
-  roocode_settings: undefined,
+  roocode_settings: {
+    included_tools: ['search_and_replace'],
+    excluded_tools: ['apply_diff', 'edit_file'],
+  },
   opencode_settings: undefined,
 };
 
