@@ -5,10 +5,11 @@ Docker image that guides users through connecting their Google account to KiloCl
 ## What it does
 
 1. Validates the user's KiloCode API key
-2. Runs `gws auth setup` to create an OAuth client in the user's Google Cloud project
-3. Runs a local OAuth flow to obtain refresh tokens
-4. Encrypts credentials with the worker's public key
-5. POSTs the encrypted bundle to the KiloClaw worker
+2. Signs into gcloud, creates/selects a GCP project, enables Google APIs
+3. Guides user through creating a Desktop OAuth client in Google Cloud Console
+4. Runs a local OAuth flow to obtain refresh tokens
+5. Encrypts credentials with the worker's public key
+6. POSTs the encrypted bundle to the KiloClaw worker
 
 ## Usage
 
@@ -57,7 +58,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
   -t ghcr.io/kilo-org/google-setup:latest \
-  -t ghcr.io/kilo-org/google-setup:v1.0.0 \
+  -t ghcr.io/kilo-org/google-setup:v2.0.0 \
   --push \
   kiloclaw/google-setup/
 ```
