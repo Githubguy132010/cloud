@@ -117,9 +117,11 @@ const DUMMY_CREDS = {
 // ---------------------------------------------------------------------------
 
 function sql(query) {
-  return execSync(`psql "${DATABASE_URL}" -tAc "${query.replace(/"/g, '\\"')}"`, {
+  return execSync('psql "$PGURL" -tAc "$PGQUERY"', {
     encoding: 'utf8',
     timeout: 5000,
+    env: { ...process.env, PGURL: DATABASE_URL, PGQUERY: query },
+    shell: '/bin/sh',
   }).trim();
 }
 
