@@ -37,6 +37,8 @@ export const STALE_HOOK_MS = 30 * 60_000; // 30 min
 export const CRASH_LOOP_WINDOW_MS = 30 * 60_000; // 30 min
 /** Minimum failures within the window to flag a crash loop */
 export const CRASH_LOOP_THRESHOLD = 3;
+/** Maximum number of open triage request beads allowed at once */
+export const MAX_OPEN_TRIAGE_REQUESTS = 5;
 
 // ── Triage request types ────────────────────────────────────────────
 
@@ -103,6 +105,33 @@ export function createTriageRequest(
       ),
     ];
     if (existing.length > 0) return;
+  }
+
+  // Global cap: skip if there are already too many open *automatic* triage
+  // requests (patrol-generated). Escalations are exempt from both the gate
+  // and the count — they are agent/user initiated and silently dropping
+  // them would leave the escalation bead with no automated follow-up.
+  if (params.triageType !== 'escalation') {
+    const openCountRows = [
+      ...query(
+        sql,
+        /* sql */ `
+          SELECT COUNT(*) AS cnt FROM ${beads}
+          WHERE ${beads.type} = 'issue'
+            AND ${beads.labels} LIKE ?
+            AND ${beads.status} = 'open'
+            AND json_extract(${beads.metadata}, '$.triage_type') != 'escalation'
+        `,
+        [TRIAGE_LABEL_LIKE]
+      ),
+    ];
+    const openCount = Number(z.object({ cnt: z.number() }).parse(openCountRows[0]).cnt);
+    if (openCount >= MAX_OPEN_TRIAGE_REQUESTS) {
+      console.warn(
+        `${LOG} createTriageRequest: global cap reached (${openCount} open), skipping type=${params.triageType}`
+      );
+      return;
+    }
   }
 
   const metadata: TriageRequestMetadata = {
@@ -559,6 +588,16 @@ export function detectCrashLoops(sql: SqlStorage): void {
     fail_count: z.number(),
   });
 
+  // Exclude triage agents from crash loop detection — their failures must
+  // not create new triage requests, which would feed the feedback loop.
+  // Two complementary checks:
+  //  1. The failed bead itself carries a triage label (covers triage batch
+  //     bead failures, stable after unhook clears current_hook_bead_id).
+  //  2. The agent is currently hooked to a triage-labeled bead (covers
+  //     resolveTriage actions like CLOSE_BEAD that fail ordinary beads
+  //     while the triage agent is still working its batch).
+  const TRIAGE_LABEL_ANY = `%"gt:triage%`;
+
   const rows = CrashRow.array().parse([
     ...query(
       sql,
@@ -569,10 +608,22 @@ export function detectCrashLoops(sql: SqlStorage): void {
           AND be.new_value = 'failed'
           AND be.agent_id IS NOT NULL
           AND be.created_at > ?
+          AND NOT EXISTS (
+            SELECT 1 FROM ${beads} AS failed_bead
+            WHERE failed_bead.${beads.columns.bead_id} = be.bead_id
+              AND failed_bead.${beads.columns.labels} LIKE ?
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM ${agent_metadata}
+            INNER JOIN ${beads} AS hooked
+              ON ${agent_metadata.current_hook_bead_id} = hooked.${beads.columns.bead_id}
+            WHERE ${agent_metadata.bead_id} = be.agent_id
+              AND hooked.${beads.columns.labels} LIKE ?
+          )
         GROUP BY be.agent_id
         HAVING fail_count >= ?
       `,
-      [windowCutoff, CRASH_LOOP_THRESHOLD]
+      [windowCutoff, TRIAGE_LABEL_ANY, TRIAGE_LABEL_ANY, CRASH_LOOP_THRESHOLD]
     ),
   ]);
 

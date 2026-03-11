@@ -93,6 +93,8 @@ function formatEventMessage(row: Record<string, unknown>): string {
       return `PR creation failed for ${target}`;
     case 'escalation_created':
       return `Escalation created: ${target}`;
+    case 'agent_status':
+      return `${actor}: ${newValue ?? 'status update'}`;
     default:
       return `${eventType}: ${target}`;
   }
@@ -288,6 +290,29 @@ export class TownDO extends DurableObject<Env> {
     if (sockets.length === 0) return;
 
     const payload = JSON.stringify(snapshot);
+    for (const ws of sockets) {
+      try {
+        ws.send(payload);
+      } catch {
+        // Client disconnected — will be cleaned up by webSocketClose
+      }
+    }
+  }
+
+  /**
+   * Broadcast a lightweight agent_status event to all connected status
+   * WebSocket clients. Called whenever an agent updates its status message.
+   */
+  private broadcastAgentStatus(agentId: string, message: string): void {
+    const sockets = this.ctx.getWebSockets('status');
+    if (sockets.length === 0) return;
+
+    const payload = JSON.stringify({
+      type: 'agent_status',
+      agentId,
+      message,
+      timestamp: now(),
+    });
     for (const ws of sockets) {
       try {
         ws.send(payload);
@@ -651,6 +676,29 @@ export class TownDO extends DurableObject<Env> {
     await this.ensureInitialized();
     agents.touchAgent(this.sql, agentId);
     await this.armAlarmIfNeeded();
+  }
+
+  async updateAgentStatusMessage(agentId: string, message: string): Promise<void> {
+    await this.ensureInitialized();
+    agents.updateAgentStatusMessage(this.sql, agentId, message);
+    const agent = agents.getAgent(this.sql, agentId);
+    if (agent?.current_hook_bead_id) {
+      const rig = agent.rig_id ? rigs.getRig(this.sql, agent.rig_id) : null;
+      beadOps.logBeadEvent(this.sql, {
+        beadId: agent.current_hook_bead_id,
+        agentId,
+        eventType: 'agent_status',
+        newValue: message,
+        metadata: {
+          agentId,
+          message,
+          agent_name: agent.name,
+          rig_id: agent.rig_id,
+          rig_name: rig?.name,
+        },
+      });
+    }
+    this.broadcastAgentStatus(agentId, message);
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -1964,6 +2012,17 @@ export class TownDO extends DurableObject<Env> {
       }
     }
 
+    // Refresh the container-scoped JWT before any work that might
+    // trigger API calls. Throttled to once per hour (tokens have 8h
+    // expiry, so hourly refresh provides ample safety margin).
+    if (this.hasActiveWork()) {
+      try {
+        await this.refreshContainerToken();
+      } catch (err) {
+        console.warn(`${TOWN_LOG} alarm: refreshContainerToken failed`, err);
+      }
+    }
+
     // Process reviews FIRST so the refinery gets assigned before the
     // scheduler dispatches new polecats. This prevents downstream beads
     // from starting before upstream reviews are merged.
@@ -2020,6 +2079,28 @@ export class TownDO extends DurableObject<Env> {
     } catch (err) {
       console.warn(`${TOWN_LOG} alarm: status broadcast failed`, err);
     }
+  }
+
+  /**
+   * Push a fresh container-scoped JWT to the TownContainerDO. Called
+   * from the alarm handler, throttled to once per hour (tokens have
+   * 8h expiry). The TownContainerDO stores it as an env var so it's
+   * available to all agents in the container.
+   */
+  private lastContainerTokenRefreshAt = 0;
+  private async refreshContainerToken(): Promise<void> {
+    const TOKEN_REFRESH_INTERVAL_MS = 60 * 60_000; // 1 hour
+    const now = Date.now();
+    if (now - this.lastContainerTokenRefreshAt < TOKEN_REFRESH_INTERVAL_MS) return;
+
+    const townId = this.townId;
+    if (!townId) return;
+    const townConfig = await this.getTownConfig();
+    const userId = townConfig.owner_user_id ?? townId;
+    await dispatch.refreshContainerToken(this.env, townId, userId);
+    // Only mark as refreshed after success — failed refreshes should
+    // be retried on the next alarm tick, not throttled for an hour.
+    this.lastContainerTokenRefreshAt = now;
   }
 
   private hasActiveWork(): boolean {
@@ -2237,7 +2318,8 @@ export class TownDO extends DurableObject<Env> {
                  ${agent_metadata.status} AS status,
                  ${agent_metadata.current_hook_bead_id},
                  ${agent_metadata.dispatch_attempts}, ${agent_metadata.last_activity_at},
-                 ${agent_metadata.checkpoint}
+                 ${agent_metadata.checkpoint},
+                 ${agent_metadata.agent_status_message}, ${agent_metadata.agent_status_updated_at}
           FROM ${beads}
           INNER JOIN ${agent_metadata} ON ${beads.bead_id} = ${agent_metadata.bead_id}
           WHERE ${agent_metadata.status} = 'idle'
@@ -2261,6 +2343,8 @@ export class TownDO extends DurableObject<Env> {
         last_activity_at: row.last_activity_at,
         checkpoint: row.checkpoint,
         created_at: row.created_at,
+        agent_status_message: row.agent_status_message,
+        agent_status_updated_at: row.agent_status_updated_at,
       }));
 
     console.log(`${TOWN_LOG} schedulePendingWork: found ${pendingAgents.length} pending agents`);
@@ -2431,8 +2515,13 @@ export class TownDO extends DurableObject<Env> {
     if (pendingCount === 0) return;
 
     // Check if a triage batch bead is already in progress (meaning a
-    // triage agent is working). We can't filter by role since triage
-    // uses polecat role; instead check for an open gt:triage batch bead.
+    // triage agent is working), or recently failed (cooldown to prevent
+    // rapid retry loops). Skip dispatch in either case.
+    const triageBatchLike = patrol.TRIAGE_LABEL_LIKE.replace(
+      patrol.TRIAGE_REQUEST_LABEL,
+      patrol.TRIAGE_BATCH_LABEL
+    );
+    const cooldownCutoff = new Date(Date.now() - DISPATCH_COOLDOWN_MS).toISOString();
     const existingBatch = [
       ...query(
         this.sql,
@@ -2440,16 +2529,19 @@ export class TownDO extends DurableObject<Env> {
           SELECT ${beads.bead_id} FROM ${beads}
           WHERE ${beads.type} = 'issue'
             AND ${beads.labels} LIKE ?
-            AND ${beads.status} IN ('open', 'in_progress')
             AND ${beads.created_by} = 'patrol'
+            AND (
+              ${beads.status} IN ('open', 'in_progress')
+              OR (${beads.status} = 'failed' AND ${beads.updated_at} > ?)
+            )
           LIMIT 1
         `,
-        [patrol.TRIAGE_LABEL_LIKE.replace(patrol.TRIAGE_REQUEST_LABEL, patrol.TRIAGE_BATCH_LABEL)]
+        [triageBatchLike, cooldownCutoff]
       ),
     ];
     if (existingBatch.length > 0) {
       console.log(
-        `${TOWN_LOG} maybeDispatchTriageAgent: triage agent already working, skipping (${pendingCount} pending)`
+        `${TOWN_LOG} maybeDispatchTriageAgent: triage batch bead active or in cooldown, skipping (${pendingCount} pending)`
       );
       return;
     }
@@ -2500,7 +2592,9 @@ export class TownDO extends DurableObject<Env> {
       userId: rigConfig.userId,
       agentId: triageAgent.id,
       agentName: triageAgent.name,
-      role: 'polecat',
+      // Use 'triage' role so the container skips the git clone entirely.
+      // Triage work is purely reasoning — no code changes needed.
+      role: 'triage',
       identity: triageAgent.identity,
       beadId: triageBead.bead_id,
       beadTitle: triageBead.title,
@@ -2520,6 +2614,9 @@ export class TownDO extends DurableObject<Env> {
       agents.updateAgentStatus(this.sql, triageAgent.id, 'working');
     } else {
       agents.unhookBead(this.sql, triageAgent.id);
+      // Failing the batch bead triggers cooldown: the guard at the top of
+      // this method skips dispatch while a failed batch bead's updated_at
+      // is within DISPATCH_COOLDOWN_MS.
       beadOps.updateBeadStatus(this.sql, triageBead.bead_id, 'failed', triageAgent.id);
       console.error(`${TOWN_LOG} maybeDispatchTriageAgent: triage agent failed to start`);
     }
