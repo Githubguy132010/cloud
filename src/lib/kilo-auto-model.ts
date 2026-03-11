@@ -55,7 +55,7 @@ export const KILO_AUTO_FREE_MODEL: AutoModel = {
 export const KILO_AUTO_BALANCED_MODEL: AutoModel = {
   id: 'kilo-auto/balanced',
   name: 'Kilo Auto Balanced',
-  description: 'Automatically routes your request to a balanced mix of price and performance.',
+  description: 'Automatically routes your request for a balanced mix of price and performance.',
   context_length: Math.min(
     kimi_k25_free_model.context_length,
     minimax_m25_free_model.context_length
