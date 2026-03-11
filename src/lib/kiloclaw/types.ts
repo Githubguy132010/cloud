@@ -225,6 +225,7 @@ export type ControllerVersionResponse = {
   version: string | null;
   commit: string | null;
   openclawVersion?: string | null;
+  openclawCommit?: string | null;
 };
 
 /** Input to POST /api/platform/google-credentials */
