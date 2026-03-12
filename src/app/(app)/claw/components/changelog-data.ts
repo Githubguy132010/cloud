@@ -11,6 +11,13 @@ export type ChangelogEntry = {
 // Newest entries first. Developers add new entries to the top of this array.
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: '2026-03-12',
+    description:
+      'Updated OpenClaw to 2026.3.11, summarize CLI to 0.12.0, and gogcli to 0.12.0.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
     date: '2026-03-10',
     description:
       'New instances now redirect pip and uv package installs to the persistent volume so packages survive restarts. pip uses /root/.pip-global via PYTHONUSERBASE; uv uses /root/.uv for tools and cache. uv is now pre-installed in the base image. Only applies to newly provisioned instances.',
