@@ -15,9 +15,7 @@ function getJwks() {
   return jwks;
 }
 
-export type OidcResult =
-  | { valid: true; email: string }
-  | { valid: false; error: string };
+export type OidcResult = { valid: true; email: string } | { valid: false; error: string };
 
 export async function validateOidcToken(
   authHeader: string | null | undefined,
