@@ -15,6 +15,7 @@ import { registerGatewayRoutes } from './routes/gateway';
 import { registerConfigRoutes } from './routes/config';
 import { registerGmailPushRoute } from './routes/gmail-push';
 import { CONTROLLER_COMMIT, CONTROLLER_VERSION } from './version';
+import { writeKiloCliConfig } from './kilo-cli-config';
 import { writeGogCredentials } from './gog-credentials';
 
 export type RuntimeConfig = {
@@ -114,6 +115,13 @@ async function handleHttpRequest(
 }
 
 export async function startController(env: NodeJS.ProcessEnv = process.env): Promise<void> {
+  // Write Kilo CLI config before starting the gateway. Best-effort: log and continue on failure.
+  try {
+    writeKiloCliConfig(env as Record<string, string | undefined>);
+  } catch (err) {
+    console.error('[kilo-cli] Failed to write config:', err);
+  }
+
   const config = loadRuntimeConfig(env);
 
   // Write gog credentials before starting the gateway so env vars are available
