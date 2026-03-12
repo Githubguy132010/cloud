@@ -44,7 +44,7 @@ type SpawnLike = typeof spawn;
 type TimerLike = ReturnType<typeof setTimeout>;
 
 type SupervisorOptions = {
-  gatewayArgs: string[];
+  args: string[];
   command?: string;
   backoffInitialMs?: number;
   backoffMaxMs?: number;
@@ -59,7 +59,7 @@ type SupervisorOptions = {
 
 export function createSupervisor(options: SupervisorOptions): Supervisor {
   const {
-    gatewayArgs,
+    args,
     command = 'openclaw',
     backoffInitialMs = BACKOFF_INITIAL_MS,
     backoffMaxMs = BACKOFF_MAX_MS,
@@ -180,7 +180,7 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     state = 'starting';
     stopRequested = false;
 
-    const spawned = spawnImpl(command, ['gateway', ...gatewayArgs], {
+    const spawned = spawnImpl(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });

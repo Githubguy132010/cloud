@@ -123,7 +123,7 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
   }
 
   const supervisor = createSupervisor({
-    gatewayArgs: config.gatewayArgs,
+    args: ['gateway', ...config.gatewayArgs],
   });
 
   const app = new Hono();
