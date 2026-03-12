@@ -17,7 +17,8 @@ export default async function AccountVerificationPage({ searchParams }: AppPageP
 
   if (stytchStatus !== null) {
     const callbackPath = params.callbackPath;
-    const hasValidCallback = callbackPath && typeof callbackPath === 'string' && isValidCallbackPath(callbackPath);
+    const hasValidCallback =
+      callbackPath && typeof callbackPath === 'string' && isValidCallbackPath(callbackPath);
 
     if (user.customer_source === null) {
       // Route through customer source survey before final destination

@@ -225,33 +225,25 @@ describe('user router - submitCustomerSource', () => {
     it('rejects spaces-only input', async () => {
       const caller = await createCallerForUser(surveyTestUser.id);
 
-      await expect(
-        caller.user.submitCustomerSource({ source: '   ' })
-      ).rejects.toThrow();
+      await expect(caller.user.submitCustomerSource({ source: '   ' })).rejects.toThrow();
     });
 
     it('rejects tab-only input', async () => {
       const caller = await createCallerForUser(surveyTestUser.id);
 
-      await expect(
-        caller.user.submitCustomerSource({ source: '\t\t' })
-      ).rejects.toThrow();
+      await expect(caller.user.submitCustomerSource({ source: '\t\t' })).rejects.toThrow();
     });
 
     it('rejects newline-only input', async () => {
       const caller = await createCallerForUser(surveyTestUser.id);
 
-      await expect(
-        caller.user.submitCustomerSource({ source: '\n\n' })
-      ).rejects.toThrow();
+      await expect(caller.user.submitCustomerSource({ source: '\n\n' })).rejects.toThrow();
     });
 
     it('rejects mixed whitespace input', async () => {
       const caller = await createCallerForUser(surveyTestUser.id);
 
-      await expect(
-        caller.user.submitCustomerSource({ source: ' \t\n ' })
-      ).rejects.toThrow();
+      await expect(caller.user.submitCustomerSource({ source: ' \t\n ' })).rejects.toThrow();
     });
   });
 

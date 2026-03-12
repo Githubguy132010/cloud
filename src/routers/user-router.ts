@@ -302,12 +302,7 @@ export const userRouter = createTRPCRouter({
     await db
       .update(kilocode_users)
       .set({ customer_source: '' })
-      .where(
-        and(
-          eq(kilocode_users.id, ctx.user.id),
-          isNull(kilocode_users.customer_source)
-        )
-      );
+      .where(and(eq(kilocode_users.id, ctx.user.id), isNull(kilocode_users.customer_source)));
     return successResult();
   }),
 

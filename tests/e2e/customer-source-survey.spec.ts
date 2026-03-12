@@ -145,9 +145,7 @@ test.describe('Customer Source Survey', () => {
     expect(new URL(page.url()).pathname).toBe('/get-started');
   });
 
-  test('after skipping, revisiting survey should redirect away (H2 sentinel)', async ({
-    page,
-  }) => {
+  test('after skipping, revisiting survey should redirect away (H2 sentinel)', async ({ page }) => {
     // This test verifies the H2 bug fix: when a user clicks "Skip", a sentinel
     // value should be written to customer_source so that revisiting the survey
     // redirects past it. Without the fix, customer_source stays null and the
@@ -189,10 +187,9 @@ test.describe('Customer Source Survey', () => {
     await submitButton.click();
 
     // Should redirect to /profile (the callbackPath), not /get-started
-    await page.waitForURL(
-      url => url.pathname === '/profile' || url.pathname === '/get-started',
-      { timeout: 15000 }
-    );
+    await page.waitForURL(url => url.pathname === '/profile' || url.pathname === '/get-started', {
+      timeout: 15000,
+    });
     expect(new URL(page.url()).pathname).toBe('/profile');
   });
 
@@ -205,10 +202,9 @@ test.describe('Customer Source Survey', () => {
     await skipLink.click();
 
     // Should redirect to /profile (the callbackPath), not /get-started
-    await page.waitForURL(
-      url => url.pathname === '/profile' || url.pathname === '/get-started',
-      { timeout: 15000 }
-    );
+    await page.waitForURL(url => url.pathname === '/profile' || url.pathname === '/get-started', {
+      timeout: 15000,
+    });
     expect(new URL(page.url()).pathname).toBe('/profile');
   });
 });

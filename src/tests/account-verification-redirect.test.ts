@@ -18,7 +18,7 @@ import React from 'react';
 import type { User } from '@kilocode/db/schema';
 
 // Make React available globally for JSX in the server component
-(globalThis as any).React = React;
+(globalThis as { React: typeof React }).React = React;
 
 // --- Capture redirect calls ---
 const mockRedirect = jest.fn<never, [string]>(() => {
@@ -108,11 +108,11 @@ async function renderPage(searchParams: Record<string, string> = {}) {
     try {
       await AccountVerificationPage({
         searchParams: Promise.resolve(searchParams),
-        params: Promise.resolve({} as any),
+        params: Promise.resolve(undefined),
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       // redirect() throws NEXT_REDIRECT — that's expected
-      if (e.message !== 'NEXT_REDIRECT') {
+      if (e instanceof Error && e.message !== 'NEXT_REDIRECT') {
         throw e;
       }
     }
