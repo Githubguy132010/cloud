@@ -28,6 +28,7 @@ export type UserConfig = {
   channels?: EncryptedChannelTokens;
   googleCredentials?: GoogleCredentials;
   instanceFeatures?: string[];
+  gmailNotificationsEnabled?: boolean;
 };
 
 /**
@@ -200,6 +201,11 @@ export async function buildEnvVars(
       const envVar = FEATURE_TO_ENV_VAR[feature];
       if (envVar) plainEnv[envVar] = 'true';
     }
+  }
+
+  // Gmail notifications flag (non-sensitive, non-user-overridable)
+  if (userConfig?.gmailNotificationsEnabled) {
+    plainEnv.GMAIL_NOTIFICATIONS_ENABLED = 'true';
   }
 
   return { env: plainEnv, sensitive };
