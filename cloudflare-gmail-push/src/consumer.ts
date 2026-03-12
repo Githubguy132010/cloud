@@ -4,7 +4,7 @@ export async function handleQueue(
   batch: MessageBatch<GmailPushQueueMessage>,
   env: Env
 ): Promise<void> {
-  await Promise.all(batch.messages.map(message => processMessage(message, env)));
+  await Promise.allSettled(batch.messages.map(message => processMessage(message, env)));
 }
 
 async function processMessage(message: Message<GmailPushQueueMessage>, env: Env): Promise<void> {
