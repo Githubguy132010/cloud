@@ -1,0 +1,25 @@
+{
+  "name": "cloudflare-gmail-push",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "deploy:dev": "wrangler deploy --env dev",
+    "deploy:prod": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit --incremental false",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "hono": "^4.7.6",
+    "jose": "^6.0.11"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.34",
+    "@cloudflare/workers-types": "^4.20250312.0",
+    "@kilocode/eslint-config": "workspace:*",
+    "tsgo": "workspace:*",
+    "typescript": "catalog:default",
+    "vitest": "~3.0.9",
+    "wrangler": "^4.14.4"
+  }
+}
