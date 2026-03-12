@@ -517,7 +517,7 @@ if (!gmailPushWorkerUrl) {
       execSync(
         `gog gmail watch start --account="${userEmail}" ` +
         `--topic="projects/${gcpProject}/topics/gog-gmail-watch"`,
-        { stdio: 'inherit' }
+        { stdio: 'inherit', env: gogEnv }
       );
       console.log('Gmail watch registered successfully.');
     } catch (err) {

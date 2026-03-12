@@ -128,6 +128,7 @@ describe('POST /push/user/:userId', () => {
       expect(url).toContain('/_kilo/gmail-pubsub');
       const headers = fetchInit?.headers as Record<string, string>;
       expect(headers?.['fly-force-instance-id']).toBe('machine-abc');
+      expect(headers?.['authorization']).toBe('Bearer gw-token-xyz');
     } finally {
       globalThis.fetch = originalFetch;
     }
