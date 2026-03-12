@@ -303,10 +303,11 @@ function encryptEnvelope(plaintext, pemKey) {
 }
 
 const gogHome = '/tmp/gogcli-home';
-// NOTE: GOG_KEYRING_PASSWORD must match in all three locations:
-//   - here (google-setup/setup.mjs)
-//   - controller/src/gog-credentials.ts
-//   - start-openclaw.sh
+// GOG_KEYRING_PASSWORD is NOT a secret. The 99designs/keyring file backend
+// requires a password to operate, but gog runs inside a single-tenant VM
+// with no shared access. The value is arbitrary — it just needs to be
+// consistent across setup (here), container startup (start-openclaw.sh),
+// and runtime (controller/src/gog-credentials.ts).
 const gogEnv = {
   ...process.env,
   HOME: gogHome,

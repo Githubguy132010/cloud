@@ -398,14 +398,13 @@ EOFPATCH
 # ============================================================
 # GOG (Google Workspace CLI) KEYRING
 # ============================================================
-# gog uses 99designs/keyring with the file backend. Set GOG_KEYRING_PASSWORD
-# here so it's inherited by the gateway and all child processes
-# (controller → gateway → gog). Without this, the keyring library prompts
-# for a password on a missing TTY and fails.
-# NOTE: GOG_KEYRING_PASSWORD must match in all three locations:
-#   - here (start-openclaw.sh)
-#   - controller/src/gog-credentials.ts
-#   - google-setup/setup.mjs
+# GOG_KEYRING_PASSWORD is NOT a secret. The 99designs/keyring file backend
+# requires a password to operate, but gog runs inside a single-tenant VM
+# with no shared access. The value is arbitrary — it just needs to be
+# consistent across setup (google-setup/setup.mjs), container startup
+# (here), and runtime (controller/src/gog-credentials.ts). Without this
+# env var, the keyring library prompts for a password on a missing TTY
+# and fails.
 export GOG_KEYRING_PASSWORD="kiloclaw"
 
 # ============================================================
