@@ -3075,13 +3075,19 @@ describe('reconcileApiKeyExpiry', () => {
     expect(newExpiresAt).toBeDefined();
     expect(newExpiresAt).not.toBe(nearExpiryOverrides(24).kilocodeApiKeyExpiresAt);
 
-    // Push succeeded → Fly config updated with skipLaunch (no restart)
+    // Fly config persisted with skipLaunch + minSecretsVersion
     expect(flyClient.updateMachine).toHaveBeenCalledWith(
       expect.any(Object),
       'machine-1',
       expect.objectContaining({ env: expect.any(Object) as unknown }),
-      { skipLaunch: true }
+      expect.objectContaining({
+        skipLaunch: true,
+        minSecretsVersion: expect.any(Number) as unknown,
+      })
     );
+
+    // Push succeeded → only one updateMachine call (persist), no restart
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(1);
   });
 
   it('skips refresh when key is far from expiry', async () => {
@@ -3124,12 +3130,21 @@ describe('reconcileApiKeyExpiry', () => {
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
 
-    // No push → machine is started → updateMachine called WITHOUT skipLaunch (triggers restart)
-    expect(flyClient.updateMachine).toHaveBeenCalledWith(
+    // updateMachine called twice: first with skipLaunch (persist), then without (restart)
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(2);
+    expect(flyClient.updateMachine).toHaveBeenNthCalledWith(
+      1,
       expect.any(Object),
       'machine-1',
       expect.objectContaining({ env: expect.any(Object) as unknown }),
-      { skipLaunch: false }
+      expect.objectContaining({ skipLaunch: true })
+    );
+    expect(flyClient.updateMachine).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Object),
+      'machine-1',
+      expect.objectContaining({ env: expect.any(Object) as unknown }),
+      expect.objectContaining({ minSecretsVersion: expect.any(Number) as unknown })
     );
   });
 
@@ -3155,13 +3170,8 @@ describe('reconcileApiKeyExpiry', () => {
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
 
-    // Machine restarted via updateMachine without skipLaunch
-    expect(flyClient.updateMachine).toHaveBeenCalledWith(
-      expect.any(Object),
-      'machine-1',
-      expect.objectContaining({ env: expect.any(Object) as unknown }),
-      { skipLaunch: false }
-    );
+    // updateMachine called twice: persist then restart
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(2);
   });
 
   it('does nothing on version check network failure', async () => {
@@ -3200,18 +3210,13 @@ describe('reconcileApiKeyExpiry', () => {
 
     await instance.alarm();
 
-    // Key persisted despite push failure
+    // Key persisted despite push failure (Fly config was updated)
     const newKey = storage._store.get('kilocodeApiKey') as string;
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
 
-    // Push failed → falls through to restart
-    expect(flyClient.updateMachine).toHaveBeenCalledWith(
-      expect.any(Object),
-      'machine-1',
-      expect.objectContaining({ env: expect.any(Object) as unknown }),
-      { skipLaunch: false }
-    );
+    // Push failed → updateMachine called twice (persist + restart)
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(2);
   });
 
   it('falls back to restart when signaled is false', async () => {
@@ -3237,16 +3242,11 @@ describe('reconcileApiKeyExpiry', () => {
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
 
-    // Not signaled → falls through to restart
-    expect(flyClient.updateMachine).toHaveBeenCalledWith(
-      expect.any(Object),
-      'machine-1',
-      expect.objectContaining({ env: expect.any(Object) as unknown }),
-      { skipLaunch: false }
-    );
+    // Not signaled → updateMachine called twice (persist + restart)
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(2);
   });
 
-  it('persists key even when Fly config update fails', async () => {
+  it('persists key even when Fly config update fails (push succeeded)', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, nearExpiryOverrides(24));
 
@@ -3264,11 +3264,33 @@ describe('reconcileApiKeyExpiry', () => {
 
     await instance.alarm();
 
-    // Key should still be persisted despite Fly config update failure
+    // Key persisted because push succeeded (gateway has new key in process.env)
     const newKey = storage._store.get('kilocodeApiKey') as string;
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
     expect(storage._store.get('kilocodeApiKeyExpiresAt')).toBeDefined();
+  });
+
+  it('does not persist key when both push and Fly config update fail', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+    (flyClient.updateMachine as Mock).mockRejectedValue(new Error('fly api down'));
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.12', commit: 'abc' },
+      envPatchError: true,
+    });
+
+    await instance.alarm();
+
+    // Key must NOT be persisted — gateway still has old key
+    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
   });
 
   it('does not start a stopped machine when push is unavailable', async () => {
@@ -3294,13 +3316,46 @@ describe('reconcileApiKeyExpiry', () => {
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
 
-    // Machine is stopped → skipLaunch: true (don't accidentally start it)
+    // Machine is stopped → only one updateMachine call (persist with skipLaunch, no restart)
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(1);
     expect(flyClient.updateMachine).toHaveBeenCalledWith(
       expect.any(Object),
       'machine-1',
       expect.objectContaining({ env: expect.any(Object) as unknown }),
-      { skipLaunch: true }
+      expect.objectContaining({ skipLaunch: true })
     );
+  });
+
+  it('persists key when restart fails after Fly config update (machine still running with old key)', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, nearExpiryOverrides(24));
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      state: 'started',
+      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
+    // First updateMachine (persist with skipLaunch) succeeds,
+    // second (restart without skipLaunch) fails.
+    // Machine stays running with the old key — no downtime.
+    (flyClient.updateMachine as Mock)
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(new Error('restart failed'));
+
+    mockControllerFetch({
+      versionResponse: { version: '2026.3.8', commit: 'old' },
+    });
+
+    await instance.alarm();
+
+    // Key IS persisted — Fly config has the new key. The machine is still
+    // running (Fly's updateMachine without skipLaunch failed, so the machine
+    // was not restarted). Next restart will pick up the new key from config.
+    const newKey = storage._store.get('kilocodeApiKey') as string;
+    expect(newKey).toBeDefined();
+    expect(newKey).not.toBe('old-jwt');
+    expect(storage._store.get('kilocodeApiKeyExpiresAt')).toBeDefined();
+    expect(flyClient.updateMachine).toHaveBeenCalledTimes(2);
   });
 
   it('skips entirely when instance is not running', async () => {

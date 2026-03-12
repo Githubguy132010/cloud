@@ -6,9 +6,9 @@ import * as fly from '../../fly/client';
 import {
   SELF_HEAL_THRESHOLD,
   STARTUP_TIMEOUT_SECONDS,
-  PROACTIVE_REFRESH_THRESHOLD_MS,
   MIN_ENV_PATCH_CONTROLLER_VERSION,
   isCalverAtLeast,
+  getProactiveRefreshThresholdMs,
 } from '../../config';
 import { ENCRYPTED_ENV_PREFIX, encryptEnvValue } from '../../utils/env-encryption';
 import {
@@ -88,7 +88,8 @@ async function reconcileApiKeyExpiry(
   if (Number.isNaN(expiresAtMs)) return;
 
   const timeUntilExpiry = expiresAtMs - Date.now();
-  if (timeUntilExpiry > PROACTIVE_REFRESH_THRESHOLD_MS) return;
+  const thresholdMs = getProactiveRefreshThresholdMs(env.PROACTIVE_REFRESH_THRESHOLD_HOURS);
+  if (timeUntilExpiry > thresholdMs) return;
 
   reconcileLog(reason, 'api_key_expiry_approaching', {
     user_id: userId,
@@ -149,7 +150,43 @@ async function reconcileApiKeyExpiry(
     return;
   }
 
-  // 3. If the controller supports it, push the key to process.env and
+  // 3. Update Fly machine config with the fresh encrypted key.
+  //    Always skipLaunch here — we persist the config first (durable) so the
+  //    key survives cold starts regardless of whether the hot patch succeeds.
+  //    Pass minSecretsVersion from ensureEnvKey() so Fly waits for the env key
+  //    secret to propagate before any subsequent launch.
+  let flyConfigUpdated = false;
+  let machineIsStarted = false;
+  let updatedMachineConfig: FlyMachineConfig | undefined;
+  let secretsVersion: number | undefined;
+  try {
+    const machine = await fly.getMachine(flyConfig, machineId);
+    machineIsStarted = machine.state === 'started';
+    const updatedEnv = { ...machine.config.env };
+
+    const appStub = env.KILOCLAW_APP.get(env.KILOCLAW_APP.idFromName(userId));
+    const ensureResult = await appStub.ensureEnvKey(userId);
+    secretsVersion = ensureResult.secretsVersion;
+    updatedEnv[`${ENCRYPTED_ENV_PREFIX}KILOCODE_API_KEY`] = encryptEnvValue(
+      ensureResult.key,
+      freshKey.token
+    );
+
+    updatedMachineConfig = { ...machine.config, env: updatedEnv };
+    await fly.updateMachine(flyConfig, machineId, updatedMachineConfig, {
+      skipLaunch: true,
+      minSecretsVersion: secretsVersion,
+    });
+
+    flyConfigUpdated = true;
+  } catch (err) {
+    reconcileLog(reason, 'api_key_fly_config_update_failed', {
+      user_id: userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // 4. If the controller supports it, push the key to process.env and
   //    signal the gateway (graceful in-process restart via SIGUSR1).
   let pushed = false;
   if (canPush) {
@@ -172,40 +209,38 @@ async function reconcileApiKeyExpiry(
     }
   }
 
-  // 4. Update Fly machine config with the fresh encrypted key.
-  //    - If pushed: skipLaunch (key is already live in the running process).
-  //    - If not pushed and machine is running: let updateMachine restart it
-  //      so the gateway boots with the new key.
-  //    - If not pushed and machine is stopped/other: skipLaunch to avoid
-  //      accidentally starting a stopped machine. Next start picks up the key.
-  try {
-    const machine = await fly.getMachine(flyConfig, machineId);
-    const updatedEnv = { ...machine.config.env };
-
-    const appStub = env.KILOCLAW_APP.get(env.KILOCLAW_APP.idFromName(userId));
-    const { key: envKey } = await appStub.ensureEnvKey(userId);
-    updatedEnv[`${ENCRYPTED_ENV_PREFIX}KILOCODE_API_KEY`] = encryptEnvValue(envKey, freshKey.token);
-
-    const needsRestart = !pushed && machine.state === 'started';
-
-    await fly.updateMachine(
-      flyConfig,
-      machineId,
-      { ...machine.config, env: updatedEnv },
-      { skipLaunch: !needsRestart }
-    );
-
-    if (needsRestart) {
+  // 5. If the push didn't deliver the key and the Fly config was updated,
+  //    restart the machine so it boots with the new config.
+  //    Uses updateMachine without skipLaunch rather than stop+start so that
+  //    a failure leaves the machine running (with the old key) instead of
+  //    stopped with no automatic recovery.
+  //    Skip if the machine isn't started (don't wake a stopped machine).
+  if (!pushed && flyConfigUpdated && machineIsStarted && updatedMachineConfig) {
+    try {
+      await fly.updateMachine(flyConfig, machineId, updatedMachineConfig, {
+        minSecretsVersion: secretsVersion,
+      });
       reconcileLog(reason, 'api_key_machine_restarted', { user_id: userId });
+    } catch (err) {
+      reconcileLog(reason, 'api_key_machine_restart_failed', {
+        user_id: userId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-  } catch (err) {
-    console.warn(
-      '[reconcile] Failed to update Fly machine config with fresh key:',
-      err instanceof Error ? err.message : String(err)
-    );
   }
 
-  // 5. Persist new expiry to DO state.
+  // 6. Persist new expiry to DO state — but only if the fresh key was
+  //    actually delivered via at least one path. If both the Fly config
+  //    update and push failed, the running gateway still has the old key.
+  //    Persisting the new expiry would cause future alarms to skip refresh,
+  //    letting the old key expire silently.
+  if (!pushed && !flyConfigUpdated) {
+    reconcileLog(reason, 'api_key_refresh_failed_all_paths', {
+      user_id: userId,
+    });
+    return;
+  }
+
   state.kilocodeApiKey = freshKey.token;
   state.kilocodeApiKeyExpiresAt = freshKey.expiresAt;
   await ctx.storage.put(
@@ -219,6 +254,7 @@ async function reconcileApiKeyExpiry(
     user_id: userId,
     new_expires_at: freshKey.expiresAt,
     pushed,
+    flyConfigUpdated,
   });
 }
 
