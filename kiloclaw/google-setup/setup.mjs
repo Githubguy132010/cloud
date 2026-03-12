@@ -482,7 +482,19 @@ if (!gmailPushWorkerUrl) {
   }
 
   if (pushUserId) {
-    const pushEndpoint = `${gmailPushWorkerUrl}/push/user/${pushUserId}`;
+    // Generate HMAC-SHA256 token so the push endpoint rejects unauthenticated callers.
+    // Must match cloudflare-gmail-push/src/auth/push-token.ts logic.
+    const internalApiSecret = process.env.INTERNAL_API_SECRET;
+    let pushToken = '';
+    if (internalApiSecret) {
+      const { createHmac } = await import('node:crypto');
+      pushToken = createHmac('sha256', internalApiSecret).update(pushUserId).digest('hex').slice(0, 32);
+    } else {
+      console.warn('Warning: INTERNAL_API_SECRET not set — push endpoint will be unauthenticated.');
+    }
+
+    const tokenPath = pushToken ? `/${pushToken}` : '';
+    const pushEndpoint = `${gmailPushWorkerUrl}/push/user/${pushUserId}${tokenPath}`;
     console.log(`Creating push subscription → ${pushEndpoint}`);
     try {
       // Note: We intentionally omit --push-auth-service-account because the

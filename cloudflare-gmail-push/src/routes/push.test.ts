@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import type { HonoContext } from '../types';
 import { pushRoute } from './push';
+import { generatePushToken } from '../auth/push-token';
 
 // Mock the OIDC module
 vi.mock('../auth/oidc', () => ({
@@ -11,6 +12,10 @@ vi.mock('../auth/oidc', () => ({
 import { validateOidcToken } from '../auth/oidc';
 
 const mockValidateOidc = vi.mocked(validateOidcToken);
+
+const TEST_SECRET = 'test-internal-secret';
+const TEST_USER = 'user123';
+let validToken: string;
 
 function createApp() {
   const app = new Hono<HonoContext>();
@@ -31,16 +36,28 @@ function createApp() {
   return { app, mockKiloclaw };
 }
 
-describe('POST /push/user/:userId', () => {
-  beforeEach(() => {
+describe('POST /push/user/:userId/:token', () => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    validToken = await generatePushToken(TEST_USER, TEST_SECRET);
+  });
+
+  it('rejects invalid push token', async () => {
+    const { app } = createApp();
+
+    const res = await app.request(`/push/user/${TEST_USER}/badtoken${'0'.repeat(25)}`, {
+      method: 'POST',
+      body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
+    });
+
+    expect(res.status).toBe(403);
   });
 
   it('rejects invalid OIDC token', async () => {
     mockValidateOidc.mockResolvedValue({ valid: false, error: 'bad token' });
     const { app } = createApp();
 
-    const res = await app.request('/push/user/user123', {
+    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
       method: 'POST',
       headers: { authorization: 'Bearer bad-token' },
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
@@ -49,7 +66,7 @@ describe('POST /push/user/:userId', () => {
     expect(res.status).toBe(401);
   });
 
-  it('proceeds without auth header (warns but does not reject)', async () => {
+  it('proceeds without OIDC auth header (warns but does not reject)', async () => {
     const { app, mockKiloclaw } = createApp();
 
     mockKiloclaw.fetch.mockResolvedValue(
@@ -63,22 +80,17 @@ describe('POST /push/user/:userId', () => {
       )
     );
 
-    const res = await app.request('/push/user/user123', {
+    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
     });
 
-    // Should proceed (not 401) — OIDC is optional when no header present
     expect(res.status).toBe(200);
     expect(mockValidateOidc).not.toHaveBeenCalled();
   });
 
   it('returns 200 when machine is not running', async () => {
-    mockValidateOidc.mockResolvedValue({
-      valid: true,
-      email: 'gmail-api-push@system.gserviceaccount.com',
-    });
     const { app, mockKiloclaw } = createApp();
 
     mockKiloclaw.fetch.mockResolvedValue(
@@ -92,9 +104,9 @@ describe('POST /push/user/:userId', () => {
       )
     );
 
-    const res = await app.request('/push/user/user123', {
+    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
       method: 'POST',
-      headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
     });
 
@@ -140,7 +152,7 @@ describe('POST /push/user/:userId', () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
 
     try {
-      const res = await app.request('/push/user/user123', {
+      const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
         method: 'POST',
         headers: { authorization: 'Bearer valid-token', 'content-type': 'application/json' },
         body: JSON.stringify({ message: { data: 'dGVzdA==', messageId: '123' } }),

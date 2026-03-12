@@ -1,11 +1,20 @@
 import { Hono } from 'hono';
 import type { HonoContext } from '../types';
 import { validateOidcToken } from '../auth/oidc';
+import { verifyPushToken } from '../auth/push-token';
 
 export const pushRoute = new Hono<HonoContext>();
 
-pushRoute.post('/user/:userId', async c => {
+pushRoute.post('/user/:userId/:token', async c => {
   const userId = c.req.param('userId');
+  const token = c.req.param('token');
+
+  // Verify URL-embedded HMAC token (prevents unauthenticated push to arbitrary userIds)
+  const tokenValid = await verifyPushToken(token, userId, c.env.INTERNAL_API_SECRET);
+  if (!tokenValid) {
+    console.warn(`[gmail-push] Invalid push token for user ${userId}`);
+    return c.json({ error: 'Forbidden' }, 403);
+  }
 
   // Validate Google OIDC token if present. Pub/Sub push subscriptions may not
   // have OIDC auth configured (requires a user-owned SA), so we warn but proceed
