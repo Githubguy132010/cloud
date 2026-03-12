@@ -3,7 +3,6 @@ import {
   CLAUDE_SONNET_CURRENT_MODEL_ID,
 } from '@/lib/providers/anthropic';
 import { minimax_m25_free_model } from '@/lib/providers/minimax';
-import { kimi_k25_free_model } from '@/lib/providers/moonshotai';
 import type { OpenRouterReasoningConfig } from '@/lib/providers/openrouter/types';
 import type { ModelSettings, OpenCodeSettings, Verbosity } from '@kilocode/db/schema-types';
 
@@ -56,20 +55,14 @@ export const KILO_AUTO_BALANCED_MODEL: AutoModel = {
   id: 'kilo-auto/balanced',
   name: 'Kilo Auto Balanced',
   description: 'Automatically routes your request for a balanced mix of price and performance.',
-  context_length: Math.min(
-    kimi_k25_free_model.context_length,
-    minimax_m25_free_model.context_length
-  ),
-  max_completion_tokens: Math.min(
-    kimi_k25_free_model.max_completion_tokens,
-    minimax_m25_free_model.max_completion_tokens
-  ),
-  prompt_price: '0.000002',
-  completion_price: '0.000008',
+  context_length: 204800,
+  max_completion_tokens: 131072,
+  prompt_price: '0.0000006',
+  completion_price: '0.000003',
   supports_images: false,
   roocode_settings: {
-    included_tools: ['search_and_replace'],
-    excluded_tools: ['apply_diff', 'edit_file'],
+    included_tools: ['edit_file'],
+    excluded_tools: ['apply_diff'],
   },
   opencode_settings: undefined,
 };
@@ -150,26 +143,27 @@ const FRONTIER_MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
   ['code', FRONTIER_CODE_MODEL],
 ]);
 
-const KIMI_K25_MODEL_ID = kimi_k25_free_model.internal_id;
-const MINIMAX_M25_MODEL_ID = minimax_m25_free_model.internal_id;
+const KIMI_K25_MODEL_ID = 'moonshotai/kimi-k2.5';
+
+const MINIMAX_M25_MODEL_ID = minimax_m25_free_model.is_enabled
+  ? minimax_m25_free_model.public_id
+  : 'minimax/minimax-m2.5';
 
 const BALANCED_CODE_MODEL: ResolvedAutoModel = {
   model: MINIMAX_M25_MODEL_ID,
-  reasoning: { enabled: true },
-  verbosity: 'low',
 };
 
 // Mode → model mappings for kilo-auto/balanced routing.
 // Uses Kimi K2.5 where Frontier uses Opus, Minimax M2.5 where Frontier uses Sonnet.
 const BALANCED_MODE_TO_MODEL = new Map<string, ResolvedAutoModel>([
-  ['plan', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
-  ['general', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' }],
-  ['architect', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
-  ['orchestrator', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
-  ['ask', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
-  ['debug', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' }],
-  ['build', { model: MINIMAX_M25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' }],
-  ['explore', { model: MINIMAX_M25_MODEL_ID, reasoning: { enabled: true }, verbosity: 'medium' }],
+  ['plan', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true } }],
+  ['general', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true } }],
+  ['architect', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true } }],
+  ['orchestrator', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true } }],
+  ['ask', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true } }],
+  ['debug', { model: KIMI_K25_MODEL_ID, reasoning: { enabled: true } }],
+  ['build', { model: MINIMAX_M25_MODEL_ID }],
+  ['explore', { model: MINIMAX_M25_MODEL_ID }],
   ['code', BALANCED_CODE_MODEL],
 ]);
 
@@ -179,17 +173,19 @@ const legacyMapping: Record<string, string | undefined> = {
   'kilo/auto-small': KILO_AUTO_SMALL_MODEL.id,
 };
 
-export function deprecatedAutoModelsToPreventNewExtensionModelPickerFromGettingStuck() {
-  return Object.entries(legacyMapping).flatMap(([legacyId, currentId]) => {
-    const model = AUTO_MODELS.find(m => m.id === currentId);
-    if (!model) return [];
-    return {
-      ...model,
-      id: legacyId,
-      name: 'Deprecated: ' + model.name,
-      description: `${legacyId} is deprecated, use ${model.id} instead`,
-    };
-  });
+export function deprecatedAutoModelsToPreventNewExtensionModelPickerFromGettingStuck(): AutoModel[] {
+  return Object.entries(legacyMapping)
+    .map(([legacyId, currentId]) => {
+      const model = AUTO_MODELS.find(m => m.id === currentId);
+      if (!model) return null;
+      return {
+        ...model,
+        id: legacyId,
+        name: 'Deprecated: ' + model.name,
+        description: `${legacyId} is deprecated, use ${model.id} instead`,
+      };
+    })
+    .filter(m => m !== null);
 }
 
 export function resolveAutoModel(model: string, modeHeader: string | null): ResolvedAutoModel {
