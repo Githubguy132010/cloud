@@ -35,6 +35,7 @@ export function CustomerSourceSurvey({ redirectPath }: CustomerSourceSurveyProps
   return (
     <div className="space-y-4 px-6 pb-6">
       <Textarea
+        autoFocus
         placeholder="Example: A YouTube video from Theo"
         value={source}
         onChange={e => setSource(e.target.value)}
