@@ -217,6 +217,7 @@ export async function createNewMachine(
   envFlyRegion?: string
 ): Promise<void> {
   const machine = await fly.createMachine(flyConfig, machineConfig, {
+    name: state.sandboxId ?? undefined,
     region: state.flyRegion ?? envFlyRegion ?? undefined,
     minSecretsVersion,
   });
