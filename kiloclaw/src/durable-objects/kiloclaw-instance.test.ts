@@ -2990,12 +2990,8 @@ describe('restartGateway image tag override', () => {
 // ============================================================================
 
 describe('reconcileApiKeyExpiry', () => {
-  /** Set up fetch mock to handle controller version + env patch RPCs alongside
-   *  the default health-probe responses. */
+  /** Set up fetch mock to handle env patch RPCs alongside default health-probe responses. */
   function mockControllerFetch(opts: {
-    versionResponse?: { version: string; commit: string };
-    versionStatus?: number;
-    versionError?: boolean;
     envPatchResponse?: { ok: boolean; signaled: boolean };
     envPatchStatus?: number;
     envPatchError?: boolean;
@@ -3003,19 +2999,6 @@ describe('reconcileApiKeyExpiry', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockImplementation((url: string, _init?: RequestInit) => {
-        if (typeof url === 'string' && url.includes('/_kilo/version')) {
-          if (opts.versionError) {
-            return Promise.reject(new Error('network failure'));
-          }
-          return Promise.resolve({
-            ok: (opts.versionStatus ?? 200) >= 200 && (opts.versionStatus ?? 200) < 300,
-            status: opts.versionStatus ?? 200,
-            text: () =>
-              Promise.resolve(
-                JSON.stringify(opts.versionResponse ?? { version: '2026.3.12', commit: 'abc' })
-              ),
-          });
-        }
         if (typeof url === 'string' && url.includes('/_kilo/env/patch')) {
           if (opts.envPatchError) {
             return Promise.reject(new Error('push failed'));
@@ -3052,7 +3035,7 @@ describe('reconcileApiKeyExpiry', () => {
     };
   }
 
-  it('refreshes key via push when near expiry with new controller', async () => {
+  it('refreshes key via push when controller supports env patch', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, nearExpiryOverrides(24));
 
@@ -3063,10 +3046,7 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockResolvedValue({});
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.12', commit: 'abc' },
-      envPatchResponse: { ok: true, signaled: true },
-    });
+    mockControllerFetch({ envPatchResponse: { ok: true, signaled: true } });
 
     await instance.alarm();
 
@@ -3108,7 +3088,7 @@ describe('reconcileApiKeyExpiry', () => {
     expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
   });
 
-  it('refreshes key by restarting machine on old controller version', async () => {
+  it('falls back to restart when push returns 404 (old controller)', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, nearExpiryOverrides(24));
 
@@ -3119,9 +3099,7 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockResolvedValue({});
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.8', commit: 'old' },
-    });
+    mockControllerFetch({ envPatchStatus: 404 });
 
     await instance.alarm();
 
@@ -3148,7 +3126,7 @@ describe('reconcileApiKeyExpiry', () => {
     );
   });
 
-  it('refreshes key by restarting machine when version check returns null (404)', async () => {
+  it('falls back to restart when push fails with network error', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, nearExpiryOverrides(24));
 
@@ -3159,54 +3137,7 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockResolvedValue({});
 
-    mockControllerFetch({
-      versionStatus: 404,
-    });
-
-    await instance.alarm();
-
-    // Key should be persisted even though push was skipped
-    const newKey = storage._store.get('kilocodeApiKey') as string;
-    expect(newKey).toBeDefined();
-    expect(newKey).not.toBe('old-jwt');
-
-    // updateMachine called twice: persist then restart
-    expect(flyClient.updateMachine).toHaveBeenCalledTimes(2);
-  });
-
-  it('does nothing on version check network failure', async () => {
-    const { instance, storage } = createInstance();
-    await seedRunning(storage, nearExpiryOverrides(24));
-
-    (flyClient.getMachine as Mock).mockResolvedValue({
-      state: 'started',
-      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
-    });
-    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
-
-    mockControllerFetch({ versionError: true });
-
-    await instance.alarm();
-
-    // Machine unreachable → bail entirely
-    expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
-  });
-
-  it('falls back to restart when push fails', async () => {
-    const { instance, storage } = createInstance();
-    await seedRunning(storage, nearExpiryOverrides(24));
-
-    (flyClient.getMachine as Mock).mockResolvedValue({
-      state: 'started',
-      config: { env: {}, mounts: [{ volume: 'vol-1', path: '/root' }] },
-    });
-    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
-    (flyClient.updateMachine as Mock).mockResolvedValue({});
-
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.12', commit: 'abc' },
-      envPatchError: true,
-    });
+    mockControllerFetch({ envPatchError: true });
 
     await instance.alarm();
 
@@ -3230,10 +3161,7 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockResolvedValue({});
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.12', commit: 'abc' },
-      envPatchResponse: { ok: true, signaled: false },
-    });
+    mockControllerFetch({ envPatchResponse: { ok: true, signaled: false } });
 
     await instance.alarm();
 
@@ -3257,10 +3185,7 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockRejectedValue(new Error('fly api down'));
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.12', commit: 'abc' },
-      envPatchResponse: { ok: true, signaled: true },
-    });
+    mockControllerFetch({ envPatchResponse: { ok: true, signaled: true } });
 
     await instance.alarm();
 
@@ -3282,10 +3207,7 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockRejectedValue(new Error('fly api down'));
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.12', commit: 'abc' },
-      envPatchError: true,
-    });
+    mockControllerFetch({ envPatchError: true });
 
     await instance.alarm();
 
@@ -3293,7 +3215,7 @@ describe('reconcileApiKeyExpiry', () => {
     expect(storage._store.get('kilocodeApiKey')).toBe('old-jwt');
   });
 
-  it('does not start a stopped machine when push is unavailable', async () => {
+  it('does not restart a stopped machine', async () => {
     const { instance, storage } = createInstance();
     // DO status is running but Fly machine has drifted to stopped
     await seedRunning(storage, nearExpiryOverrides(24));
@@ -3305,13 +3227,11 @@ describe('reconcileApiKeyExpiry', () => {
     (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1' });
     (flyClient.updateMachine as Mock).mockResolvedValue({});
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.8', commit: 'old' },
-    });
+    mockControllerFetch({ envPatchError: true });
 
     await instance.alarm();
 
-    // Key should be persisted
+    // Key should be persisted (Fly config updated)
     const newKey = storage._store.get('kilocodeApiKey') as string;
     expect(newKey).toBeDefined();
     expect(newKey).not.toBe('old-jwt');
@@ -3326,7 +3246,7 @@ describe('reconcileApiKeyExpiry', () => {
     );
   });
 
-  it('persists key when restart fails after Fly config update (machine still running with old key)', async () => {
+  it('persists key when restart fails (machine still running with old key)', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, nearExpiryOverrides(24));
 
@@ -3342,9 +3262,7 @@ describe('reconcileApiKeyExpiry', () => {
       .mockResolvedValueOnce({})
       .mockRejectedValueOnce(new Error('restart failed'));
 
-    mockControllerFetch({
-      versionResponse: { version: '2026.3.8', commit: 'old' },
-    });
+    mockControllerFetch({ envPatchError: true });
 
     await instance.alarm();
 

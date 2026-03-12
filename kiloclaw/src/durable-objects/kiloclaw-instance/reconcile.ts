@@ -6,8 +6,6 @@ import * as fly from '../../fly/client';
 import {
   SELF_HEAL_THRESHOLD,
   STARTUP_TIMEOUT_SECONDS,
-  MIN_ENV_PATCH_CONTROLLER_VERSION,
-  isCalverAtLeast,
   getProactiveRefreshThresholdMs,
 } from '../../config';
 import { ENCRYPTED_ENV_PREFIX, encryptEnvValue } from '../../utils/env-encryption';
@@ -97,38 +95,7 @@ async function reconcileApiKeyExpiry(
     hours_remaining: Math.round(timeUntilExpiry / 3600000),
   });
 
-  // 1. Check controller version to decide push strategy.
-  //    getControllerVersion() returns null on 404/401 (old/unauth controller).
-  //    Network errors throw — if we can't reach the machine at all, bail out
-  //    since we can't verify its state.
-  let canPush = false;
-  let controllerInfo: { version: string } | null;
-  try {
-    controllerInfo = await gateway.getControllerVersion(state, env);
-  } catch (err) {
-    reconcileLog(reason, 'api_key_refresh_version_check_failed', {
-      user_id: userId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return;
-  }
-
-  if (!controllerInfo) {
-    reconcileLog(reason, 'api_key_refresh_no_version', {
-      user_id: userId,
-      hours_remaining: Math.round(timeUntilExpiry / 3600000),
-    });
-  } else if (!isCalverAtLeast(controllerInfo.version, MIN_ENV_PATCH_CONTROLLER_VERSION)) {
-    reconcileLog(reason, 'api_key_refresh_old_controller', {
-      user_id: userId,
-      controller_version: controllerInfo.version,
-      min_required: MIN_ENV_PATCH_CONTROLLER_VERSION.join('.'),
-    });
-  } else {
-    canPush = true;
-  }
-
-  // 2. Mint fresh key.
+  // 1. Mint fresh key.
   let mintTimeout: ReturnType<typeof setTimeout>;
   let freshKey: { token: string; expiresAt: string } | null;
   try {
@@ -150,7 +117,7 @@ async function reconcileApiKeyExpiry(
     return;
   }
 
-  // 3. Update Fly machine config with the fresh encrypted key.
+  // 2. Update Fly machine config with the fresh encrypted key.
   //    Always skipLaunch here — we persist the config first (durable) so the
   //    key survives cold starts regardless of whether the hot patch succeeds.
   //    Pass minSecretsVersion from ensureEnvKey() so Fly waits for the env key
@@ -186,30 +153,30 @@ async function reconcileApiKeyExpiry(
     });
   }
 
-  // 4. If the controller supports it, push the key to process.env and
+  // 3. Try to push the key to the running controller's process.env and
   //    signal the gateway (graceful in-process restart via SIGUSR1).
+  //    If the controller doesn't support /_kilo/env/patch (404), the catch
+  //    block handles it and we fall through to the restart path.
   let pushed = false;
-  if (canPush) {
-    try {
-      const result = await gateway.patchEnvOnMachine(state, env, {
-        KILOCODE_API_KEY: freshKey.token,
-      });
-      pushed = result?.signaled ?? false;
-      if (!pushed) {
-        reconcileLog(reason, 'api_key_push_not_signaled', {
-          user_id: userId,
-          result: result ? `ok=${result.ok} signaled=${result.signaled}` : 'null',
-        });
-      }
-    } catch (err) {
-      reconcileLog(reason, 'api_key_push_error', {
+  try {
+    const result = await gateway.patchEnvOnMachine(state, env, {
+      KILOCODE_API_KEY: freshKey.token,
+    });
+    pushed = result?.signaled ?? false;
+    if (!pushed) {
+      reconcileLog(reason, 'api_key_push_not_signaled', {
         user_id: userId,
-        error: err instanceof Error ? err.message : String(err),
+        result: result ? `ok=${result.ok} signaled=${result.signaled}` : 'null',
       });
     }
+  } catch (err) {
+    reconcileLog(reason, 'api_key_push_error', {
+      user_id: userId,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
-  // 5. If the push didn't deliver the key and the Fly config was updated,
+  // 4. If the push didn't deliver the key and the Fly config was updated,
   //    restart the machine so it boots with the new config.
   //    Uses updateMachine without skipLaunch rather than stop+start so that
   //    a failure leaves the machine running (with the old key) instead of
@@ -229,7 +196,7 @@ async function reconcileApiKeyExpiry(
     }
   }
 
-  // 6. Persist new expiry to DO state — but only if the fresh key was
+  // 5. Persist new expiry to DO state — but only if the fresh key was
   //    actually delivered via at least one path. If both the Fly config
   //    update and push failed, the running gateway still has the old key.
   //    Persisting the new expiry would cause future alarms to skip refresh,

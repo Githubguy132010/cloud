@@ -83,30 +83,3 @@ export function getProactiveRefreshThresholdMs(envOverrideHours?: string): numbe
   }
   return PROACTIVE_REFRESH_THRESHOLD_MS;
 }
-
-/**
- * Minimum controller version that supports POST /_kilo/env/patch.
- * Set to the calver of the release that includes the env patch endpoint.
- * NOTE: update this to the actual release version at merge time.
- */
-export const MIN_ENV_PATCH_CONTROLLER_VERSION = [2026, 3, 12] as const;
-
-/**
- * Compare a calver version string (e.g. "2026.3.8") against a minimum.
- * Returns true if the version is >= the minimum.
- *
- * Lexicographic comparison doesn't work for calver because segments are
- * not zero-padded (e.g. "2026.10.1" < "2026.4.1" lexicographically).
- */
-export function isCalverAtLeast(
-  version: string,
-  minimum: readonly [number, number, number]
-): boolean {
-  const parts = version.split('.').map(Number);
-  if (parts.length < 3 || parts.some(Number.isNaN)) return false;
-  for (let i = 0; i < 3; i++) {
-    if (parts[i] > minimum[i]) return true;
-    if (parts[i] < minimum[i]) return false;
-  }
-  return true; // equal
-}
