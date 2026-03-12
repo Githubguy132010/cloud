@@ -16,9 +16,10 @@ pushRoute.post('/user/:userId/:token', async c => {
     return c.json({ error: 'Forbidden' }, 403);
   }
 
-  // Validate Google OIDC token if present. Pub/Sub push subscriptions may not
-  // have OIDC auth configured (requires a user-owned SA), so we warn but proceed
-  // when no auth header is provided. Invalid tokens are still rejected.
+  // Optional defense-in-depth: validate Google OIDC token if present.
+  // Primary auth is the HMAC URL token above. OIDC can be enabled by
+  // configuring --push-auth-service-account on the Pub/Sub subscription.
+  // Invalid tokens are still rejected; missing tokens are allowed.
   const authHeader = c.req.header('authorization');
   if (authHeader) {
     const oidcResult = await validateOidcToken(authHeader, c.env.OIDC_AUDIENCE);

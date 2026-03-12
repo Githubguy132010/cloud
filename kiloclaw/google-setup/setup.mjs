@@ -497,11 +497,9 @@ if (!gmailPushWorkerUrl) {
     const pushEndpoint = `${gmailPushWorkerUrl}/push/user/${pushUserId}${tokenPath}`;
     console.log(`Creating push subscription → ${pushEndpoint}`);
     try {
-      // Note: We intentionally omit --push-auth-service-account because the
-      // gmail-api-push@system.gserviceaccount.com SA is Google-managed and the
-      // user's Pub/Sub service agent cannot create tokens as that SA. The push
-      // worker authenticates downstream calls via INTERNAL_API_SECRET instead.
-      // OIDC push auth can be added later with a user-owned service account.
+      // Push auth uses an HMAC URL token (derived from INTERNAL_API_SECRET).
+      // OIDC push auth (--push-auth-service-account) is omitted for simplicity
+      // but can be added later with a user-owned SA for defense-in-depth.
       execSync(
         `gcloud pubsub subscriptions create gog-gmail-push ` +
         `--topic=gog-gmail-watch ` +
