@@ -4,15 +4,10 @@ export async function handleQueue(
   batch: MessageBatch<GmailPushQueueMessage>,
   env: Env
 ): Promise<void> {
-  for (const message of batch.messages) {
-    await processMessage(message, env);
-  }
+  await Promise.all(batch.messages.map(message => processMessage(message, env)));
 }
 
-async function processMessage(
-  message: Message<GmailPushQueueMessage>,
-  env: Env
-): Promise<void> {
+async function processMessage(message: Message<GmailPushQueueMessage>, env: Env): Promise<void> {
   const { userId, pubSubBody } = message.body;
 
   try {

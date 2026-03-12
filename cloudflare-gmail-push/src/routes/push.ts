@@ -32,6 +32,9 @@ pushRoute.post('/user/:userId/:token', async c => {
   }
 
   const pubSubBody = await c.req.text();
+  if (pubSubBody.length > 65_536) {
+    return c.json({ error: 'Payload too large' }, 413);
+  }
   await c.env.GMAIL_PUSH_QUEUE.send({ userId, pubSubBody });
 
   return c.json({ ok: true }, 200);

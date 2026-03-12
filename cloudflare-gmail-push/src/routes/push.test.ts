@@ -95,6 +95,20 @@ describe('POST /push/user/:userId/:token', () => {
     });
   });
 
+  it('rejects oversized payload with 413', async () => {
+    const { app, mockQueue } = createApp();
+    const pubSubBody = 'x'.repeat(65_537);
+
+    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: pubSubBody,
+    });
+
+    expect(res.status).toBe(413);
+    expect(mockQueue.send).not.toHaveBeenCalled();
+  });
+
   it('proceeds without OIDC auth header (warns but does not reject)', async () => {
     const { app, mockQueue } = createApp();
     const pubSubBody = JSON.stringify({ message: { data: 'dGVzdA==' } });
