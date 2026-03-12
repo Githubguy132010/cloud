@@ -5,9 +5,11 @@ import type { Env, GmailPushQueueMessage } from './types';
 const TEST_USER = 'user123';
 const TEST_PUBSUB_BODY = JSON.stringify({ message: { data: 'dGVzdA==' } });
 
-function createMockMessage(
-  body: GmailPushQueueMessage
-): { body: GmailPushQueueMessage; ack: ReturnType<typeof vi.fn>; retry: ReturnType<typeof vi.fn> } {
+function createMockMessage(body: GmailPushQueueMessage): {
+  body: GmailPushQueueMessage;
+  ack: ReturnType<typeof vi.fn>;
+  retry: ReturnType<typeof vi.fn>;
+} {
   return {
     body,
     ack: vi.fn(),
@@ -80,9 +82,7 @@ describe('handleQueue', () => {
   });
 
   it('retries when kiloclaw status lookup fails', async () => {
-    const kiloclawFetch = vi.fn().mockResolvedValue(
-      new Response('error', { status: 500 })
-    );
+    const kiloclawFetch = vi.fn().mockResolvedValue(new Response('error', { status: 500 }));
     const env = createMockEnv(kiloclawFetch);
     const msg = createMockMessage({ userId: TEST_USER, pubSubBody: TEST_PUBSUB_BODY });
     const batch = createBatch([msg]);
@@ -137,7 +137,7 @@ describe('handleQueue', () => {
 
     // Verify correct headers on controller request
     const fetchCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
-    const [url, init]: [string, RequestInit] = fetchCalls[0];
+    const [url, init] = fetchCalls[0] as [string, RequestInit];
     expect(url).toBe('https://test-app.fly.dev/_kilo/gmail-pubsub');
     const headers = init.headers as Record<string, string>;
     expect(headers['content-type']).toBe('application/json');
@@ -168,9 +168,7 @@ describe('handleQueue', () => {
       'gw-token-xyz'
     );
     const env = createMockEnv(kiloclawFetch);
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response('error', { status: 500 })
-    );
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('error', { status: 500 }));
     const msg = createMockMessage({ userId: TEST_USER, pubSubBody: TEST_PUBSUB_BODY });
     const batch = createBatch([msg]);
 
@@ -204,15 +202,17 @@ describe('handleQueue', () => {
         if (userId === 'user-ok') {
           return Promise.resolve(
             new Response(
-              JSON.stringify({ flyAppName: 'app-ok', flyMachineId: 'machine-ok', status: 'running' })
+              JSON.stringify({
+                flyAppName: 'app-ok',
+                flyMachineId: 'machine-ok',
+                status: 'running',
+              })
             )
           );
         }
         // user-stopped has no machine
         return Promise.resolve(
-          new Response(
-            JSON.stringify({ flyAppName: null, flyMachineId: null, status: 'stopped' })
-          )
+          new Response(JSON.stringify({ flyAppName: null, flyMachineId: null, status: 'stopped' }))
         );
       }
       if (url.pathname.includes('gateway-token')) {
