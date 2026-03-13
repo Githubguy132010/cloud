@@ -275,6 +275,7 @@
         "internal_reasoning": "0"
       },
       "context_length": 200000,
+      "isFree": false,
       "opencode": {
         "variants": {
           "none": {
@@ -311,8 +312,7 @@
             "verbosity": "max"
           }
         }
-      },
-      "isFree": false
+      }
     },
     {
       "id": "anthropic/claude-3.7-sonnet",
@@ -342,6 +342,7 @@
         "internal_reasoning": "0"
       },
       "context_length": 200000,
+      "isFree": false,
       "opencode": {
         "variants": {
           "none": {
@@ -378,8 +379,7 @@
             "verbosity": "max"
           }
         }
-      },
-      "isFree": false
+      }
     },
     {
       "id": "google/gemini-2.5-pro",
@@ -409,6 +409,7 @@
         "internal_reasoning": "0"
       },
       "context_length": 1000000,
+      "isFree": false,
       "versioned_settings": {
         "4.146.0": {
           "included_tools": [
@@ -419,8 +420,7 @@
             "apply_diff"
           ]
         }
-      },
-      "isFree": false
+      }
     },
     {
       "id": "openai/gpt-4.1",
@@ -450,6 +450,7 @@
         "internal_reasoning": "0"
       },
       "context_length": 128000,
+      "isFree": false,
       "settings": {
         "included_tools": [
           "apply_patch"
@@ -494,8 +495,7 @@
             }
           }
         }
-      },
-      "isFree": false
+      }
     },
     {
       "id": "some-other-model",
@@ -639,6 +639,7 @@
         "tools"
       ],
       "default_parameters": {},
+      "isFree": true,
       "versioned_settings": {
         "4.146.0": {
           "included_tools": [
@@ -649,8 +650,7 @@
             "apply_diff"
           ]
         }
-      },
-      "isFree": true
+      }
     },
     {
       "id": "morph-warp-grep-v2",
@@ -865,7 +865,7 @@
           "edit_file"
         ]
       },
-      "isFree": false
+      "isFree": true
     },
     {
       "id": "kilo/auto-small",
