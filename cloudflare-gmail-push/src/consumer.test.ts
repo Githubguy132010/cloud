@@ -291,7 +291,7 @@ describe('handleQueue', () => {
       new URL(call[0].url).pathname.includes('gmail-history-id')
     );
     expect(historyIdCall).toBeDefined();
-    const historyIdReq = historyIdCall![0] as Request;
+    const historyIdReq = historyIdCall![0];
     const body = JSON.parse(await historyIdReq.text()) as { userId: string; historyId: string };
     expect(body.userId).toBe(TEST_USER);
     expect(body.historyId).toBe(TEST_HISTORY_ID);
