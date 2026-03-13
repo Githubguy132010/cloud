@@ -69,7 +69,7 @@ import { applyResolvedAutoModel, isKiloAutoModel } from '@/lib/kilo-auto-model';
 import { fixOpenCodeDuplicateReasoning } from '@/lib/providers/fixOpenCodeDuplicateReasoning';
 import type { MicrodollarUsageContext, PromptInfo } from '@/lib/processUsage.types';
 import { extractResponsesPromptInfo } from '@/lib/processUsage.responses';
-import { getMaxTokens } from '@/lib/providers/openrouter/request-helpers';
+import { getMaxTokens, hasMiddleOutTransform } from '@/lib/providers/openrouter/request-helpers';
 
 export const maxDuration = 800;
 
@@ -313,10 +313,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     requested_model: originalModelIdLowerCased,
     promptInfo,
     max_tokens: getMaxTokens(requestBodyParsed),
-    has_middle_out_transform:
-      requestBodyParsed.kind === 'chat_completions'
-        ? (requestBodyParsed.body.transforms?.includes('middle-out') ?? false)
-        : false,
+    has_middle_out_transform: hasMiddleOutTransform(requestBodyParsed),
     fraudHeaders,
     isStreaming: requestBodyParsed.body.stream === true,
     organizationId,

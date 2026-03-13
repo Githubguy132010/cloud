@@ -18,7 +18,7 @@ import { extractInputItemTextContent } from '@/lib/processUsage.responses';
 import type { AuthProviderId } from '@/lib/auth/provider-metadata';
 import type { FeatureValue } from '@/lib/feature-detection';
 import 'server-only';
-import { getMaxTokens } from '@/lib/providers/openrouter/request-helpers';
+import { getMaxTokens, hasMiddleOutTransform } from '@/lib/providers/openrouter/request-helpers';
 
 /**
  * Extract full prompts from a GatewayRequest (chat completions or responses API).
@@ -406,10 +406,7 @@ export async function classifyAbuse(
     user_prompt: userPrompt,
     system_prompt: systemPrompt,
     max_tokens: getMaxTokens(requestBodyParsed),
-    has_middle_out_transform:
-      (requestBodyParsed.kind === 'chat_completions' &&
-        requestBodyParsed.body.transforms?.includes('middle-out')) ||
-      false,
+    has_middle_out_transform: hasMiddleOutTransform(requestBodyParsed),
     has_tools: (requestBodyParsed.body.tools?.length ?? 0) > 0,
     streamed: requestBodyParsed.body.stream === true,
     is_user_byok: context?.isByok ?? null,
