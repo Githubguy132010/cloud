@@ -552,8 +552,8 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       isActiveReviewPromo(botId, originalModelIdLowerCased))
   ) {
     return requestBodyParsed.kind === 'chat_completions'
-      ? rewriteFreeModelResponse_Responses(response, originalModelIdLowerCased)
-      : rewriteFreeModelResponse_ChatCompletions(response, originalModelIdLowerCased);
+      ? rewriteFreeModelResponse_ChatCompletions(response, originalModelIdLowerCased)
+      : rewriteFreeModelResponse_Responses(response, originalModelIdLowerCased);
   }
 
   return wrapInSafeNextResponse(response);
