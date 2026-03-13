@@ -187,28 +187,26 @@ export async function parseResponsesMicrodollarUsageFromStream(
         responseContent += json.delta;
       }
 
-      if (
-        json.type === 'response.completed' ||
-        json.type === 'response.failed' ||
-        json.type === 'response.incomplete'
-      ) {
+      // Extract metadata whenever json.response is present so that aborted
+      // streams still capture messageId/model/usage from early events like
+      // response.created and response.in_progress.
+      if (json.response) {
         const response = json.response;
-        if (response) {
-          messageId = response.id ?? messageId;
-          model = response.model ?? model;
-          if (response.usage) {
-            usage = response.usage as ResponsesApiUsage;
-          }
-          const meta = response.provider_metadata;
-          if (meta) {
-            providerMetadata = meta;
-            inference_provider = meta.gateway?.routing?.finalProvider ?? inference_provider;
-          }
-          finish_reason = response.status ?? finish_reason;
+        messageId = response.id ?? messageId;
+        model = response.model ?? model;
+        if (response.usage) {
+          usage = response.usage as ResponsesApiUsage;
         }
-        if (json.type === 'response.failed' || json.type === 'response.incomplete') {
-          reportedError = true;
+        const meta = response.provider_metadata;
+        if (meta) {
+          providerMetadata = meta;
+          inference_provider = meta.gateway?.routing?.finalProvider ?? inference_provider;
         }
+        finish_reason = response.status ?? finish_reason;
+      }
+
+      if (json.type === 'response.failed' || json.type === 'response.incomplete') {
+        reportedError = true;
       }
     },
   });
@@ -273,7 +271,7 @@ export function parseResponsesMicrodollarUsageFromString(
 
   const coreProps = {
     messageId: responseJson?.id ?? null,
-    hasError: !responseJson?.model || statusCode >= 400,
+    hasError: !responseJson?.model || statusCode >= 400 || responseJson?.status !== 'completed',
     model: responseJson?.model ?? null,
     responseContent: responseJson?.output ? extractResponseContent(responseJson.output) : '',
     inference_provider,
