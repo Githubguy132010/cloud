@@ -290,12 +290,37 @@ export function parseResponsesMicrodollarUsageFromString(
   return { ...coreProps, ...costs };
 }
 
+function extractInputItemTextContent(item: OpenAI.Responses.ResponseInputItem): string | null {
+  if (!('role' in item) || !('content' in item)) return null;
+  if (item.role !== 'user') return null;
+  const { content } = item;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((c): c is OpenAI.Responses.ResponseInputText => c.type === 'input_text')
+      .map(c => c.text)
+      .join('\n');
+  }
+  return null;
+}
+
 export function extractResponsesPromptInfo(body: GatewayResponsesRequest): PromptInfo {
   const instructions = body.instructions ?? '';
-  const input = typeof body.input === 'string' ? body.input : '';
+
+  let userPrompt = '';
+  if (typeof body.input === 'string') {
+    userPrompt = body.input;
+  } else if (Array.isArray(body.input)) {
+    const lastUserText = body.input
+      .map(extractInputItemTextContent)
+      .filter((t): t is string => t !== null)
+      .at(-1);
+    userPrompt = lastUserText ?? '';
+  }
+
   return {
     system_prompt_prefix: instructions.slice(0, 100),
     system_prompt_length: instructions.length,
-    user_prompt_prefix: input.slice(0, 100),
+    user_prompt_prefix: userPrompt.slice(0, 100),
   };
 }
