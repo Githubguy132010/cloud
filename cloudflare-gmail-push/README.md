@@ -13,23 +13,20 @@ Gmail API → Pub/Sub topic → Push subscription → this worker
 
 ## Authentication
 
-Push requests are authenticated in two layers:
-
-1. **HMAC URL token** (required): Each push subscription URL embeds `HMAC-SHA256(INTERNAL_API_SECRET, userId)[:32]`. Generated during Google account setup.
-2. **Google OIDC JWT** (optional, defense-in-depth): If the Pub/Sub subscription is configured with `--push-auth-service-account`, Google signs push requests with a JWT. The worker validates it against Google's JWKS.
+Push requests are authenticated via **Google OIDC JWT** (mandatory). The Pub/Sub subscription is configured with `--push-auth-service-account` and `--push-auth-token-audience`, so Google signs every push request with a JWT. The worker validates the token against Google's JWKS, checking issuer, audience, email claim, and email_verified.
 
 ## API Endpoints
 
-| Endpoint                    | Method | Auth                       | Description          |
-| --------------------------- | ------ | -------------------------- | -------------------- |
-| `/health`                   | GET    | None                       | Health check         |
-| `/push/user/:userId/:token` | POST   | HMAC token + optional OIDC | Receive Pub/Sub push |
+| Endpoint             | Method | Auth     | Description          |
+| -------------------- | ------ | -------- | -------------------- |
+| `/health`            | GET    | None     | Health check         |
+| `/push/user/:userId` | POST   | OIDC JWT | Receive Pub/Sub push |
 
 ## Development
 
 ### Local Secrets Setup
 
-Copy `.dev.vars.example` to `.dev.vars` and fill in the secret value (must match kiloclaw's `INTERNAL_API_SECRET`):
+Copy `.dev.vars.example` to `.dev.vars` and fill in the secret values:
 
 ```bash
 cp .dev.vars.example .dev.vars
@@ -76,30 +73,20 @@ cloudflared tunnel --url http://localhost:8787
 cd kiloclaw && ./scripts/push-dev.sh kiloclaw-machines-dev
 ```
 
-**Connect Google account** with Pub/Sub setup by passing these env vars to the setup container:
+**Connect Google account** with Pub/Sub setup by passing this env var to the setup container:
 
 ```bash
 GMAIL_PUSH_WORKER_URL=https://<tunnel-hostname>.trycloudflare.com
-INTERNAL_API_SECRET=<value-from-.dev.vars>
 ```
 
 Then enable notifications in the Settings UI and send an email to the connected Gmail account.
 
 ### Quick Smoke Test (no Pub/Sub needed)
 
-Generate an HMAC token and curl the local worker directly:
+Curl the local worker directly (OIDC validation is skipped in local dev when no auth header is present):
 
 ```bash
-# Generate token
-TOKEN=$(node -e "
-  const {createHmac} = require('crypto');
-  const userId = '<your-user-id>';
-  const secret = '<INTERNAL_API_SECRET>';
-  console.log(createHmac('sha256', secret).update(userId).digest('hex').slice(0,32));
-")
-
-# Hit the push endpoint
-curl -X POST "http://localhost:8787/push/user/<your-user-id>/$TOKEN" \
+curl -X POST "http://localhost:8787/push/user/<your-user-id>" \
   -H 'Content-Type: application/json' \
   -d '{"message":{"data":"eyJoaXN0b3J5SWQiOjEyMzR9","messageId":"test-123"}}'
 ```
@@ -112,7 +99,7 @@ If you restart `cloudflared`, update the Pub/Sub subscription to point to the ne
 
 ```bash
 gcloud pubsub subscriptions update gog-gmail-push \
-  --push-endpoint="https://<new-tunnel>.trycloudflare.com/push/user/<userId>/<token>"
+  --push-endpoint="https://<new-tunnel>.trycloudflare.com/push/user/<userId>"
 ```
 
 Use a named tunnel with a stable hostname to avoid this.
@@ -137,15 +124,15 @@ Deploys to: `cloudflare-gmail-push`
 
 ## Secrets (via Secrets Store)
 
-| Secret                | Description                                                      |
-| --------------------- | ---------------------------------------------------------------- |
-| `INTERNAL_API_SECRET` | Shared secret for service binding auth and HMAC token derivation |
+| Secret                | Description                            |
+| --------------------- | -------------------------------------- |
+| `INTERNAL_API_SECRET` | Shared secret for service binding auth |
 
 ## Environment Variables
 
-| Variable        | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `OIDC_AUDIENCE` | Expected audience claim for optional OIDC JWT validation |
+| Variable        | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `OIDC_AUDIENCE` | Expected audience claim for OIDC JWT validation |
 
 ## Service Bindings
 
