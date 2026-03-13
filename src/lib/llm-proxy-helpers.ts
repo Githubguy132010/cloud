@@ -123,12 +123,14 @@ function byokErrorMessage(status: number): string | undefined {
   return byokErrorMessages[status];
 }
 
+export function getMaxTokens(request: GatewayRequest) {
+  return request.kind === 'chat_completions'
+    ? (request.body.max_completion_tokens ?? request.body.max_tokens ?? null)
+    : (request.body.max_output_tokens ?? null);
+}
+
 function estimateTokenCount(request: GatewayRequest) {
-  const maxTokens =
-    request.kind === 'chat_completions'
-      ? (request.body.max_completion_tokens ?? request.body.max_tokens ?? 0)
-      : (request.body.max_output_tokens ?? 0);
-  return Math.round(JSON.stringify(request).length / 4 + maxTokens);
+  return Math.round(JSON.stringify(request).length / 4 + (getMaxTokens(request) ?? 0));
 }
 
 export async function makeErrorReadable({

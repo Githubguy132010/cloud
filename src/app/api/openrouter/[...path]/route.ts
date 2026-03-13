@@ -35,6 +35,7 @@ import {
   temporarilyUnavailableResponse,
   usageLimitExceededResponse,
   wrapInSafeNextResponse,
+  getMaxTokens,
 } from '@/lib/llm-proxy-helpers';
 import { getBalanceAndOrgSettings } from '@/lib/organizations/organization-usage';
 import { ENABLE_TOOL_REPAIR, repairTools } from '@/lib/tool-calling';
@@ -282,10 +283,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       : Promise.resolve(null);
 
   // Large responses may run longer than the 800s serverless function timeout.
-  const requestMaxTokens =
-    requestBodyParsed.kind === 'chat_completions'
-      ? requestBodyParsed.body.max_tokens
-      : requestBodyParsed.body.max_output_tokens;
+  const requestMaxTokens = getMaxTokens(requestBodyParsed);
   if (requestMaxTokens && requestMaxTokens > MAX_TOKENS_LIMIT) {
     console.warn(`SECURITY: Max tokens limit exceeded: ${user.id}`, {
       maxTokens: requestMaxTokens,
@@ -315,10 +313,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     provider: provider.id,
     requested_model: originalModelIdLowerCased,
     promptInfo,
-    max_tokens:
-      requestBodyParsed.kind === 'chat_completions'
-        ? (requestBodyParsed.body.max_tokens ?? null)
-        : (requestBodyParsed.body.max_output_tokens ?? null),
+    max_tokens: getMaxTokens(requestBodyParsed),
     has_middle_out_transform:
       requestBodyParsed.kind === 'chat_completions'
         ? (requestBodyParsed.body.transforms?.includes('middle-out') ?? false)
