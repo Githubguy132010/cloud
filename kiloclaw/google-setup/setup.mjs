@@ -218,12 +218,36 @@ if (projectChoice === '2') {
 
   console.log(`\nCreating project "${projectId}"...`);
   try {
-    await runCommand('gcloud', ['projects', 'create', projectId, '--set-as-default']);
+    execFileSync('gcloud', ['projects', 'create', projectId, '--set-as-default'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     console.log('Project created.\n');
-  } catch {
-    console.error(`Failed to create project "${projectId}". It may already exist.`);
-    console.error('Try a different name, or choose option 2 to use an existing project.');
-    process.exit(1);
+  } catch (err) {
+    const errOutput = err.stderr?.toString() ?? err.message;
+    if (errOutput.includes('Terms of Service')) {
+      console.log('');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('  You need to accept the Google Cloud Terms of Service first.');
+      console.log('');
+      console.log('  Open: https://console.cloud.google.com');
+      console.log('  Sign in and accept the terms, then come back here.');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+      await ask('Press Enter when done...');
+      try {
+        execFileSync('gcloud', ['projects', 'create', projectId, '--set-as-default'], {
+          stdio: 'inherit',
+        });
+        console.log('Project created.\n');
+      } catch {
+        console.error(`Failed to create project "${projectId}" after accepting terms.`);
+        console.error('Try a different name, or choose option 2 to use an existing project.');
+        process.exit(1);
+      }
+    } else {
+      console.error(`Failed to create project "${projectId}". It may already exist.`);
+      console.error('Try a different name, or choose option 2 to use an existing project.');
+      process.exit(1);
+    }
   }
 }
 
@@ -243,6 +267,8 @@ console.log('APIs enabled.\n');
 const consentUrl = `https://console.cloud.google.com/auth/overview?project=${projectId}`;
 const credentialsUrl = `https://console.cloud.google.com/apis/credentials?project=${projectId}`;
 
+const audienceUrl = `https://console.cloud.google.com/auth/audience?project=${projectId}`;
+
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log('  Configure OAuth consent screen');
 console.log('');
@@ -252,6 +278,17 @@ console.log('  3. App name: "KiloClaw", User support email: your email');
 console.log('  4. Audience: select "External"');
 console.log('  5. Contact email: your email');
 console.log('  6. Finish and click "Create"');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+await ask('Press Enter when done...');
+
+console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('  Add yourself as a test user');
+console.log('');
+console.log(`  1. Open: ${audienceUrl}`);
+console.log(`  2. Under "Test users", click "Add users"`);
+console.log(`  3. Enter: ${gcloudAccount}`);
+console.log('  4. Click "Save"');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
 await ask('Press Enter when done...');
@@ -347,6 +384,13 @@ try {
 const userEmail = gcloudAccount;
 console.log(`\nAuthorizing ${userEmail} with gog...`);
 console.log('A browser window will open for you to authorize Google Workspace access.\n');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('  When the browser opens:');
+console.log('  1. Google will warn "Google hasn\'t verified this app"');
+console.log('     → Click "Continue"');
+console.log('  2. Select ALL permissions (check every box)');
+console.log('  3. Click "Continue"');
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
 try {
   await runCommand('gog', [
@@ -427,8 +471,6 @@ console.log('Credentials sent to your kiloclaw instance.');
 if (userEmail) {
   console.log(`Connected account: ${userEmail}`);
 }
-console.log('\nYour bot can now use Gmail, Calendar, Drive, Docs, Sheets, and more.');
-console.log('Redeploy your kiloclaw instance to activate.');
 
 // ---------------------------------------------------------------------------
 // Gmail Pub/Sub setup (for push notifications)
@@ -460,7 +502,36 @@ try {
   );
   console.log('Publisher role granted.');
 } catch (err) {
-  console.warn('Warning: Could not grant publisher role:', err.message);
+  const errOutput = err.stderr?.toString() ?? err.message;
+  if (errOutput.includes('allowedPolicyMemberDomains')) {
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  Your GCP organization restricts external service accounts.');
+    console.log('  Gmail push notifications require this binding.');
+    console.log('');
+    console.log('  Fix it in the Cloud Console:');
+    console.log(`  1. Open: https://console.cloud.google.com/iam-admin/orgpolicies/iam-allowedPolicyMemberDomains?project=${projectId}`);
+    console.log('  2. Click "Manage Policy"');
+    console.log('  3. Under "Policy source", select "Override parent\'s policy"');
+    console.log('  4. Under "Policy enforcement", select "Replace"');
+    console.log('  5. Click "Add a rule" → set to "Allow All"');
+    console.log('  6. Click "Set Policy"');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    await ask('Press Enter when done...');
+    try {
+      execSync(
+        'gcloud pubsub topics add-iam-policy-binding gog-gmail-watch ' +
+        '--member="serviceAccount:gmail-api-push@system.gserviceaccount.com" ' +
+        '--role="roles/pubsub.publisher" --quiet',
+        { stdio: 'pipe' }
+      );
+      console.log('Publisher role granted.');
+    } catch (retryErr) {
+      console.warn('Warning: Still could not grant publisher role. Gmail push notifications may not work.');
+    }
+  } else {
+    console.warn('Warning: Could not grant publisher role:', err.message);
+  }
 }
 
 // Step 3: Get GCP project ID for topic path
@@ -473,12 +544,58 @@ let pushUserId;
 try {
   const [, jwtPayload] = token.split('.');
   const claims = JSON.parse(Buffer.from(jwtPayload, 'base64url').toString());
-  pushUserId = claims.sub;
+  pushUserId = claims.kiloUserId ?? claims.sub;
 } catch {
-  console.warn('Warning: Could not extract userId from token, skipping Pub/Sub setup.');
+  // fall through
 }
 
-if (pushUserId) {
+if (!pushUserId) {
+  console.error('Error: Could not extract userId from token. Pub/Sub subscription not created.');
+  console.error('Gmail push notifications will not work.');
+  process.exit(1);
+}
+
+{
+  // Create a project-level service account for Pub/Sub push OIDC auth.
+  // Each user's GCP project gets its own SA — the worker validates
+  // issuer + audience only (not the SA email).
+  const pushSaName = 'gmail-push';
+  const pushSaEmail = `${pushSaName}@${gcpProject}.iam.gserviceaccount.com`;
+  console.log(`Creating push auth service account ${pushSaEmail}...`);
+  try {
+    execSync(
+      `gcloud iam service-accounts create ${pushSaName} ` +
+      `--display-name="Gmail push notification auth" --quiet`,
+      { stdio: 'pipe' }
+    );
+    console.log('Service account created.');
+  } catch (saErr) {
+    const saOutput = saErr.stderr?.toString() ?? saErr.message;
+    if (saOutput.includes('already exists')) {
+      console.log('Service account already exists (ok).');
+    } else {
+      console.warn('Warning: Could not create service account:', saOutput);
+    }
+  }
+
+  // Grant the Pub/Sub service agent permission to create OIDC tokens for the SA
+  console.log('Granting Pub/Sub token creator role...');
+  try {
+    const projectNumber = execSync(
+      `gcloud projects describe ${gcpProject} --format="value(projectNumber)"`,
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim();
+    execSync(
+      `gcloud iam service-accounts add-iam-policy-binding ${pushSaEmail} ` +
+      `--member="serviceAccount:service-${projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com" ` +
+      `--role="roles/iam.serviceAccountTokenCreator" --quiet`,
+      { stdio: 'pipe' }
+    );
+    console.log('Token creator role granted.');
+  } catch (tokenErr) {
+    console.warn('Warning: Could not grant token creator role:', tokenErr.stderr?.toString() ?? tokenErr.message);
+  }
+
   const subscriptionName = `gog-gmail-push-${pushUserId.slice(0, 8)}`;
   // Audience must exactly match the worker's OIDC_AUDIENCE env var.
   // Default matches prod; override via OIDC_AUDIENCE env var for dev.
@@ -491,26 +608,32 @@ if (pushUserId) {
       `gcloud pubsub subscriptions create ${subscriptionName} ` +
       `--topic=gog-gmail-watch ` +
       `--push-endpoint="${pushEndpoint}" ` +
-      `--push-auth-service-account=gmail-api-push@system.gserviceaccount.com ` +
+      `--push-auth-service-account="${pushSaEmail}" ` +
       `--push-auth-token-audience="${oidcAudience}" ` +
       `--ack-deadline=30 --quiet`,
       { stdio: 'pipe' }
     );
     console.log('Push subscription created.');
-  } catch {
-    // Subscription may already exist — update it
-    try {
-      execSync(
-        `gcloud pubsub subscriptions update ${subscriptionName} ` +
-        `--push-endpoint="${pushEndpoint}" ` +
-        `--push-auth-service-account=gmail-api-push@system.gserviceaccount.com ` +
-        `--push-auth-token-audience="${oidcAudience}" ` +
-        `--quiet`,
-        { stdio: 'pipe' }
-      );
-      console.log('Push subscription updated.');
-    } catch (err) {
-      console.warn('Warning: Could not create/update push subscription:', err.message);
+  } catch (createErr) {
+    const createOutput = createErr.stderr?.toString() ?? createErr.message;
+    if (createOutput.includes('ALREADY_EXISTS')) {
+      // Subscription exists — update it
+      try {
+        execSync(
+          `gcloud pubsub subscriptions update ${subscriptionName} ` +
+          `--push-endpoint="${pushEndpoint}" ` +
+          `--push-auth-service-account="${pushSaEmail}" ` +
+          `--push-auth-token-audience="${oidcAudience}" ` +
+          `--quiet`,
+          { stdio: 'pipe' }
+        );
+        console.log('Push subscription updated.');
+      } catch (updateErr) {
+        console.error('Error: Could not update push subscription:', updateErr.stderr?.toString() ?? updateErr.message);
+      }
+    } else {
+      console.error('Error: Could not create push subscription:');
+      console.error(createOutput);
     }
   }
 
@@ -529,4 +652,6 @@ if (pushUserId) {
   }
 }
 
-console.log('\nGmail push notification setup complete.');
+console.log('\nSetup complete!');
+console.log('Your bot can now use Gmail, Calendar, Drive, Docs, Sheets, and more.');
+console.log('Redeploy your kiloclaw instance to activate.');

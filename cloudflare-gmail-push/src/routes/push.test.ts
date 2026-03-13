@@ -63,10 +63,10 @@ describe('POST /push/user/:userId', () => {
     expect(res.status).toBe(401);
   });
 
-  it('passes correct audience and allowed email to OIDC validator', async () => {
+  it('passes correct audience to OIDC validator (no email check)', async () => {
     mockValidateOidc.mockResolvedValue({
       valid: true,
-      email: 'gmail-api-push@system.gserviceaccount.com',
+      email: 'gmail-push@my-project.iam.gserviceaccount.com',
     });
     const { app } = createApp();
 
@@ -78,8 +78,7 @@ describe('POST /push/user/:userId', () => {
 
     expect(mockValidateOidc).toHaveBeenCalledWith(
       'Bearer valid-token',
-      'https://test-audience.example.com',
-      'gmail-api-push@system.gserviceaccount.com'
+      'https://test-audience.example.com'
     );
   });
 

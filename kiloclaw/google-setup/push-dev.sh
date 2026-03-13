@@ -23,6 +23,10 @@ docker buildx build \
   "$SCRIPT_DIR"
 
 echo ""
+echo "Pulling latest image locally..."
+docker pull "$IMAGE:$TAG"
+
+echo ""
 echo "Done. Run with:"
 echo "  docker run -it --network host $IMAGE:$TAG --token=\"YOUR_JWT\""
 echo ""
