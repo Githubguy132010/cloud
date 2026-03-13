@@ -27,10 +27,8 @@ Push requests are authenticated via **Google OIDC JWT** (mandatory). The Pub/Sub
 
 ### Local Secrets Setup
 
-Copy `.dev.vars.example` to `.dev.vars` and fill in the secret values:
-
 ```bash
-cp .dev.vars.example .dev.vars
+pnpx wrangler secrets-store secret create 342a86d9e3a94da698e82d0c6e2a36f0 --name INTERNAL_API_SECRET_PROD --scopes workers
 ```
 
 ### Running Tests

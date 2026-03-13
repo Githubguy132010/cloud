@@ -6,6 +6,13 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "placement": { "mode": "smart" },
+  "routes": [
+    {
+      "pattern": "kiloclaw-gmail.kiloapps.io",
+      "zone_name": "kiloapps.io",
+      "custom_domain": true,
+    },
+  ],
   "vars": {
     // Used for OIDC validation when push auth is configured on the Pub/Sub subscription
     "OIDC_AUDIENCE": "https://kiloclaw-gmail.kiloapps.io",
@@ -20,7 +27,7 @@
     {
       "binding": "INTERNAL_API_SECRET",
       "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
-      "secret_name": "INTERNAL_API_SECRET",
+      "secret_name": "INTERNAL_API_SECRET_PROD",
     },
   ],
   "queues": {
