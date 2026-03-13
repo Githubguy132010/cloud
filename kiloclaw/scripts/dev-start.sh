@@ -88,6 +88,18 @@ if [ ! -f "$KILOCLAW_DIR/.dev.vars" ]; then
   cp "$KILOCLAW_DIR/.dev.vars.example" "$KILOCLAW_DIR/.dev.vars"
 fi
 
+# Sync AGENT_ENV_VARS_PRIVATE_KEY from config into .dev.vars
+if [ -n "${AGENT_ENV_VARS_PRIVATE_KEY:-}" ]; then
+  echo "==> Syncing AGENT_ENV_VARS_PRIVATE_KEY from config into .dev.vars..."
+  if grep -q '^AGENT_ENV_VARS_PRIVATE_KEY=' "$KILOCLAW_DIR/.dev.vars"; then
+    sed "s|^AGENT_ENV_VARS_PRIVATE_KEY=.*|AGENT_ENV_VARS_PRIVATE_KEY=$AGENT_ENV_VARS_PRIVATE_KEY|" \
+      "$KILOCLAW_DIR/.dev.vars" > "$KILOCLAW_DIR/.dev.vars.tmp"
+    mv "$KILOCLAW_DIR/.dev.vars.tmp" "$KILOCLAW_DIR/.dev.vars"
+  else
+    echo "AGENT_ENV_VARS_PRIVATE_KEY=$AGENT_ENV_VARS_PRIVATE_KEY" >> "$KILOCLAW_DIR/.dev.vars"
+  fi
+fi
+
 # Check AGENT_ENV_VARS_PRIVATE_KEY is configured
 AGENT_KEY="$(grep '^AGENT_ENV_VARS_PRIVATE_KEY=' "$KILOCLAW_DIR/.dev.vars" | head -1 | sed 's/^[^=]*=//' | sed 's/^"//;s/"$//')"
 if [ -z "$AGENT_KEY" ] || [ "$AGENT_KEY" = "..." ]; then
