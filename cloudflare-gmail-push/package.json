@@ -2,9 +2,8 @@
   "name": "cloudflare-gmail-push",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev --env dev",
-    "deploy:dev": "wrangler deploy --env dev",
-    "deploy:prod": "wrangler deploy",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsgo --noEmit --incremental false",
     "lint": "eslint src/"

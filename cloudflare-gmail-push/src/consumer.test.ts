@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleQueue } from './consumer';
-import type { Env, GmailPushQueueMessage } from './types';
+import type { AppEnv, GmailPushQueueMessage } from './types';
 
 const TEST_USER = 'user123';
 const TEST_PUBSUB_BODY = JSON.stringify({ message: { data: 'dGVzdA==' } });
@@ -21,9 +21,9 @@ function createMockEnv(kiloclawFetch: ReturnType<typeof vi.fn>) {
   return {
     KILOCLAW: { fetch: kiloclawFetch } as unknown as Fetcher,
     OIDC_AUDIENCE: 'https://test-audience.example.com',
-    INTERNAL_API_SECRET: 'test-internal-secret',
+    INTERNAL_API_SECRET: { get: () => Promise.resolve('test-internal-secret') },
     GMAIL_PUSH_QUEUE: {} as unknown as Queue<GmailPushQueueMessage>,
-  } satisfies Env;
+  } satisfies AppEnv;
 }
 
 function createBatch(

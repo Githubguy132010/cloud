@@ -1,20 +1,22 @@
-import type { Env, GmailPushQueueMessage } from './types';
+import type { AppEnv, GmailPushQueueMessage } from './types';
 
 export async function handleQueue(
   batch: MessageBatch<GmailPushQueueMessage>,
-  env: Env
+  env: AppEnv
 ): Promise<void> {
   await Promise.allSettled(batch.messages.map(message => processMessage(message, env)));
 }
 
-async function processMessage(message: Message<GmailPushQueueMessage>, env: Env): Promise<void> {
+async function processMessage(message: Message<GmailPushQueueMessage>, env: AppEnv): Promise<void> {
   const { userId, pubSubBody } = message.body;
 
   try {
+    const internalSecret = await env.INTERNAL_API_SECRET.get();
+
     // Look up machine status via service binding
     const statusRes = await env.KILOCLAW.fetch(
       new Request(`https://kiloclaw/api/platform/status?userId=${encodeURIComponent(userId)}`, {
-        headers: { 'x-internal-api-key': env.INTERNAL_API_SECRET },
+        headers: { 'x-internal-api-key': internalSecret },
       })
     );
 
@@ -41,7 +43,7 @@ async function processMessage(message: Message<GmailPushQueueMessage>, env: Env)
     const tokenRes = await env.KILOCLAW.fetch(
       new Request(
         `https://kiloclaw/api/platform/gateway-token?userId=${encodeURIComponent(userId)}`,
-        { headers: { 'x-internal-api-key': env.INTERNAL_API_SECRET } }
+        { headers: { 'x-internal-api-key': internalSecret } }
       )
     );
 
