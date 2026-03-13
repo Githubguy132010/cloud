@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
-import type { HonoContext } from '../types';
+import type { AppEnv, HonoContext } from '../types';
 import { pushRoute } from './push';
 
 vi.mock('../auth/oidc', () => ({
@@ -22,10 +22,11 @@ function createApp() {
   app.use('*', async (c, next) => {
     c.env = {
       KILOCLAW: {} as unknown as Fetcher,
-      OIDC_AUDIENCE: 'https://test-audience.example.com',
+      OIDC_AUDIENCE: 'https://kiloclaw-gmail.kiloapps.io',
       INTERNAL_API_SECRET: { get: () => Promise.resolve('test-internal-secret') },
       GMAIL_PUSH_QUEUE: mockQueue as unknown as Queue,
-    };
+      IDEMPOTENCY: {} as unknown as DurableObjectNamespace,
+    } as unknown as AppEnv;
     await next();
   });
 
@@ -78,7 +79,7 @@ describe('POST /push/user/:userId', () => {
 
     expect(mockValidateOidc).toHaveBeenCalledWith(
       'Bearer valid-token',
-      `https://test-audience.example.com/push/user/${TEST_USER}`
+      `https://kiloclaw-gmail.kiloapps.io/push/user/${TEST_USER}`
     );
   });
 

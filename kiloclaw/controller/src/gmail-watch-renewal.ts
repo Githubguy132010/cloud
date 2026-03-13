@@ -21,6 +21,10 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 export function startWatchRenewal(account: string, spawn: SpawnFn = defaultSpawn): void {
+  if (initialTimeout !== null || renewalInterval !== null) {
+    stopWatchRenewal();
+  }
+
   const args = ['gmail', 'watch', 'renew', '--account', account];
 
   function renew(): void {

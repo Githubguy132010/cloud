@@ -71,6 +71,17 @@ describe('gmail-watch-renewal', () => {
     expect(spawn).not.toHaveBeenCalled();
   });
 
+  it('double-start does not leak timers', () => {
+    const spawn = vi.fn();
+    startWatchRenewal('user@gmail.com', spawn);
+    startWatchRenewal('user@gmail.com', spawn);
+
+    vi.advanceTimersByTime(60 * 60 * 1000);
+
+    // Should only fire once (second start cancels the first)
+    expect(spawn).toHaveBeenCalledTimes(1);
+  });
+
   it('stopWatchRenewal cancels the repeating interval', () => {
     const spawn = vi.fn();
     startWatchRenewal('user@gmail.com', spawn);

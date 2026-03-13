@@ -40,7 +40,7 @@ function createMockEnv(
   const idFromName = vi.fn().mockReturnValue('do-id');
   const env = {
     KILOCLAW: { fetch: kiloclawFetch } as unknown as Fetcher,
-    OIDC_AUDIENCE: 'https://test-audience.example.com',
+    OIDC_AUDIENCE: 'https://kiloclaw-gmail.kiloapps.io',
     INTERNAL_API_SECRET: { get: () => Promise.resolve('test-internal-secret') },
     GMAIL_PUSH_QUEUE: { send: queueSend } as unknown as Queue<GmailPushQueueMessage>,
     IDEMPOTENCY: {
