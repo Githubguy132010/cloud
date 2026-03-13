@@ -42,12 +42,11 @@ export async function validateOidcToken(
     if (!email) {
       return { valid: false, error: 'Missing email claim' };
     }
-    if (allowedEmail && email !== allowedEmail) {
-      return { valid: false, error: `Unexpected email: ${email}` };
-    }
-
     if (!payload.email_verified) {
       return { valid: false, error: 'Email not verified' };
+    }
+    if (allowedEmail && email !== allowedEmail) {
+      return { valid: false, error: `Unexpected email: ${email}` };
     }
 
     return { valid: true, email };

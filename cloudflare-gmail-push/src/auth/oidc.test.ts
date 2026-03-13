@@ -98,6 +98,21 @@ describe('validateOidcToken', () => {
     }
   });
 
+  it('rejects token with email_verified=false even without allowedEmail', async () => {
+    mockJwtVerify.mockResolvedValue(
+      mockVerifyResult({
+        email: 'any-sa@my-project.iam.gserviceaccount.com',
+        email_verified: false,
+      })
+    );
+
+    const result = await validateOidcToken('Bearer valid-token', 'https://audience.example.com');
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.error).toContain('not verified');
+    }
+  });
+
   it('rejects valid token with wrong email when allowedEmail is set', async () => {
     mockJwtVerify.mockResolvedValue(
       mockVerifyResult({
