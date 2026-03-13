@@ -87,6 +87,7 @@ export type MessageWithReasoning = {
 
 export const GatewayApiKindSchema = z.enum([
   'chat_completions',
+  'embeddings',
   'fim_completions',
   'messages',
   'responses',

@@ -2,12 +2,7 @@ import { NextResponse, type NextResponse as NextResponseType } from 'next/server
 import { type NextRequest } from 'next/server';
 import { isOpenCodeBasedClient, isRooCodeBasedClient, stripRequiredPrefix } from '@/lib/utils';
 import { generateProviderSpecificHash } from '@/lib/providerHash';
-import {
-  extractPromptInfo,
-  extractResponsesPromptInfo,
-  type MicrodollarUsageContext,
-  type PromptInfo,
-} from '@/lib/processUsage';
+import { extractPromptInfo, extractResponsesPromptInfo } from '@/lib/processUsage';
 import { validateFeatureHeader, FEATURE_HEADER } from '@/lib/feature-detection';
 import type {
   OpenRouterChatCompletionRequest,
@@ -70,6 +65,7 @@ import { isActiveReviewPromo } from '@/lib/code-reviews/core/constants';
 import { isKiloAutoModel, resolveAutoModel } from '@/lib/kilo-auto-model';
 import { fixOpenCodeDuplicateReasoning } from '@/lib/providers/fixOpenCodeDuplicateReasoning';
 import type OpenAI from 'openai';
+import type { MicrodollarUsageContext, PromptInfo } from '@/lib/processUsage.types';
 
 export const maxDuration = 800;
 
