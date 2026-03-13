@@ -6,7 +6,6 @@ import { createTimer } from '@/lib/timer';
 import type { OpenAI } from 'openai';
 import { createParser, type EventSourceMessage } from 'eventsource-parser';
 import type {
-  GatewayResponsesRequest,
   OpenRouterChatCompletionRequest,
   OpenRouterGeneration,
 } from './providers/openrouter/types';
@@ -56,7 +55,7 @@ const posthogClient = PostHogClient();
 // because that's what they charge for the BYOK feature. Although we now use upstream_inference_cost, we still do some sanity checks.
 const OPENROUTER_BYOK_COST_MULTIPLIER = 20.0;
 
-export function extractPromptInfo(body: OpenRouterChatCompletionRequest) {
+export function extractPromptInfo(body: OpenRouterChatCompletionRequest): PromptInfo {
   try {
     const messages = body.messages ?? [];
 
@@ -85,16 +84,6 @@ export function extractPromptInfo(body: OpenRouterChatCompletionRequest) {
     });
     return { system_prompt_prefix: '', system_prompt_length: -1, user_prompt_prefix: '' };
   }
-}
-
-export function extractResponsesPromptInfo(body: GatewayResponsesRequest): PromptInfo {
-  const instructions = body.instructions ?? '';
-  const input = typeof body.input === 'string' ? body.input : '';
-  return {
-    system_prompt_prefix: instructions.slice(0, 100),
-    system_prompt_length: instructions.length,
-    user_prompt_prefix: input.slice(0, 100),
-  };
 }
 
 const extractMessageTextContent = (m: Message) =>

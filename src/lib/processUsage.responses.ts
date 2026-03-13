@@ -9,8 +9,10 @@ import type {
   JustTheCostsUsageStats,
   MicrodollarUsageStats,
   NotYetCostedUsageStats,
+  PromptInfo,
   VercelProviderMetaData,
 } from '@/lib/processUsage.types';
+import type { GatewayResponsesRequest } from '@/lib/providers/openrouter/types';
 
 // OpenRouter adds cost fields to the standard Responses API usage object.
 // ref: https://openrouter.ai/docs/use-cases/usage-accounting#response-format
@@ -286,4 +288,14 @@ export function parseResponsesMicrodollarUsageFromString(
 
   const costs = processResponsesApiUsage(usage, providerMetadata, coreProps);
   return { ...coreProps, ...costs };
+}
+
+export function extractResponsesPromptInfo(body: GatewayResponsesRequest): PromptInfo {
+  const instructions = body.instructions ?? '';
+  const input = typeof body.input === 'string' ? body.input : '';
+  return {
+    system_prompt_prefix: instructions.slice(0, 100),
+    system_prompt_length: instructions.length,
+    user_prompt_prefix: input.slice(0, 100),
+  };
 }
