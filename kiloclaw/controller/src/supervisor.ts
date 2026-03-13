@@ -285,8 +285,9 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     ]);
 
     if (child === currentChild) {
+      const exitWaiter = childExitPromise ?? Promise.resolve();
       currentChild.kill('SIGKILL');
-      await (childExitPromise ?? Promise.resolve());
+      await exitWaiter;
     }
   };
 
