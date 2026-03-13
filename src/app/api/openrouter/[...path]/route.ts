@@ -484,7 +484,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       request: requestBodyParsed.body,
       response,
       organizationId,
-      model: originalModelIdLowerCased,
+      model: requestBodyParsed.body.model,
       errorMessage: `${provider.id} returned 402 Payment Required`,
       trackInSentry: true,
     });
@@ -499,7 +499,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       request: requestBodyParsed.body,
       response,
       organizationId,
-      model: originalModelIdLowerCased,
+      model: requestBodyParsed.body.model,
       errorMessage: `${provider.id} returned error ${response.status}`,
       trackInSentry: response.status >= 500,
     });
