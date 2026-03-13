@@ -41,7 +41,7 @@ export function registerGmailPushRoute(
       if (upstream.ok) {
         // 200 = hook delivered, 202 = no new messages (filtered/duplicate/mismatch)
         console.log(`[gmail-push] gog responded ${upstream.status}: ${upstreamBody.slice(0, 500)}`);
-        return c.json({ ok: true, gogStatus: upstream.status }, upstream.status as 200);
+        return c.json({ ok: true, gogStatus: upstream.status }, upstream.status as 200 | 202);
       }
 
       // 4xx = permanently rejected, return 200 so Pub/Sub doesn't retry
