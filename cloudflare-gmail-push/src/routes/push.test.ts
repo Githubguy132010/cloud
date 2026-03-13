@@ -23,7 +23,7 @@ function createApp() {
     c.env = {
       KILOCLAW: {} as unknown as Fetcher,
       OIDC_AUDIENCE: 'https://test-audience.example.com',
-      INTERNAL_API_SECRET: 'test-internal-secret',
+      INTERNAL_API_SECRET: { get: () => Promise.resolve('test-internal-secret') },
       GMAIL_PUSH_QUEUE: mockQueue as unknown as Queue,
     };
     await next();
