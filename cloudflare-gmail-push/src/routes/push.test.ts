@@ -78,7 +78,7 @@ describe('POST /push/user/:userId', () => {
 
     expect(mockValidateOidc).toHaveBeenCalledWith(
       'Bearer valid-token',
-      'https://test-audience.example.com'
+      `https://test-audience.example.com/push/user/${TEST_USER}`
     );
   });
 
