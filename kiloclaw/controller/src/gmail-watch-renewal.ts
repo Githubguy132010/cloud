@@ -14,7 +14,7 @@ let initialTimeout: ReturnType<typeof setTimeout> | null = null;
 let renewalInterval: ReturnType<typeof setInterval> | null = null;
 
 function defaultSpawn(args: string[]): void {
-  execFileSync('gog', args, { stdio: 'pipe' });
+  execFileSync('gog', args, { stdio: 'pipe', timeout: 30_000 });
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
