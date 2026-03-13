@@ -2,9 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Hono } from 'hono';
 import type { HonoContext } from '../types';
 import { pushRoute } from './push';
-import { generatePushToken } from '../auth/push-token';
 
-// Mock the OIDC module
 vi.mock('../auth/oidc', () => ({
   validateOidcToken: vi.fn(),
 }));
@@ -13,22 +11,17 @@ import { validateOidcToken } from '../auth/oidc';
 
 const mockValidateOidc = vi.mocked(validateOidcToken);
 
-const TEST_SECRET = 'test-internal-secret';
 const TEST_USER = 'user123';
-let validToken: string;
 
 function createApp() {
   const app = new Hono<HonoContext>();
-  const mockKiloclaw = {
-    fetch: vi.fn(),
-  };
   const mockQueue = {
     send: vi.fn(),
   };
 
   app.use('*', async (c, next) => {
     c.env = {
-      KILOCLAW: mockKiloclaw as unknown as Fetcher,
+      KILOCLAW: {} as unknown as Fetcher,
       OIDC_AUDIENCE: 'https://test-audience.example.com',
       INTERNAL_API_SECRET: 'test-internal-secret',
       GMAIL_PUSH_QUEUE: mockQueue as unknown as Queue,
@@ -37,31 +30,31 @@ function createApp() {
   });
 
   app.route('/push', pushRoute);
-  return { app, mockKiloclaw, mockQueue };
+  return { app, mockQueue };
 }
 
-describe('POST /push/user/:userId/:token', () => {
-  beforeEach(async () => {
+describe('POST /push/user/:userId', () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    validToken = await generatePushToken(TEST_USER, TEST_SECRET);
   });
 
-  it('rejects invalid push token', async () => {
+  it('rejects request without authorization header', async () => {
+    mockValidateOidc.mockResolvedValue({ valid: false, error: 'Missing authorization header' });
     const { app } = createApp();
 
-    const res = await app.request(`/push/user/${TEST_USER}/badtoken${'0'.repeat(25)}`, {
+    const res = await app.request(`/push/user/${TEST_USER}`, {
       method: 'POST',
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
     });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 
   it('rejects invalid OIDC token', async () => {
     mockValidateOidc.mockResolvedValue({ valid: false, error: 'bad token' });
     const { app } = createApp();
 
-    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
+    const res = await app.request(`/push/user/${TEST_USER}`, {
       method: 'POST',
       headers: { authorization: 'Bearer bad-token' },
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
@@ -70,7 +63,27 @@ describe('POST /push/user/:userId/:token', () => {
     expect(res.status).toBe(401);
   });
 
-  it('enqueues message and returns 200 for valid auth (with OIDC)', async () => {
+  it('passes correct audience and allowed email to OIDC validator', async () => {
+    mockValidateOidc.mockResolvedValue({
+      valid: true,
+      email: 'gmail-api-push@system.gserviceaccount.com',
+    });
+    const { app } = createApp();
+
+    await app.request(`/push/user/${TEST_USER}`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer valid-token' },
+      body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
+    });
+
+    expect(mockValidateOidc).toHaveBeenCalledWith(
+      'Bearer valid-token',
+      'https://test-audience.example.com',
+      'gmail-api-push@system.gserviceaccount.com'
+    );
+  });
+
+  it('enqueues message and returns 200 for valid OIDC', async () => {
     mockValidateOidc.mockResolvedValue({
       valid: true,
       email: 'gmail-api-push@system.gserviceaccount.com',
@@ -78,7 +91,7 @@ describe('POST /push/user/:userId/:token', () => {
     const { app, mockQueue } = createApp();
     const pubSubBody = JSON.stringify({ message: { data: 'dGVzdA==', messageId: '123' } });
 
-    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
+    const res = await app.request(`/push/user/${TEST_USER}`, {
       method: 'POST',
       headers: {
         authorization: 'Bearer valid-token',
@@ -96,31 +109,19 @@ describe('POST /push/user/:userId/:token', () => {
   });
 
   it('rejects oversized payload with 413', async () => {
+    mockValidateOidc.mockResolvedValue({
+      valid: true,
+      email: 'gmail-api-push@system.gserviceaccount.com',
+    });
     const { app, mockQueue } = createApp();
-    const pubSubBody = 'x'.repeat(65_537);
 
-    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
+    const res = await app.request(`/push/user/${TEST_USER}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: pubSubBody,
+      headers: { authorization: 'Bearer valid-token' },
+      body: 'x'.repeat(65_537),
     });
 
     expect(res.status).toBe(413);
     expect(mockQueue.send).not.toHaveBeenCalled();
-  });
-
-  it('proceeds without OIDC auth header (warns but does not reject)', async () => {
-    const { app, mockQueue } = createApp();
-    const pubSubBody = JSON.stringify({ message: { data: 'dGVzdA==' } });
-
-    const res = await app.request(`/push/user/${TEST_USER}/${validToken}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: pubSubBody,
-    });
-
-    expect(res.status).toBe(200);
-    expect(mockValidateOidc).not.toHaveBeenCalled();
-    expect(mockQueue.send).toHaveBeenCalledOnce();
   });
 });
