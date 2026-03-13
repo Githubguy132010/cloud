@@ -9,12 +9,12 @@ import {
   ABUSE_SERVICE_URL,
 } from '@/lib/config.server';
 import { getFraudDetectionHeaders } from '@/lib/utils';
-import type OpenAI from 'openai';
 import type {
   GatewayRequest,
   GatewayResponsesRequest,
   OpenRouterChatCompletionRequest,
 } from '@/lib/providers/openrouter/types';
+import { extractInputItemTextContent } from '@/lib/processUsage.responses';
 import type { AuthProviderId } from '@/lib/auth/provider-metadata';
 import type { FeatureValue } from '@/lib/feature-detection';
 import 'server-only';
@@ -73,20 +73,6 @@ function extractFullPromptsFromChatCompletions(body: OpenRouterChatCompletionReq
   return { systemPrompt, userPrompt };
 }
 
-function extractResponsesInputItemText(item: OpenAI.Responses.ResponseInputItem): string | null {
-  if (!('role' in item) || !('content' in item)) return null;
-  if (item.role !== 'user') return null;
-  const { content } = item;
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter((c): c is OpenAI.Responses.ResponseInputText => c.type === 'input_text')
-      .map(c => c.text)
-      .join('\n');
-  }
-  return null;
-}
-
 function extractFullPromptsFromResponses(body: GatewayResponsesRequest): {
   systemPrompt: string | null;
   userPrompt: string | null;
@@ -99,7 +85,7 @@ function extractFullPromptsFromResponses(body: GatewayResponsesRequest): {
   } else if (Array.isArray(body.input)) {
     userPrompt =
       body.input
-        .map(extractResponsesInputItemText)
+        .map(extractInputItemTextContent)
         .filter((t): t is string => t !== null)
         .at(-1) ?? null;
   }

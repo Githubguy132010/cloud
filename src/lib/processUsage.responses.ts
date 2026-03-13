@@ -288,7 +288,9 @@ export function parseResponsesMicrodollarUsageFromString(
   return { ...coreProps, ...costs };
 }
 
-function extractInputItemTextContent(item: OpenAI.Responses.ResponseInputItem): string | null {
+export function extractInputItemTextContent(
+  item: OpenAI.Responses.ResponseInputItem
+): string | null {
   if (!('role' in item) || !('content' in item)) return null;
   if (item.role !== 'user') return null;
   const { content } = item;
