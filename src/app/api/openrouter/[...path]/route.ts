@@ -272,18 +272,14 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   );
 
   // Start abuse classification early (non-blocking) - we'll await it before creating usage context
-  // TODO: abuse classification for Responses API
-  const classifyPromise =
-    requestBodyParsed.kind === 'chat_completions'
-      ? classifyAbuse(request, requestBodyParsed.body, {
-          kiloUserId: user.id,
-          organizationId,
-          projectId,
-          provider: provider.id,
-          isByok: !!userByok,
-          feature,
-        })
-      : Promise.resolve(null);
+  const classifyPromise = classifyAbuse(request, requestBodyParsed, {
+    kiloUserId: user.id,
+    organizationId,
+    projectId,
+    provider: provider.id,
+    isByok: !!userByok,
+    feature,
+  });
 
   // Large responses may run longer than the 800s serverless function timeout.
   const requestMaxTokens = getMaxTokens(requestBodyParsed);
