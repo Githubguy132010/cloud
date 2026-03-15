@@ -52,7 +52,7 @@ export async function GET(_request: NextRequest): Promise<
         .from(microdollar_usage)
         .where(sql`${microdollar_usage.created_at} >= NOW() - INTERVAL '7 days'`)
         .groupBy(sql`DATE_TRUNC('day', ${microdollar_usage.created_at})`)
-        .orderBy(sql`DATE_TRUNC('day', ${microdollar_usage.created_at})`),
+        .orderBy(sql`DATE_TRUNC('day', ${microdollar_usage.created_at})`)
   );
 
   // Helper function to safely convert BigInt to number

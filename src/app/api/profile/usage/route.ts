@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         .from(microdollar_usage)
         .where(whereClause)
         .groupBy(...groupByClause)
-        .orderBy(...orderByClause),
+        .orderBy(...orderByClause)
   );
 
   return NextResponse.json({

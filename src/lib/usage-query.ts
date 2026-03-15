@@ -33,7 +33,9 @@ export async function timedUsageQuery<T>(
 
   try {
     const result = await params.db.transaction(async tx => {
-      await tx.execute(sql`SET LOCAL statement_timeout = ${String(timeoutMs)}`);
+      // SET doesn't accept parameterized values in PostgreSQL; timeoutMs is
+      // validated as a finite integer above, so raw interpolation is safe here.
+      await tx.execute(sql.raw(`SET LOCAL statement_timeout = '${timeoutMs}'`));
       return queryFn(tx as unknown as DbInstance);
     });
 

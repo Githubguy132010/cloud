@@ -195,7 +195,7 @@ export const organizationsUsageDetailsRouter = createTRPCRouter({
               microdollar_usage.provider,
               microdollar_usage.project_id
             )
-            .orderBy(timeBucket),
+            .orderBy(timeBucket)
       );
 
       // Fill in 0's for missing data
@@ -336,7 +336,7 @@ export const organizationsUsageDetailsRouter = createTRPCRouter({
               kilocode_users.google_user_email,
               ...(groupByModel ? [microdollar_usage.model] : [])
             )
-            .orderBy(sql`DATE(${microdollar_usage.created_at}) DESC`),
+            .orderBy(sql`DATE(${microdollar_usage.created_at}) DESC`)
       );
 
       const daily = usageDetails.map(row => ({
@@ -384,7 +384,7 @@ export const organizationsUsageDetailsRouter = createTRPCRouter({
                 eq(microdollar_usage.organization_id, organizationId),
                 eq(microdollar_usage.model, AUTOCOMPLETE_MODEL)
               )
-            ),
+            )
       );
 
       const metrics = result[0] || { total_cost: 0, request_count: 0, total_tokens: 0 };

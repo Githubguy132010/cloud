@@ -175,7 +175,7 @@ export const userRouter = createTRPCRouter({
               total_tokens: sql<number>`COALESCE(SUM(${microdollar_usage.input_tokens}) + SUM(${microdollar_usage.output_tokens}), 0)::float`,
             })
             .from(microdollar_usage)
-            .where(whereClause),
+            .where(whereClause)
       );
 
       const metrics = result[0] || { total_cost: 0, request_count: 0, total_tokens: 0 };

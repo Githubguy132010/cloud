@@ -302,7 +302,7 @@ export const organizationsRouter = createTRPCRouter({
               eq(microdollar_usage.organization_id, opts.input.organizationId),
               sql`${microdollar_usage.created_at} >= NOW() - INTERVAL '30 days'`
             )
-          ),
+          )
     );
 
     return rows[0];

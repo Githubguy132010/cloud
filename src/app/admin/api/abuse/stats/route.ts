@@ -48,7 +48,7 @@ export async function GET(_request: NextRequest): Promise<
           total_request_count: sql<number>`COUNT(*)`,
         })
         .from(microdollar_usage)
-        .where(sql`${microdollar_usage.created_at} >= NOW() - INTERVAL '1 hour'`),
+        .where(sql`${microdollar_usage.created_at} >= NOW() - INTERVAL '1 hour'`)
   );
 
   const hourlyStats = hourlyResult[0];
@@ -71,7 +71,7 @@ export async function GET(_request: NextRequest): Promise<
           total_tokens: sql<number>`SUM(${microdollar_usage.input_tokens} + ${microdollar_usage.output_tokens})`,
         })
         .from(microdollar_usage)
-        .where(sql`${microdollar_usage.created_at} >= NOW() - INTERVAL '24 hours'`),
+        .where(sql`${microdollar_usage.created_at} >= NOW() - INTERVAL '24 hours'`)
   );
 
   const dailyStats = dailyResult[0];
