@@ -100,14 +100,8 @@ export function deriveBannerState(billing: ClawBillingStatus): ClawBannerState {
 
 export function deriveLockReason(billing: ClawBillingStatus): ClawLockReason {
   if (!billing.hasAccess) {
-    if (billing.trial?.expired) {
-      return billing.instance?.destroyed
-        ? 'trial_expired_instance_destroyed'
-        : 'trial_expired_instance_alive';
-    }
-    if (billing.earlybird && billing.earlybird.daysRemaining <= 0) {
-      return 'earlybird_expired';
-    }
+    // Subscription states checked first — a paid subscription that was canceled
+    // or fell past-due must not be masked by historical trial data.
     if (billing.subscription?.status === 'canceled') {
       return billing.instance?.destroyed
         ? 'subscription_expired_instance_destroyed'
@@ -115,6 +109,14 @@ export function deriveLockReason(billing: ClawBillingStatus): ClawLockReason {
     }
     if (billing.subscription?.status === 'past_due' || billing.subscription?.status === 'unpaid') {
       return 'past_due_grace_exceeded';
+    }
+    if (billing.trial?.expired) {
+      return billing.instance?.destroyed
+        ? 'trial_expired_instance_destroyed'
+        : 'trial_expired_instance_alive';
+    }
+    if (billing.earlybird && billing.earlybird.daysRemaining <= 0) {
+      return 'earlybird_expired';
     }
   }
   return null;
