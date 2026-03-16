@@ -67,7 +67,10 @@ export type GatewayResponsesRequest = SharedGatewayRequestProperties &
 // ref: https://docs.anthropic.com/en/api/messages
 export type AnthropicContentBlock =
   | { type: 'text'; text: string }
-  | { type: 'image'; source: { type: 'base64' | 'url'; media_type?: string; data?: string; url?: string } }
+  | {
+      type: 'image';
+      source: { type: 'base64' | 'url'; media_type?: string; data?: string; url?: string };
+    }
   | { type: 'tool_use'; id: string; name: string; input: unknown }
   | { type: 'tool_result'; tool_use_id: string; content?: string | AnthropicContentBlock[] };
 
@@ -130,7 +133,6 @@ export const GatewayApiKindSchema = z.enum([
   'messages',
   'responses',
 ]);
-
 
 export type GatewayApiKind = z.infer<typeof GatewayApiKindSchema>;
 

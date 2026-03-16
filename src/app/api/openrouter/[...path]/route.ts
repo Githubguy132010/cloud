@@ -434,7 +434,9 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   if (customLlm) {
     if (requestBodyParsed.kind === 'responses' || requestBodyParsed.kind === 'messages') {
       return NextResponse.json(
-        { error: `This model is not yet available on the ${requestBodyParsed.kind === 'messages' ? 'Messages' : 'Responses'} API` },
+        {
+          error: `This model is not yet available on the ${requestBodyParsed.kind === 'messages' ? 'Messages' : 'Responses'} API`,
+        },
         { status: 404 }
       );
     }
