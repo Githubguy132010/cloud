@@ -68,7 +68,11 @@ function ErrorSessionsModal({
   filterParams: FilterParams;
   onClose: () => void;
 }) {
-  const { data: sessions, isLoading } = useCodeReviewErrorSessions({
+  const {
+    data: sessions,
+    isLoading,
+    error: fetchError,
+  } = useCodeReviewErrorSessions({
     ...filterParams,
     errorMessage: error.errorType,
   });
@@ -87,6 +91,10 @@ function ErrorSessionsModal({
           <div className="flex items-center justify-center py-8">
             <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
           </div>
+        ) : fetchError ? (
+          <p className="text-destructive py-4 text-center text-sm">
+            Failed to load sessions: {fetchError.message}
+          </p>
         ) : !sessions?.length ? (
           <p className="text-muted-foreground py-4 text-center text-sm">No sessions found.</p>
         ) : (
@@ -102,8 +110,8 @@ function ErrorSessionsModal({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map(session => (
-                  <TableRow key={session.sessionId ?? session.createdAt}>
+                {sessions.map((session, idx) => (
+                  <TableRow key={session.sessionId ?? `${session.createdAt}-${idx}`}>
                     <TableCell className="font-mono text-xs">
                       {session.sessionId ?? session.cliSessionId ?? '—'}
                     </TableCell>
