@@ -1088,51 +1088,12 @@ export const kiloclawRouter = createTRPCRouter({
     return {
       hasAccess,
       accessReason,
-      trialEligible: !activeInstance && !sub,
+      trialEligible: !activeInstance && !sub && !earlybird,
       trial: trialData,
       subscription: subscriptionData,
       earlybird: earlybirdData,
       instance: instanceData,
     } satisfies ClawBillingStatus;
-  }),
-
-  startTrial: baseProcedure.mutation(async ({ ctx }) => {
-    const [existingSub] = await db
-      .select({ id: kiloclaw_subscriptions.id })
-      .from(kiloclaw_subscriptions)
-      .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id))
-      .limit(1);
-
-    if (existingSub) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'You already have a subscription.' });
-    }
-
-    const [existingInstance] = await db
-      .select({ id: kiloclaw_instances.id })
-      .from(kiloclaw_instances)
-      .where(eq(kiloclaw_instances.user_id, ctx.user.id))
-      .limit(1);
-
-    if (existingInstance) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Not eligible for trial.' });
-    }
-
-    const now = new Date();
-    const trialEndsAt = new Date(now.getTime() + KILOCLAW_TRIAL_DURATION_DAYS * 86_400_000);
-    // Use onConflictDoNothing so concurrent double-submits don't 500
-    // on the unique user_id constraint.
-    await db
-      .insert(kiloclaw_subscriptions)
-      .values({
-        user_id: ctx.user.id,
-        plan: 'trial',
-        status: 'trialing',
-        trial_started_at: now.toISOString(),
-        trial_ends_at: trialEndsAt.toISOString(),
-      })
-      .onConflictDoNothing({ target: kiloclaw_subscriptions.user_id });
-
-    return { success: true };
   }),
 
   createSubscriptionCheckout: baseProcedure

@@ -1,16 +1,12 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useTRPC } from '@/lib/trpc/utils';
-
-type WelcomePageProps = {
-  trialEligible: boolean;
-};
 
 const COMMIT_FEATURES = ['Best value', '64% savings vs Standard', 'Save $96 over 6 months'];
 const STANDARD_FEATURES = ['Cancel anytime', 'No commitment', 'Pay monthly'];
@@ -92,22 +88,9 @@ function PlanCard({ plan, isPending, onSubscribe }: PlanCardProps) {
   );
 }
 
-export function WelcomePage({ trialEligible }: WelcomePageProps) {
+export function WelcomePage() {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const startTrialMutation = useMutation(trpc.kiloclaw.startTrial.mutationOptions());
   const checkoutMutation = useMutation(trpc.kiloclaw.createSubscriptionCheckout.mutationOptions());
-
-  async function handleStartTrial() {
-    try {
-      await startTrialMutation.mutateAsync();
-      void queryClient.invalidateQueries({
-        queryKey: trpc.kiloclaw.getBillingStatus.queryKey(),
-      });
-    } catch {
-      toast.error('Failed to start trial. Please try again.');
-    }
-  }
 
   async function handleSubscribe(plan: 'commit' | 'standard') {
     try {
@@ -120,47 +103,27 @@ export function WelcomePage({ trialEligible }: WelcomePageProps) {
     }
   }
 
-  const anyPending = startTrialMutation.isPending || checkoutMutation.isPending;
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="mb-10 text-center">
         <h1 className="text-foreground text-3xl font-bold">Welcome to KiloClaw 🦀</h1>
         <p className="text-muted-foreground mt-3 max-w-lg text-lg">
-          {trialEligible
-            ? 'Choose a plan to get started, or try it free first.'
-            : 'Choose a plan to get started with KiloClaw.'}
+          Choose a plan to get started with KiloClaw.
         </p>
       </div>
 
       <div className="flex flex-wrap items-stretch justify-center gap-6">
         <PlanCard
           plan="commit"
-          isPending={anyPending}
+          isPending={checkoutMutation.isPending}
           onSubscribe={() => handleSubscribe('commit')}
         />
         <PlanCard
           plan="standard"
-          isPending={anyPending}
+          isPending={checkoutMutation.isPending}
           onSubscribe={() => handleSubscribe('standard')}
         />
       </div>
-
-      {trialEligible && (
-        <div className="mt-8 text-center">
-          <Button
-            onClick={handleStartTrial}
-            disabled={anyPending}
-            variant="link"
-            className="text-base font-semibold"
-          >
-            {startTrialMutation.isPending ? 'Starting trial…' : 'Start free trial'}
-          </Button>
-          <p className="text-muted-foreground mt-1 text-sm">
-            30 days free · No credit card required · Pick a plan when you&apos;re ready
-          </p>
-        </div>
-      )}
     </div>
   );
 }

@@ -15,19 +15,21 @@ capitals, as shown here.
 ## Overview
 
 KiloClaw Billing manages the subscription lifecycle for KiloClaw hosted
-instances. Users access the service through one of three paths: a
-time-limited free trial, a discounted six-month commit plan, or a
-month-to-month standard plan. A legacy earlybird purchase also grants
-access until a fixed expiry date. A periodic background job enforces
-expiry, suspension, and eventual instance destruction when access lapses,
-with email notifications at each stage.
+instances. Users access the service through one of two subscription
+plans: a discounted six-month commit plan or a month-to-month standard
+plan. New users who provision an instance without subscribing first
+automatically receive a 30-day free trial. A legacy earlybird purchase
+also grants access until a fixed expiry date. A periodic background job
+enforces expiry, suspension, and eventual instance destruction when
+access lapses, with email notifications at each stage.
 
 ## Rules
 
 ### Plans
 
-1. The system MUST support exactly three subscription plans: trial,
-   commit, and standard.
+1. The system MUST support exactly two user-facing subscription plans:
+   commit and standard. A trial plan exists internally but is created
+   automatically at provisioning time, not selected by the user.
 2. A trial plan MUST last 30 calendar days from the moment it is created.
 3. A commit plan MUST cover a six-calendar-month billing period.
 4. A standard plan MUST bill on a monthly recurring cycle.
@@ -39,20 +41,17 @@ with email notifications at each stage.
 
 ### Trial Eligibility and Creation
 
-1. The system MUST allow a user to start a trial only if the user has no
-   existing subscription record and no existing instance record
-   (including destroyed instances).
-2. The system MUST reject a trial start request if the user already has a
-   subscription record, regardless of that subscription's status.
-3. When a trial is started, the system MUST record the trial start
+1. A trial MUST only be created automatically when a user provisions an
+   instance for the first time. There is no user-facing "start trial"
+   action; the trial is bootstrapped during provisioning.
+2. The system MUST create a trial only if the user has no existing
+   subscription record and no earlybird purchase. The instance-record
+   check is not needed at provisioning time because provisioning itself
+   creates the instance, but the billing status endpoint includes the
+   instance check as defense in depth.
+3. When a trial is created, the system MUST record the trial start
    timestamp and an end timestamp exactly 30 days later.
 4. The system MUST NOT require a credit card to start a trial.
-5. When a user provisions an instance for the first time and has no
-   subscription record, the system MUST automatically create a trial
-   subscription. This path checks only for an existing subscription
-   record (not instance records), but because user data deletion removes
-   both subscription and instance records atomically, the two paths
-   produce consistent outcomes.
 
 ### Access Control
 
@@ -281,7 +280,8 @@ with email notifications at each stage.
    has access and the reason for that access (trial, subscription, or
    earlybird).
 2. The system MUST report trial eligibility as true only when the user
-   has no instance records at all (including destroyed instances).
+   has no instance records at all (including destroyed instances), no
+   subscription record, and no earlybird purchase.
 3. The billing status MUST include trial data (start, end, days
    remaining, expired flag) when a trial exists or existed.
 4. The billing status MUST include subscription data (plan, status,

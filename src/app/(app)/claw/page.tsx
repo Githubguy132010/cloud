@@ -49,8 +49,7 @@ export default function ClawPage() {
     );
   }
 
-  // Brand-new user with no access and no instance (never provisioned) —
-  // show welcome page without waiting for the KiloClaw Worker.
+  // Brand-new user with no access and no instance (never provisioned).
   // Expired earlybird/trial users must NOT land here even if they never
   // provisioned; they proceed to ClawDashboard where AccessLockedDialog
   // shows the appropriate locked state.
@@ -62,12 +61,30 @@ export default function ClawPage() {
     !billing.earlybird &&
     !billing.trial?.expired;
   if (isNewUser) {
+    // Trial-eligible users go straight to the dashboard which shows
+    // CreateInstanceCard. Provisioning auto-creates the trial via
+    // ensureProvisionAccess — no explicit "start trial" action needed.
+    if (billing.trialEligible) {
+      return <ClawDashboard status={undefined} />;
+    }
+    // Non-trial-eligible new users (e.g. canceled subscription, no
+    // instance) see the plan-selection page.
     return (
       <div className="container m-auto flex w-full max-w-[1140px] flex-col gap-6 p-4 md:p-6">
-        <WelcomePage trialEligible={billing.trialEligible} />
+        <WelcomePage />
       </div>
     );
   }
 
-  return <ClawDashboardLoader />;
+  // Only poll the KiloClaw worker when the user has an instance row.
+  // The kiloclaw_instances row is created during provisioning and never
+  // deleted (destroyed instances keep the row with destroyed_at set), so
+  // billing.instance is null only for users who have never provisioned.
+  // Those users get ClawDashboard with no status, which renders
+  // CreateInstanceCard.
+  if (billing?.instance) {
+    return <ClawDashboardLoader />;
+  }
+
+  return <ClawDashboard status={undefined} />;
 }

@@ -14,7 +14,11 @@ import {
   jest,
 } from '@jest/globals';
 import { db, cleanupDbForTest } from '@/lib/drizzle';
-import { kiloclaw_subscriptions, kiloclaw_instances } from '@kilocode/db/schema';
+import {
+  kiloclaw_subscriptions,
+  kiloclaw_instances,
+  kiloclaw_earlybird_purchases,
+} from '@kilocode/db/schema';
 import { eq } from 'drizzle-orm';
 import { insertTestUser } from '@/tests/helpers/user.helper';
 import type { User } from '@kilocode/db/schema';
@@ -175,49 +179,6 @@ function makeStripeSubscription(params: {
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('startTrial', () => {
-  it('creates trial row and returns success for new user with no subscriptions or instances', async () => {
-    const caller = await createCallerForUser(user.id);
-    const result = await caller.kiloclaw.startTrial();
-
-    expect(result).toEqual({ success: true });
-
-    const [row] = await db
-      .select()
-      .from(kiloclaw_subscriptions)
-      .where(eq(kiloclaw_subscriptions.user_id, user.id))
-      .limit(1);
-
-    expect(row).toBeDefined();
-    expect(row.plan).toBe('trial');
-    expect(row.status).toBe('trialing');
-    expect(row.trial_started_at).toBeTruthy();
-    expect(row.trial_ends_at).toBeTruthy();
-  });
-
-  it('rejects when user already has a subscription row', async () => {
-    await db.insert(kiloclaw_subscriptions).values({
-      user_id: user.id,
-      plan: 'standard',
-      status: 'active',
-      stripe_subscription_id: 'sub_existing',
-    });
-
-    const caller = await createCallerForUser(user.id);
-    await expect(caller.kiloclaw.startTrial()).rejects.toThrow('You already have a subscription.');
-  });
-
-  it('rejects when user already has an instance row', async () => {
-    await db.insert(kiloclaw_instances).values({
-      user_id: user.id,
-      sandbox_id: 'sandbox-existing',
-    });
-
-    const caller = await createCallerForUser(user.id);
-    await expect(caller.kiloclaw.startTrial()).rejects.toThrow('Not eligible for trial.');
-  });
-});
-
 describe('getBillingStatus', () => {
   it('returns trialEligible true when user has no instance rows and no subscription', async () => {
     const caller = await createCallerForUser(user.id);
@@ -247,6 +208,19 @@ describe('getBillingStatus', () => {
       plan: 'standard',
       status: 'canceled',
       stripe_subscription_id: 'sub_canceled_old',
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.getBillingStatus();
+
+    expect(result).not.toBeNull();
+    expect(result.trialEligible).toBe(false);
+  });
+
+  it('returns trialEligible false when user has an earlybird purchase', async () => {
+    await db.insert(kiloclaw_earlybird_purchases).values({
+      user_id: user.id,
+      amount_cents: 2500,
     });
 
     const caller = await createCallerForUser(user.id);
