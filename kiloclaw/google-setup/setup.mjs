@@ -553,7 +553,9 @@ if (pushUserId && pushSetupOk) {
     if (saOutput.includes('already exists')) {
       console.log('Service account already exists (ok).');
     } else {
-      console.error('Error: Could not create push auth service account. Gmail push notifications will not work.');
+      console.error(
+        'Error: Could not create push auth service account. Gmail push notifications will not work.'
+      );
       console.error(saOutput);
       pushSetupOk = false;
     }
@@ -695,7 +697,7 @@ console.log(`  Google account connected: ${userEmail}`);
 console.log('  Your bot can now use Gmail, Calendar, Drive, Docs, Sheets, and more.');
 console.log('');
 console.log('  Next steps:');
-console.log('  1. Restart your kiloclaw instance to activate Google services');
+console.log('  1. Redeploy your kiloclaw instance to activate Google services');
 if (pushSetupOk) {
   console.log('  2. Enable Gmail notifications in Settings → Google Account');
 } else {
