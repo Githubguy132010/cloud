@@ -66,11 +66,11 @@ function errorMessage(err: unknown): string {
 }
 
 function approveOk(message: string): ApproveResult {
-  return { success: true as const, message, statusHint: 200 as const };
+  return { success: true, message, statusHint: 200 };
 }
 
 function approveFail(message: string, statusHint: 400 | 500): ApproveResult {
-  return { success: false as const, message, statusHint };
+  return { success: false, message, statusHint };
 }
 
 export const OPENCLAW_BIN = '/usr/local/bin/openclaw';
@@ -90,7 +90,7 @@ function defaultReadConfigImpl(): unknown {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -177,12 +177,18 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
           err && typeof err === 'object' && 'stderr' in err
             ? String(err.stderr).trim()
             : String(err);
-        console.error(`[pairing-cache] ${channels[i]}: ${msg}`);
+        const hadPriorRequests = channelCache.requests.some(r => r.channel === channels[i]);
+        const prefix = hadPriorRequests
+          ? '[pairing-cache] WARNING: dropping stale data for'
+          : '[pairing-cache]';
+        console.error(`${prefix} ${channels[i]}: ${msg}`);
       }
     }
 
     if (anySuccess) {
       channelCache = { requests: allRequests, lastUpdated: nowImpl() };
+    } else if (channels.length > 0) {
+      console.warn('[pairing-cache] channel refresh: all channels failed, cache not updated');
     }
   };
 
@@ -229,11 +235,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
       return approveFail(errorMessage(err), 500);
     }
 
-    try {
-      await refreshChannelPairing();
-    } catch (err) {
-      console.warn('[pairing-cache] post-approve channel refresh failed:', errorMessage(err));
-    }
+    await refreshChannelPairing();
     return approveOk('Pairing approved');
   };
 
@@ -247,11 +249,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
       return approveFail(errorMessage(err), 500);
     }
 
-    try {
-      await refreshDevicePairing();
-    } catch (err) {
-      console.warn('[pairing-cache] post-approve device refresh failed:', errorMessage(err));
-    }
+    await refreshDevicePairing();
     return approveOk('Device approved');
   };
 
@@ -261,15 +259,13 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
     const isPairingLine = PAIRING_KEYWORDS.some(kw => lower.includes(kw));
     if (!isPairingLine) return;
 
-    // Non-sliding debounce: the first trigger in a quiet window starts a 2s timer;
-    // further triggers during that window are ignored.
+    // Fires once after a 2s delay; additional triggers during that window are ignored.
     if (debounceTimer !== null) return;
 
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      void refreshAll().catch(err => {
-        console.error('[pairing-cache] debounced refreshAll failed:', err);
-      });
+      // refreshAll uses Promise.allSettled internally — errors are logged per-refresh
+      void refreshAll();
     }, DEBOUNCE_DELAY_MS);
   };
 
@@ -277,14 +273,11 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
     if (started) return;
     started = true;
 
-    void refreshAll().catch(err => {
-      console.error('[pairing-cache] initial refreshAll failed:', err);
-    });
+    // refreshAll uses Promise.allSettled internally — errors are logged per-refresh
+    void refreshAll();
 
     periodicTimer = setInterval(() => {
-      void refreshAll().catch(err => {
-        console.error('[pairing-cache] periodic refreshAll failed:', err);
-      });
+      void refreshAll();
     }, PERIODIC_INTERVAL_MS);
   };
 

@@ -94,6 +94,60 @@ describe('createPairingCache', () => {
       expect(result.requests[0]).toEqual({ code: 'DEF', id: '2', channel: 'discord' });
     });
 
+    it('logs WARNING prefix when a previously-successful channel fails', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      let callCount = 0;
+      const execImpl = vi.fn<ExecImpl>().mockImplementation((_cmd, args) => {
+        const channel = args[2];
+        callCount++;
+        if (channel === 'telegram' && callCount > 1) {
+          return Promise.reject(new Error('cli down'));
+        }
+        return Promise.resolve({
+          stdout: JSON.stringify({ requests: [{ code: 'ABC', id: '1' }] }),
+          stderr: '',
+        });
+      });
+      const readConfigImpl = vi.fn(() => ({
+        channels: { telegram: { enabled: true, botToken: 'tok' } },
+      }));
+
+      const { cache } = createTestHarness({ execImpl, readConfigImpl });
+
+      // First refresh: telegram succeeds and populates the cache
+      await cache.refreshChannelPairing();
+      expect(cache.getChannelPairing().requests).toHaveLength(1);
+
+      // Second refresh: telegram fails — should log WARNING since it had prior data
+      await cache.refreshChannelPairing();
+
+      const calls = consoleErrorSpy.mock.calls.map(args => String(args[0]));
+      const warnCall = calls.find(msg => msg.includes('WARNING: dropping stale data for'));
+      expect(warnCall).toBeDefined();
+      expect(warnCall).toContain('telegram');
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('logs plain error prefix (no WARNING) when failing channel had no prior data', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const execImpl = vi.fn<ExecImpl>().mockRejectedValue(new Error('cli down'));
+      const readConfigImpl = vi.fn(() => ({
+        channels: { telegram: { enabled: true, botToken: 'tok' } },
+      }));
+
+      const { cache } = createTestHarness({ execImpl, readConfigImpl });
+
+      // First refresh: telegram fails immediately (no prior data)
+      await cache.refreshChannelPairing();
+
+      const calls = consoleErrorSpy.mock.calls.map(args => String(args[0]));
+      const warnCall = calls.find(msg => msg.includes('WARNING'));
+      expect(warnCall).toBeUndefined();
+
+      consoleErrorSpy.mockRestore();
+    });
+
     it('returns cached data on subsequent calls without re-exec', async () => {
       const execImpl = vi.fn<ExecImpl>().mockResolvedValue({
         stdout: JSON.stringify({ requests: [{ code: 'A', id: '1' }] }),
@@ -667,10 +721,10 @@ describe('createPairingCache', () => {
         stdout: JSON.stringify({ requests: [{ code: 'ABC', id: '1' }] }),
         stderr: '',
       });
-      const configWithChannel = {
+      const configWithChannel: unknown = {
         channels: { telegram: { enabled: true, botToken: 'tok' } },
       };
-      const configNoChannels = { channels: {} };
+      const configNoChannels: unknown = { channels: {} };
 
       const readConfigImpl = vi.fn(() => configWithChannel);
       const { cache } = createTestHarness({ execImpl, readConfigImpl });
