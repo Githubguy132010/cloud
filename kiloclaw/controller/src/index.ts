@@ -15,6 +15,7 @@ import { registerGatewayRoutes } from './routes/gateway';
 import { registerConfigRoutes } from './routes/config';
 import { registerEnvRoutes } from './routes/env';
 import { registerGmailPushRoute } from './routes/gmail-push';
+import { registerFileRoutes } from './routes/files';
 import { CONTROLLER_COMMIT, CONTROLLER_VERSION } from './version';
 import { writeKiloCliConfig } from './kilo-cli-config';
 import { writeGogCredentials } from './gog-credentials';
@@ -185,6 +186,7 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
   registerConfigRoutes(app, supervisor, config.expectedToken);
   registerEnvRoutes(app, supervisor, config.expectedToken);
   registerGmailPushRoute(app, gmailWatchSupervisor, config.expectedToken);
+  registerFileRoutes(app, config.expectedToken, '/root/.openclaw');
   app.all(
     '*',
     createHttpProxy({
