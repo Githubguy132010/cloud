@@ -2,6 +2,7 @@ import 'server-only';
 
 import type Stripe from 'stripe';
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm';
+import { addMonths } from 'date-fns';
 
 import { db } from '@/lib/drizzle';
 import {
@@ -10,13 +11,9 @@ import {
   kiloclaw_email_log,
 } from '@kilocode/db/schema';
 import type { KiloClawSubscriptionStatus } from '@kilocode/db/schema-types';
-import {
-  getClawPlanForStripePriceId,
-  getStripePriceIdForClawPlan,
-} from '@/lib/kiloclaw/stripe-price-ids.server';
+import { getClawPlanForStripePriceId } from '@/lib/kiloclaw/stripe-price-ids.server';
 import { sentryLogger } from '@/lib/utils.server';
 import { KiloClawInternalClient } from '@/lib/kiloclaw/kiloclaw-internal-client';
-import { client as stripe } from '@/lib/stripe-client';
 
 const logInfo = sentryLogger('kiloclaw-stripe', 'info');
 const logWarning = sentryLogger('kiloclaw-stripe', 'warning');
@@ -195,9 +192,27 @@ export async function handleKiloClawSubscriptionCreated(params: {
     // must not trigger auto-resume for the current subscription.
     wasSuspended = !!existingRow?.suspended_at;
 
+    // For commit plans, derive commit_ends_at. If the subscription has a
+    // delayed-billing trial_end, the 6-month commit term starts after the
+    // trial boundary, not at subscription creation time.
+    const commitEndsAt =
+      plan === 'commit'
+        ? addMonths(
+            subscription.trial_end
+              ? new Date(subscription.trial_end * 1000)
+              : periods.current_period_start
+                ? new Date(periods.current_period_start)
+                : new Date(),
+            6
+          ).toISOString()
+        : null;
+
     // Upsert: if trial row exists, upgrade it; otherwise insert new row.
-    // For commit plans, commit_ends_at is computed after schedule creation
-    // (current_period_end may only be the delayed-billing trial boundary).
+    // Always use the freshly computed commitEndsAt — the stale-subscription
+    // guard above already rejects replays for superseded subscriptions, so
+    // on conflict the incoming subscription is either identical (safe to
+    // overwrite with the same value) or a legitimate re-subscription after
+    // cancellation (must not inherit the old commit boundary).
     await tx
       .insert(kiloclaw_subscriptions)
       .values({
@@ -208,7 +223,7 @@ export async function handleKiloClawSubscriptionCreated(params: {
         cancel_at_period_end: subscription.cancel_at_period_end,
         current_period_start: periods.current_period_start,
         current_period_end: periods.current_period_end,
-        commit_ends_at: plan === 'commit' ? periods.current_period_end : null,
+        commit_ends_at: commitEndsAt,
       })
       .onConflictDoUpdate({
         target: kiloclaw_subscriptions.user_id,
@@ -219,13 +234,7 @@ export async function handleKiloClawSubscriptionCreated(params: {
           cancel_at_period_end: subscription.cancel_at_period_end,
           current_period_start: periods.current_period_start,
           current_period_end: periods.current_period_end,
-          // Preserve existing commit_ends_at on conflict (e.g. webhook replay after
-          // the schedule already set the real six-month boundary). The schedule
-          // creation below will overwrite this with the authoritative value.
-          commit_ends_at:
-            plan === 'commit'
-              ? sql`COALESCE(${kiloclaw_subscriptions.commit_ends_at}, ${periods.current_period_end})`
-              : null,
+          commit_ends_at: commitEndsAt,
           // Reset delinquency/suspension state from a previous subscription so
           // the new subscription gets a full 14-day grace period on first failure.
           past_due_since: null,
@@ -233,89 +242,6 @@ export async function handleKiloClawSubscriptionCreated(params: {
           destruction_deadline: null,
         },
       });
-
-    // For commit plan: create schedule for auto-transition to standard after commit period.
-    // Guard against webhook replay: skip if a schedule already exists for this subscription.
-    if (plan === 'commit') {
-      const [existingRow] = await tx
-        .select({ stripe_schedule_id: kiloclaw_subscriptions.stripe_schedule_id })
-        .from(kiloclaw_subscriptions)
-        .where(eq(kiloclaw_subscriptions.user_id, kiloUserId))
-        .limit(1);
-
-      if (existingRow?.stripe_schedule_id) {
-        logInfo('Skipping schedule creation — schedule already exists (likely webhook replay)', {
-          stripe_event_id: eventId,
-          stripe_subscription_id: subscription.id,
-          existing_schedule_id: existingRow.stripe_schedule_id,
-        });
-      } else {
-        try {
-          const commitPriceId = getStripePriceIdForClawPlan('commit');
-          const standardPriceId = getStripePriceIdForClawPlan('standard');
-
-          const schedule = await stripe.subscriptionSchedules.create({
-            from_subscription: subscription.id,
-          });
-
-          // Preserve the initial phase from from_subscription (which may include a
-          // delayed-billing trial_end period) so prelaunch trial days are not
-          // deducted from the 6-month commit term.
-          // Use Stripe's duration API for the commit phase to get exact calendar
-          // months (matching switchPlan and renewCommit) instead of a 180-day
-          // approximation.
-          const currentPhase = schedule.phases[0];
-
-          const updatedSchedule = await stripe.subscriptionSchedules.update(schedule.id, {
-            end_behavior: 'release',
-            phases: [
-              ...(currentPhase
-                ? [
-                    {
-                      items: [{ price: commitPriceId }],
-                      start_date: currentPhase.start_date,
-                      end_date: currentPhase.end_date,
-                    },
-                  ]
-                : []),
-              {
-                items: [{ price: commitPriceId }],
-                duration: { interval: 'month' as const, interval_count: 6 },
-              },
-              { items: [{ price: standardPriceId }] },
-            ],
-          });
-
-          // Derive commit_ends_at from the schedule's resolved phases.
-          // The commit phase is the second-to-last phase (before the standard phase).
-          // This is the authoritative end date, not current_period_end which may
-          // only reflect the delayed-billing trial boundary.
-          const commitPhase = updatedSchedule.phases[updatedSchedule.phases.length - 2];
-          const commitEndsAt = commitPhase
-            ? new Date(commitPhase.end_date * 1000).toISOString()
-            : periods.current_period_end;
-
-          await tx
-            .update(kiloclaw_subscriptions)
-            .set({
-              stripe_schedule_id: schedule.id,
-              scheduled_plan: 'standard',
-              scheduled_by: 'auto',
-              commit_ends_at: commitEndsAt,
-            })
-            .where(eq(kiloclaw_subscriptions.user_id, kiloUserId));
-        } catch (scheduleError) {
-          logError('Failed to create commit-to-standard schedule', {
-            stripe_event_id: eventId,
-            stripe_subscription_id: subscription.id,
-            error: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
-          });
-          // Re-throw so the transaction rolls back and the webhook returns a 5xx,
-          // prompting Stripe to retry once the transient error resolves.
-          throw scheduleError;
-        }
-      }
-    }
   });
 
   // Auto-resume: if user was suspended before this re-subscription, start their
@@ -380,15 +306,29 @@ export async function handleKiloClawSubscriptionUpdated(params: {
       cancel_at_period_end: subscription.cancel_at_period_end,
       current_period_start: periods.current_period_start,
       current_period_end: periods.current_period_end,
-      // For commit plans, preserve an existing commit_ends_at (set during subscription
-      // creation, switchPlan, or renewal). If null — e.g. a plan-switch webhook arrived
-      // before the schedule update persisted the boundary — fall back to current_period_end
-      // so downstream code (reactivateSubscription, renewCommit, UI) always has a value.
+      // Commit plan auto-renewal: when the existing commit_ends_at boundary
+      // has passed, advance it forward in 6-month increments until it is in
+      // the future. This fires naturally on monthly renewal webhooks
+      // (subscription.updated events), keeping the subscription on the
+      // commit price indefinitely in 6-month windows.
+      // If commit_ends_at is null (e.g. update webhook arrived before the
+      // creation handler persisted it), fall back to current_period_start
+      // + 6 months to approximate the correct 6-month commit boundary.
       // When leaving commit, clear it.
       ...(plan !== 'commit'
         ? { commit_ends_at: null }
         : {
-            commit_ends_at: sql`COALESCE(${kiloclaw_subscriptions.commit_ends_at}, ${periods.current_period_end})`,
+            commit_ends_at: sql`CASE
+              WHEN ${kiloclaw_subscriptions.commit_ends_at} IS NOT NULL
+                   AND ${kiloclaw_subscriptions.commit_ends_at} < now()
+              THEN ${kiloclaw_subscriptions.commit_ends_at} + interval '6 months'
+                   * CEIL(EXTRACT(EPOCH FROM (now() - ${kiloclaw_subscriptions.commit_ends_at}))
+                          / EXTRACT(EPOCH FROM interval '6 months'))
+              ELSE COALESCE(
+                ${kiloclaw_subscriptions.commit_ends_at},
+                ${periods.current_period_start}::timestamptz + interval '6 months'
+              )
+            END`,
           }),
       // Record when the subscription first entered past_due; clear when recovered.
       // past_due_since drives the 14-day grace period in the billing lifecycle cron
@@ -465,9 +405,9 @@ export async function handleKiloClawSubscriptionDeleted(params: {
 
 /**
  * Handle subscription_schedule.updated for KiloClaw subscriptions.
- * When a schedule completes (commit -> standard transition):
- * - Update plan to 'standard'
- * - Clear schedule tracking fields
+ * Schedules are only created by user-initiated plan switches.
+ * When a schedule completes: apply the scheduled plan transition.
+ * When released/canceled: clear schedule tracking fields without changing plan.
  */
 export async function handleKiloClawScheduleEvent(params: {
   eventId: string;
@@ -504,13 +444,23 @@ export async function handleKiloClawScheduleEvent(params: {
       scheduled_by: null,
     };
 
-    // Only apply the scheduled plan on 'completed' — 'released' fires when
-    // cancelSubscription or cancelPlanSwitch intentionally releases the schedule,
-    // which should NOT change the current plan.
-    if (scheduleStatus === 'completed' && row.scheduled_plan) {
+    // Apply the scheduled plan on terminal statuses. This is safe even for
+    // 'released' because intentional releases (cancelSubscription,
+    // cancelPlanSwitch) clear stripe_schedule_id locally before the webhook
+    // fires, so the WHERE clause below won't match the row. Only natural
+    // schedule releases (end_behavior: 'release' completing all phases) still
+    // have the schedule_id set, meaning the plan transition should be applied.
+    if ((scheduleStatus === 'completed' || scheduleStatus === 'released') && row.scheduled_plan) {
       updateSet.plan = row.scheduled_plan;
       if (row.scheduled_plan === 'standard') {
         updateSet.commit_ends_at = null;
+      } else if (row.scheduled_plan === 'commit') {
+        // Standard → Commit switch released. Derive the first commit
+        // boundary from the Stripe-resolved last phase start_date (the
+        // exact transition moment) + 6 calendar months.
+        const lastPhase = schedule.phases[schedule.phases.length - 1];
+        const transitionDate = lastPhase ? new Date(lastPhase.start_date * 1000) : new Date();
+        updateSet.commit_ends_at = addMonths(transitionDate, 6).toISOString();
       }
     }
 
@@ -525,49 +475,5 @@ export async function handleKiloClawScheduleEvent(params: {
     schedule_id: scheduleId,
     schedule_status: scheduleStatus,
     user_id: row.user_id,
-  });
-}
-
-/**
- * Handle invoice.paid for KiloClaw subscriptions.
- * Used for commit renewal invoices — updates commit_ends_at.
- */
-export async function handleKiloClawInvoicePaid(params: {
-  eventId: string;
-  invoice: Stripe.Invoice;
-}): Promise<void> {
-  const { eventId, invoice } = params;
-
-  // Get the subscription from the invoice's parent
-  const subscriptionUnion = invoice.parent?.subscription_details?.subscription;
-  const subscriptionId = subscriptionUnion
-    ? typeof subscriptionUnion === 'string'
-      ? subscriptionUnion
-      : subscriptionUnion.id
-    : null;
-
-  if (!subscriptionId) return;
-
-  // Find the kiloclaw subscription row
-  const [row] = await db
-    .select({
-      user_id: kiloclaw_subscriptions.user_id,
-      plan: kiloclaw_subscriptions.plan,
-      commit_ends_at: kiloclaw_subscriptions.commit_ends_at,
-    })
-    .from(kiloclaw_subscriptions)
-    .where(eq(kiloclaw_subscriptions.stripe_subscription_id, subscriptionId))
-    .limit(1);
-
-  if (!row) return;
-
-  // The renewCommit mutation already extends commit_ends_at directly.
-  // This handler only logs the event for auditing.
-
-  logInfo('KiloClaw invoice.paid processed', {
-    stripe_event_id: eventId,
-    invoice_id: invoice.id,
-    user_id: row.user_id,
-    plan: row.plan,
   });
 }

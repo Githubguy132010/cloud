@@ -1,7 +1,6 @@
 import 'server-only';
 
 import * as z from 'zod';
-import { addMonths } from 'date-fns';
 import { TRPCError } from '@trpc/server';
 import { baseProcedure, createTRPCRouter, UpstreamApiError } from '@/lib/trpc/init';
 import { generateApiToken, TOKEN_EXPIRY } from '@/lib/tokens';
@@ -228,7 +227,6 @@ const KILOCLAW_STATUS_PAGE_RESOURCE_ID = '8737418';
 const STATUS_PAGE_TIMEOUT_MS = 5_000;
 
 const logStatusPageWarning = sentryLogger('kiloclaw-status-page', 'warning');
-const logBillingWarning = sentryLogger('kiloclaw-billing', 'warning');
 const logBillingError = sentryLogger('kiloclaw-billing', 'error');
 
 async function fetchKiloClawServiceDegraded(): Promise<boolean> {
@@ -1264,111 +1262,6 @@ export const kiloclawRouter = createTRPCRouter({
       .set({ cancel_at_period_end: false })
       .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id));
 
-    // Commit subscriptions: the cancel flow released the commit-to-standard schedule.
-    // Recreate it so the subscription transitions to standard after commit_ends_at.
-    // Skip if commit_ends_at is already in the past — the commit period has elapsed
-    // and Stripe would reject an end_date before start_date.
-    const commitEndDate = sub.commit_ends_at ? new Date(sub.commit_ends_at) : null;
-    const commitStillActive = commitEndDate && commitEndDate.getTime() > Date.now();
-
-    if (sub.plan === 'commit' && commitStillActive && !sub.stripe_schedule_id) {
-      let scheduleId: string | null = null;
-      try {
-        const commitPriceId = getStripePriceIdForClawPlan('commit');
-        const standardPriceId = getStripePriceIdForClawPlan('standard');
-
-        const schedule = await stripe.subscriptionSchedules.create({
-          from_subscription: sub.stripe_subscription_id,
-        });
-        scheduleId = schedule.id;
-
-        const commitEndTimestamp = Math.floor(commitEndDate.getTime() / 1000);
-        const currentPhase = schedule.phases[0];
-        if (currentPhase) {
-          // Preserve the initial phase from from_subscription (which may be a
-          // delayed-billing trial window for prelaunch commit subscriptions) so
-          // reactivation doesn't collapse the deferred start into a priced phase.
-          // This mirrors the handling in handleKiloClawSubscriptionCreated().
-          const initialPhaseEndsBeforeCommit = currentPhase.end_date < commitEndTimestamp;
-
-          await stripe.subscriptionSchedules.update(schedule.id, {
-            end_behavior: 'release',
-            phases: [
-              // Keep the initial phase if it ends before the commit boundary
-              // (i.e. it's a prelaunch delayed-billing phase, not the commit phase itself).
-              ...(initialPhaseEndsBeforeCommit
-                ? [
-                    {
-                      items: [{ price: commitPriceId }],
-                      start_date: currentPhase.start_date,
-                      end_date: currentPhase.end_date,
-                    },
-                  ]
-                : []),
-              {
-                items: [{ price: commitPriceId }],
-                start_date: initialPhaseEndsBeforeCommit
-                  ? currentPhase.end_date
-                  : currentPhase.start_date,
-                end_date: commitEndTimestamp,
-              },
-              { items: [{ price: standardPriceId }] },
-            ],
-          });
-        }
-
-        await db
-          .update(kiloclaw_subscriptions)
-          .set({
-            stripe_schedule_id: schedule.id,
-            scheduled_plan: 'standard',
-            scheduled_by: 'auto',
-          })
-          .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id));
-      } catch (scheduleError) {
-        // Schedule recreation failed. Roll back the reactivation so the user
-        // doesn't end up on a commit plan without the mandatory transition
-        // schedule, which could let the discounted price renew indefinitely.
-        logBillingError(
-          'Failed to recreate commit-to-standard schedule on reactivation — rolling back',
-          {
-            user_id: ctx.user.id,
-            stripe_subscription_id: sub.stripe_subscription_id,
-            error: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
-          }
-        );
-
-        // Release any orphaned schedule that was created before the failure.
-        // subscriptionSchedules.create() attaches the schedule to the subscription;
-        // if we don't release it, Stripe retains a dangling schedule that drifts
-        // from local state (which has no stripe_schedule_id).
-        if (scheduleId) {
-          try {
-            await stripe.subscriptionSchedules.release(scheduleId);
-          } catch (releaseError) {
-            logBillingError('Failed to release orphaned schedule during reactivation rollback', {
-              user_id: ctx.user.id,
-              schedule_id: scheduleId,
-              error: releaseError instanceof Error ? releaseError.message : String(releaseError),
-            });
-          }
-        }
-
-        await stripe.subscriptions.update(sub.stripe_subscription_id, {
-          cancel_at_period_end: true,
-        });
-        await db
-          .update(kiloclaw_subscriptions)
-          .set({ cancel_at_period_end: true })
-          .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id));
-
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Unable to reactivate: failed to restore plan schedule. Please try again.',
-        });
-      }
-    }
-
     return { success: true };
   }),
 
@@ -1411,61 +1304,30 @@ export const kiloclawRouter = createTRPCRouter({
         });
       }
 
-      let commitEndsAt: string | null = null;
-
-      if (input.toPlan === 'commit') {
-        // Standard → Commit: keep current phase until period end, then commit for 6 months, then standard
-        const standardPriceId = getStripePriceIdForClawPlan('standard');
-        const updatedSchedule = await stripe.subscriptionSchedules.update(schedule.id, {
-          end_behavior: 'release',
-          phases: [
-            {
-              items: [{ price: currentPriceId }],
-              start_date: currentPhase.start_date,
-              end_date: currentPhase.end_date,
-            },
-            {
-              items: [{ price: targetPriceId }],
-              duration: { interval: 'month', interval_count: 6 },
-            },
-            { items: [{ price: standardPriceId }] },
-          ],
-        });
-
-        // Derive commit_ends_at from the schedule's resolved phases.
-        // The commit phase is the second-to-last phase (before the final standard phase).
-        const commitPhase = updatedSchedule.phases[updatedSchedule.phases.length - 2];
-        if (commitPhase) {
-          commitEndsAt = new Date(commitPhase.end_date * 1000).toISOString();
-        }
-      } else {
-        // Commit → Standard: keep current phase until period end, then switch
-        await stripe.subscriptionSchedules.update(schedule.id, {
-          end_behavior: 'release',
-          phases: [
-            {
-              items: [{ price: currentPriceId }],
-              start_date: currentPhase.start_date,
-              end_date: currentPhase.end_date,
-            },
-            { items: [{ price: targetPriceId }] },
-          ],
-        });
-      }
-
-      // scheduled_plan represents the FINAL plan after the schedule fully completes.
-      // For standard→commit, the schedule is: standard → commit (6mo) → standard,
-      // so the final plan is 'standard', not 'commit'. The intermediate commit phase
-      // is picked up by subscription.updated via detectPlanFromSubscription.
-      const finalPlan = input.toPlan === 'commit' ? 'standard' : input.toPlan;
+      // Both directions use a 2-phase schedule: current plan until period end,
+      // then the target plan (open-ended, end_behavior: 'release'). When the
+      // final phase starts, Stripe releases the schedule and the subscription
+      // continues on the new price. The plan change is picked up by
+      // subscription.updated via detectPlanFromSubscription, and the schedule
+      // release event clears the tracking fields.
+      await stripe.subscriptionSchedules.update(schedule.id, {
+        end_behavior: 'release',
+        phases: [
+          {
+            items: [{ price: currentPriceId }],
+            start_date: currentPhase.start_date,
+            end_date: currentPhase.end_date,
+          },
+          { items: [{ price: targetPriceId }] },
+        ],
+      });
 
       await db
         .update(kiloclaw_subscriptions)
         .set({
           stripe_schedule_id: schedule.id,
-          scheduled_plan: finalPlan,
+          scheduled_plan: input.toPlan,
           scheduled_by: 'user',
-          ...(commitEndsAt ? { commit_ends_at: commitEndsAt } : {}),
         })
         .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id));
 
@@ -1483,13 +1345,11 @@ export const kiloclawRouter = createTRPCRouter({
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'No pending plan switch to cancel.' });
     }
 
-    // Commit subscriptions have a mandatory auto-transition schedule (commit→standard)
-    // that is inherent to the plan and must not be canceled. Only user-initiated switches
-    // (tracked via scheduled_by='user') may be canceled.
+    // Only user-initiated plan switches may be canceled.
     if (sub.scheduled_by !== 'user') {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'Cannot cancel the mandatory commit-to-standard transition.',
+        message: 'No user-initiated plan switch to cancel.',
       });
     }
 
@@ -1497,138 +1357,6 @@ export const kiloclawRouter = createTRPCRouter({
     await db
       .update(kiloclaw_subscriptions)
       .set({ stripe_schedule_id: null, scheduled_plan: null, scheduled_by: null })
-      .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id));
-
-    return { success: true };
-  }),
-
-  renewCommit: baseProcedure.mutation(async ({ ctx }) => {
-    const stripeCustomerId = ctx.user.stripe_customer_id;
-    if (!stripeCustomerId) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Missing Stripe customer.' });
-    }
-
-    const [sub] = await db
-      .select()
-      .from(kiloclaw_subscriptions)
-      .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id))
-      .limit(1);
-
-    if (!sub?.stripe_subscription_id || sub.plan !== 'commit' || sub.status !== 'active') {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Commit renewal requires an active commit subscription.',
-      });
-    }
-
-    const commitPriceId = getStripePriceIdForClawPlan('commit');
-    const idempotencyKey = `kiloclaw-commit-renew-${sub.id}-${sub.commit_ends_at ?? 'initial'}`;
-
-    try {
-      // Create a draft invoice first, excluding any pre-existing pending items
-      // on this customer so the renewal only charges for the line item below.
-      const invoice = await stripe.invoices.create(
-        {
-          customer: stripeCustomerId,
-          auto_advance: true,
-          pending_invoice_items_behavior: 'exclude',
-        },
-        { idempotencyKey: `${idempotencyKey}-invoice` }
-      );
-      await stripe.invoiceItems.create(
-        {
-          customer: stripeCustomerId,
-          invoice: invoice.id,
-          pricing: { price: commitPriceId },
-          description: 'KiloClaw Commit Renewal — 6 months',
-        },
-        { idempotencyKey: `${idempotencyKey}-item` }
-      );
-      await stripe.invoices.pay(invoice.id, {}, { idempotencyKey: `${idempotencyKey}-pay` });
-    } catch (paymentError) {
-      logBillingWarning('Commit renewal payment failed', { paymentError, userId: ctx.user.id });
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Payment failed. Please update your payment method in the billing portal.',
-      });
-    }
-
-    // Extend commit period by 6 calendar months (addMonths clamps month-end overflow)
-    const currentEnd = sub.commit_ends_at ? new Date(sub.commit_ends_at) : new Date();
-    const newEnd = addMonths(currentEnd, 6);
-
-    // Also extend the Stripe subscription schedule so it doesn't release early.
-    // The schedule may have a prelaunch delayed-billing phase before the commit
-    // phase (e.g. [prelaunch, commit, standard]). We must preserve earlier phases
-    // and only extend the commit phase, otherwise the prelaunch trial boundary
-    // gets collapsed and billing starts immediately.
-    if (sub.stripe_schedule_id) {
-      try {
-        const schedule = await stripe.subscriptionSchedules.retrieve(sub.stripe_schedule_id);
-        if (schedule.status === 'active' || schedule.status === 'not_started') {
-          const standardPriceId = getStripePriceIdForClawPlan('standard');
-          const newEndTs = Math.floor(newEnd.getTime() / 1000);
-
-          // Find the commit phase: last phase before the final standard phase.
-          // Verify it actually uses the commit price before mutating — if the
-          // schedule has already rolled into its final standard phase
-          // (phases.length === 1), the only phase left is standard and we must
-          // not overwrite it with the commit price.
-          const phases = schedule.phases;
-          const commitPhaseIndex = phases.length >= 2 ? phases.length - 2 : phases.length - 1;
-          const commitPhase = phases[commitPhaseIndex];
-
-          const phasePrice = commitPhase?.items[0]?.price;
-          const phasePriceId = typeof phasePrice === 'string' ? phasePrice : phasePrice?.id;
-          const isCommitPhase = phasePriceId === commitPriceId;
-
-          if (commitPhase && isCommitPhase) {
-            const preservedPhases = phases.slice(0, commitPhaseIndex).map(p => ({
-              items: p.items.map(item => ({
-                price: typeof item.price === 'string' ? item.price : item.price.id,
-              })),
-              start_date: p.start_date,
-              end_date: p.end_date,
-            }));
-
-            await stripe.subscriptionSchedules.update(sub.stripe_schedule_id, {
-              end_behavior: 'release',
-              phases: [
-                ...preservedPhases,
-                {
-                  items: [{ price: commitPriceId }],
-                  start_date: commitPhase.start_date,
-                  end_date: newEndTs,
-                },
-                { items: [{ price: standardPriceId }] },
-              ],
-            });
-          } else {
-            logBillingWarning(
-              'Renewal skipped schedule update: commit phase not found at expected index',
-              {
-                user_id: ctx.user.id,
-                stripe_schedule_id: sub.stripe_schedule_id,
-                phasesLength: phases.length,
-                commitPhaseIndex,
-                phasePriceId: phasePriceId ?? 'unknown',
-              }
-            );
-          }
-        }
-      } catch (scheduleError) {
-        // Log but don't fail the renewal — local state is already extended
-        logBillingWarning('Failed to extend Stripe schedule on commit renewal', {
-          user_id: ctx.user.id,
-          stripe_schedule_id: sub.stripe_schedule_id,
-          error: scheduleError instanceof Error ? scheduleError.message : String(scheduleError),
-        });
-      }
-    }
-
-    await db
-      .update(kiloclaw_subscriptions)
-      .set({ commit_ends_at: newEnd.toISOString() })
       .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id));
 
     return { success: true };

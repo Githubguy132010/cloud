@@ -17,11 +17,13 @@ capitals, as shown here.
 KiloClaw Billing manages the subscription lifecycle for KiloClaw hosted
 instances. Users access the service through one of two subscription
 plans: a discounted six-month commit plan or a month-to-month standard
-plan. New users who provision an instance without subscribing first
-automatically receive a 30-day free trial. A legacy earlybird purchase
-also grants access until a fixed expiry date. A periodic background job
-enforces expiry, suspension, and eventual instance destruction when
-access lapses, with email notifications at each stage.
+plan. The commit plan auto-renews for successive six-month periods at
+the same price; users may switch between plans at any time. New users
+who provision an instance without subscribing first automatically
+receive a 30-day free trial. A legacy earlybird purchase also grants
+access until a fixed expiry date. A periodic background job enforces
+expiry, suspension, and eventual instance destruction when access
+lapses, with email notifications at each stage.
 
 ## Rules
 
@@ -94,38 +96,21 @@ access lapses, with email notifications at each stage.
 
 ### Commit Plan Lifecycle
 
-1. When a commit subscription is created, the system MUST create a
-   payment provider schedule with phases: an optional delayed-billing
-   phase, a six-month commit phase, and a standard-plan phase.
-2. The system MUST derive the commit-period end date from the payment
-   provider schedule's resolved phase boundaries, not from the
-   subscription's current billing period.
-3. The system MUST record a scheduled transition to the standard plan
-   upon commit subscription creation.
-4. If schedule creation fails, the system MUST roll back the entire
-   subscription creation transaction so the payment provider can retry.
-5. If a schedule already exists for the subscription (e.g., webhook
-   replay), the system MUST skip schedule creation idempotently.
-6. When the schedule completes, the system MUST update the local plan to
-   the scheduled plan and clear the commit-period end date.
-7. When the schedule is released or canceled (not completed), the system
-   MUST clear the schedule tracking fields but MUST NOT change the
-   current plan.
-
-### Commit Renewal
-
-1. The system MUST allow early renewal only for active commit
-   subscriptions.
-2. On renewal, the system MUST charge the user immediately via a
-   one-off invoice.
-3. On renewal, the system MUST extend the commit-period end date by
-   exactly six calendar months from the current commit-period end.
-4. On renewal, the system SHOULD update the payment provider schedule to
-   reflect the new commit-period end date.
-5. Renewal payment attempts MUST be idempotent for the same subscription
-   and commit-period boundary.
-6. If the renewal payment fails, the system MUST reject the request
-   without modifying the commit-period end date.
+1. A commit subscription MUST remain on the commit price in the payment
+   provider; the system MUST NOT create a schedule to auto-transition
+   the subscription to the standard plan.
+2. When a commit subscription is created, the system MUST record a
+   commit-period end date six calendar months from the billing start.
+   When a delayed-billing period is configured, the six months MUST
+   start from the delayed-billing end date, not from subscription
+   creation.
+3. When a subscription update is received and the commit-period end
+   date is in the past, the system MUST extend it by six calendar
+   months from the previous boundary, keeping the subscription on the
+   commit plan.
+4. When a user-initiated plan-switch schedule completes or is
+   released/canceled, the system MUST apply or clear the schedule
+   tracking fields as appropriate (see Plan Switching).
 
 ### Plan Switching
 
@@ -133,21 +118,23 @@ access lapses, with email notifications at each stage.
    for active subscriptions.
 2. The system MUST reject a switch if the user is already on the
    requested plan.
-3. A switch from standard to commit MUST create a schedule with three
-   phases: current plan until period end, commit for six months,
-   then standard.
+3. A switch from standard to commit MUST create a schedule with two
+   phases: current plan until period end, then commit (open-ended).
 4. A switch from commit to standard MUST create a schedule with two
    phases: current plan until period end, then standard.
 5. For a standard-to-commit switch, the recorded scheduled-plan MUST
-   be standard (the final plan after the full schedule completes), not
-   commit.
-6. The system MUST allow cancellation of user-initiated plan switches.
-7. The system MUST NOT allow cancellation of the mandatory
-   commit-to-standard auto-transition that is inherent to the commit
-   plan.
-8. The system MUST record whether each schedule was created
-   automatically (auto-transition) or by a user action, so the
-   cancellation guard can distinguish the two.
+   be commit.
+6. When a plan-switch schedule reaches a terminal status (completed or
+   released) and the local schedule tracking fields still reference
+   the schedule, the system MUST apply the scheduled plan and update
+   the commit-period end date accordingly. Intentional releases
+   (cancellation or cancel-plan-switch) clear the local schedule
+   reference before the webhook fires, so the schedule event handler
+   MUST NOT match those rows.
+7. When a standard-to-commit switch takes effect, the system MUST set
+   the commit-period end date to six calendar months from the
+   transition date.
+8. The system MUST allow cancellation of user-initiated plan switches.
 
 ### Cancellation and Reactivation
 
@@ -163,13 +150,6 @@ access lapses, with email notifications at each stage.
 5. The system MUST allow reactivation of a subscription that is pending
    cancellation.
 6. On reactivation, the system MUST clear the cancel-at-period-end flag.
-7. On reactivation of a commit subscription whose commit period has not
-   yet elapsed, the system MUST recreate the commit-to-standard
-   schedule. If schedule recreation fails, the system MUST roll back the
-   reactivation (restore cancel-at-period-end) and return an error.
-8. On reactivation of a commit subscription whose commit period has
-   already elapsed, the system MUST NOT attempt to recreate the
-   schedule.
 
 ### Billing Lifecycle Background Job
 
@@ -312,17 +292,12 @@ access lapses, with email notifications at each stage.
 1. When a background job sweep encounters an error for a specific user,
    the system MUST log the error and continue processing remaining
    users.
-2. When a commit schedule creation fails during subscription creation,
-   the system MUST roll back the transaction and return an error to the
-   payment provider so the webhook is retried.
-3. When an instance stop or destroy operation fails during a lifecycle
+2. When an instance stop or destroy operation fails during a lifecycle
    sweep, the system MUST log the failure and proceed with the
    subscription state transition regardless.
-4. When a renewal payment fails, the system MUST return an error message
-   directing the user to update their payment method.
-5. When a schedule release fails during cancellation with an error
+3. When a schedule release fails during cancellation with an error
    indicating the schedule is already released or canceled, the system
    MUST treat this as success and proceed with clearing local state.
-6. When a schedule release fails during cancellation for any other
+4. When a schedule release fails during cancellation for any other
    reason (e.g., transient API error), the system MUST abort the
    cancellation and return an error to the user.

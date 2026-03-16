@@ -422,6 +422,85 @@ describe('handleKiloClawSubscriptionUpdated', () => {
     expect(row.plan).toBe('standard');
   });
 
+  it('auto-extends commit_ends_at by one window when boundary just passed', async () => {
+    const pastCommitEnd = new Date(Date.now() - 86_400_000).toISOString();
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_commit_renew',
+      plan: 'commit',
+      status: 'active',
+      commit_ends_at: pastCommitEnd,
+    });
+
+    const subscription = makeStripeSubscription({
+      id: 'sub_commit_renew',
+      metadata: { type: 'kiloclaw', plan: 'commit', kiloUserId: user.id },
+      status: 'active',
+      priceId: 'price_commit',
+    });
+
+    await handleKiloClawSubscriptionUpdated({
+      eventId: 'evt_test_commit_renew',
+      subscription,
+    });
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.commit_ends_at).not.toBeNull();
+    const extendedEnd = new Date(row.commit_ends_at!);
+    // Result must be in the future
+    expect(extendedEnd.getTime()).toBeGreaterThan(Date.now());
+    // Should be approximately 6 months after the old boundary
+    const oldEnd = new Date(pastCommitEnd);
+    const diffDays = (extendedEnd.getTime() - oldEnd.getTime()) / 86_400_000;
+    expect(diffDays).toBeGreaterThanOrEqual(178);
+    expect(diffDays).toBeLessThanOrEqual(184);
+  });
+
+  it('auto-extends commit_ends_at across multiple windows when far overdue', async () => {
+    // Boundary is ~7 months ago — should advance by 2 windows (12 months) to land in the future
+    const farPastCommitEnd = new Date(Date.now() - 215 * 86_400_000).toISOString();
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_commit_overdue',
+      plan: 'commit',
+      status: 'active',
+      commit_ends_at: farPastCommitEnd,
+    });
+
+    const subscription = makeStripeSubscription({
+      id: 'sub_commit_overdue',
+      metadata: { type: 'kiloclaw', plan: 'commit', kiloUserId: user.id },
+      status: 'active',
+      priceId: 'price_commit',
+    });
+
+    await handleKiloClawSubscriptionUpdated({
+      eventId: 'evt_test_commit_overdue',
+      subscription,
+    });
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.commit_ends_at).not.toBeNull();
+    const extendedEnd = new Date(row.commit_ends_at!);
+    // Result must be in the future — this is the critical assertion
+    expect(extendedEnd.getTime()).toBeGreaterThan(Date.now());
+    // Should have advanced by approximately 12 months (2 x 6-month windows)
+    const oldEnd = new Date(farPastCommitEnd);
+    const diffDays = (extendedEnd.getTime() - oldEnd.getTime()) / 86_400_000;
+    expect(diffDays).toBeGreaterThanOrEqual(360); // ~12 months
+    expect(diffDays).toBeLessThanOrEqual(368);
+  });
+
   it('ignores stale subscription.updated for a superseded subscription', async () => {
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
@@ -500,6 +579,34 @@ describe('handleKiloClawSubscriptionCreated', () => {
     expect(row.status).toBe('active');
   });
 
+  it('sets commit_ends_at for a new commit subscription', async () => {
+    const subscription = makeStripeSubscription({
+      id: 'sub_commit_new',
+      metadata: { type: 'kiloclaw', plan: 'commit', kiloUserId: user.id },
+      status: 'active',
+      priceId: 'price_commit',
+    });
+
+    await handleKiloClawSubscriptionCreated({
+      eventId: 'evt_commit_created',
+      subscription,
+    });
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.stripe_subscription_id).toBe('sub_commit_new');
+    expect(row.plan).toBe('commit');
+    expect(row.status).toBe('active');
+    // commit_ends_at should be set (6 months from period start)
+    expect(row.commit_ends_at).not.toBeNull();
+    // No schedule should be created — commit plans auto-renew
+    expect(stripeMock.subscriptionSchedules.create).not.toHaveBeenCalled();
+  });
+
   it('ignores stale subscription.created when user has a different active subscription', async () => {
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
@@ -533,15 +640,43 @@ describe('handleKiloClawSubscriptionCreated', () => {
 });
 
 describe('cancelSubscription', () => {
-  it('releases schedule and sets cancel_at_period_end for commit subscription', async () => {
+  it('sets cancel_at_period_end for commit subscription without schedule', async () => {
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
       stripe_subscription_id: 'sub_commit',
       plan: 'commit',
       status: 'active',
-      stripe_schedule_id: 'sched_123',
+    });
+
+    stripeMock.subscriptions.update.mockResolvedValue({});
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.cancelSubscription();
+
+    expect(result).toEqual({ success: true });
+    expect(stripeMock.subscriptionSchedules.release).not.toHaveBeenCalled();
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith('sub_commit', {
+      cancel_at_period_end: true,
+    });
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.cancel_at_period_end).toBe(true);
+  });
+
+  it('releases user-initiated plan switch schedule on cancel', async () => {
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_with_switch',
+      plan: 'commit',
+      status: 'active',
+      stripe_schedule_id: 'sched_user',
       scheduled_plan: 'standard',
-      scheduled_by: 'auto',
+      scheduled_by: 'user',
     });
 
     stripeMock.subscriptionSchedules.release.mockResolvedValue({});
@@ -551,10 +686,7 @@ describe('cancelSubscription', () => {
     const result = await caller.kiloclaw.cancelSubscription();
 
     expect(result).toEqual({ success: true });
-    expect(stripeMock.subscriptionSchedules.release).toHaveBeenCalledWith('sched_123');
-    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith('sub_commit', {
-      cancel_at_period_end: true,
-    });
+    expect(stripeMock.subscriptionSchedules.release).toHaveBeenCalledWith('sched_user');
 
     const [row] = await db
       .select()
@@ -575,7 +707,7 @@ describe('cancelSubscription', () => {
       status: 'active',
       stripe_schedule_id: 'sched_gone',
       scheduled_plan: 'standard',
-      scheduled_by: 'auto',
+      scheduled_by: 'user',
     });
 
     stripeMock.subscriptionSchedules.release.mockRejectedValue(
@@ -597,7 +729,7 @@ describe('cancelSubscription', () => {
       status: 'active',
       stripe_schedule_id: 'sched_fail',
       scheduled_plan: 'standard',
-      scheduled_by: 'auto',
+      scheduled_by: 'user',
     });
 
     stripeMock.subscriptionSchedules.release.mockRejectedValue(new Error('Stripe API timeout'));
@@ -620,7 +752,7 @@ describe('cancelSubscription', () => {
 });
 
 describe('reactivateSubscription', () => {
-  it('rolls back when schedule recreation fails for commit subscription', async () => {
+  it('clears cancel_at_period_end for commit subscription', async () => {
     const futureCommitEnd = new Date(Date.now() + 90 * 86_400_000).toISOString();
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
@@ -629,29 +761,29 @@ describe('reactivateSubscription', () => {
       status: 'active',
       cancel_at_period_end: true,
       commit_ends_at: futureCommitEnd,
-      // No schedule — it was released during cancellation
     });
 
-    // First update (clear cancel_at_period_end) succeeds
-    stripeMock.subscriptions.update.mockResolvedValueOnce({});
-    // Schedule create fails
-    stripeMock.subscriptionSchedules.create.mockRejectedValue(new Error('Stripe API error'));
-    // Rollback update (re-set cancel_at_period_end) succeeds
-    stripeMock.subscriptions.update.mockResolvedValueOnce({});
+    stripeMock.subscriptions.update.mockResolvedValue({});
 
     const caller = await createCallerForUser(user.id);
-    await expect(caller.kiloclaw.reactivateSubscription()).rejects.toThrow(
-      'Unable to reactivate: failed to restore plan schedule.'
-    );
+    const result = await caller.kiloclaw.reactivateSubscription();
 
-    // Verify rollback: cancel_at_period_end should be restored to true
+    expect(result).toEqual({ success: true });
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith('sub_reactivate', {
+      cancel_at_period_end: false,
+    });
+    // No schedule creation — commit plans auto-renew without a schedule
+    expect(stripeMock.subscriptionSchedules.create).not.toHaveBeenCalled();
+
     const [row] = await db
       .select()
       .from(kiloclaw_subscriptions)
       .where(eq(kiloclaw_subscriptions.user_id, user.id))
       .limit(1);
 
-    expect(row.cancel_at_period_end).toBe(true);
+    expect(row.cancel_at_period_end).toBe(false);
+    // commit_ends_at preserved (compare as dates to avoid format mismatch)
+    expect(new Date(row.commit_ends_at!).getTime()).toBe(new Date(futureCommitEnd).getTime());
   });
 });
 

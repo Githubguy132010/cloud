@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useTRPC } from '@/lib/trpc/utils';
 
-const COMMIT_FEATURES = ['Best value', '64% savings vs Standard', 'Save $96 over 6 months'];
+const COMMIT_FEATURES = ['Best value', '64% savings vs Standard', 'Auto-renews every 6 months'];
 const STANDARD_FEATURES = ['Cancel anytime', 'No commitment', 'Pay monthly'];
 
 type PlanCardProps = {
@@ -29,36 +29,22 @@ function PlanCard({ plan, isPending, onSubscribe }: PlanCardProps) {
       )}
     >
       {isCommit && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/60">
           RECOMMENDED
         </Badge>
       )}
 
-      <h3 className="text-foreground mb-4 text-center text-xl font-semibold">
+      <h3 className="text-foreground mb-1 text-center text-xl font-semibold">
         {isCommit ? 'Commit Plan' : 'Standard Plan'}
       </h3>
+      <p className="text-muted-foreground mb-4 text-center text-sm">
+        {isCommit ? '6 months' : 'Monthly'}
+      </p>
 
       <div className="mb-6 text-center">
         <div className="text-foreground text-4xl font-bold">
           {isCommit ? '$9' : '$25'}
           <span className="text-muted-foreground text-lg font-normal">/month</span>
-        </div>
-        <div className="mt-1 min-h-[4rem]">
-          {isCommit ? (
-            <>
-              <div className="text-sm text-emerald-400">$54 upfront for 6 months</div>
-              <div className="text-muted-foreground mt-1 text-xs">
-                Reverts to Standard ($25/mo) after 6 months unless you re-commit
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-muted-foreground text-sm">Billed monthly</div>
-              <div className="text-muted-foreground mt-1 text-xs">
-                No long-term commitment required
-              </div>
-            </>
-          )}
         </div>
       </div>
 
@@ -78,7 +64,7 @@ function PlanCard({ plan, isPending, onSubscribe }: PlanCardProps) {
           variant="primary"
           className="w-full py-4 font-semibold"
         >
-          {isPending ? 'Redirecting to Stripe…' : 'Subscribe'}
+          {isPending ? 'Redirecting to Stripe…' : `Subscribe – ${isCommit ? '$54' : '$25'}`}
         </Button>
         <p className="text-muted-foreground mt-2 text-center text-xs">
           You&apos;ll be redirected to Stripe to pay

@@ -1,7 +1,6 @@
 'use client';
 
 import { ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/lib/trpc/utils';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,6 @@ function ActiveSubscriptionCard({
   const queryClient = useQueryClient();
   const switchPlanMutation = useMutation(trpc.kiloclaw.switchPlan.mutationOptions());
   const portalMutation = useMutation(trpc.kiloclaw.createBillingPortalSession.mutationOptions());
-  const renewMutation = useMutation(trpc.kiloclaw.renewCommit.mutationOptions());
   const cancelSwitchMutation = useMutation(trpc.kiloclaw.cancelPlanSwitch.mutationOptions());
 
   const sub = billing.subscription;
@@ -47,17 +45,6 @@ function ActiveSubscriptionCard({
   async function handleManageBilling() {
     const result = await portalMutation.mutateAsync();
     window.location.href = result.url;
-  }
-
-  async function handleRenewCommit() {
-    try {
-      await renewMutation.mutateAsync();
-      void queryClient.invalidateQueries({
-        queryKey: trpc.kiloclaw.getBillingStatus.queryKey(),
-      });
-    } catch {
-      toast.error('Payment failed. Please update your payment method in the billing portal.');
-    }
   }
 
   async function handleCancelSwitch() {
@@ -87,7 +74,7 @@ function ActiveSubscriptionCard({
               <span>Commit period ends:</span>{' '}
               <span className="text-foreground">{formatBillingDate(sub.commitEndsAt)}</span>
             </div>
-            <div className="text-xs">(Transitions to Standard $25/mo after)</div>
+            <div className="text-xs">(Auto-renews for another 6 months)</div>
           </>
         ) : (
           <div>
@@ -104,16 +91,11 @@ function ActiveSubscriptionCard({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {isCommit && (
-          <Button variant="outline" size="sm" onClick={handleRenewCommit}>
-            Renew Early $54
-          </Button>
-        )}
         {hasUserRequestedSwitch ? (
           <Button variant="outline" size="sm" onClick={handleCancelSwitch}>
             Cancel Switch
           </Button>
-        ) : sub.scheduledBy !== 'auto' ? (
+        ) : !sub.scheduledPlan ? (
           <Button variant="outline" size="sm" onClick={handleSwitchPlan}>
             Switch to {otherPlan}
           </Button>

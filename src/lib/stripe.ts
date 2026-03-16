@@ -52,9 +52,7 @@ import {
   handleKiloClawSubscriptionUpdated,
   handleKiloClawSubscriptionDeleted,
   handleKiloClawScheduleEvent,
-  handleKiloClawInvoicePaid,
 } from '@/lib/kiloclaw/stripe-handlers';
-import { invoiceLooksLikeKiloClawByPriceId } from '@/lib/kiloclaw/stripe-invoice-classifier.server';
 import {
   STRIPE_ENTERPRISE_SUBSCRIPTION_PRODUCT_ID,
   STRIPE_TEAMS_SUBSCRIPTION_PRODUCT_ID,
@@ -626,12 +624,6 @@ export async function processStripePaymentEventHook(event: Stripe.Event) {
 
       if (isKiloPassByPriceId) {
         await handleKiloPassInvoicePaid({ eventId: event.id, invoice, stripe: client });
-        break;
-      }
-
-      // KiloClaw invoice.paid — e.g. commit renewal invoices
-      if (invoiceLooksLikeKiloClawByPriceId(invoice)) {
-        await handleKiloClawInvoicePaid({ eventId: event.id, invoice });
         break;
       }
 
