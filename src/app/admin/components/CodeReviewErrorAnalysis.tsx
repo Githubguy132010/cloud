@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatDate } from '@/lib/admin-utils';
+import { CopyButton } from '@/components/admin/CopyButton';
 import { useCodeReviewErrorSessions, type FilterParams } from '@/app/admin/api/code-reviews/hooks';
 
 type CategoryData = {
@@ -113,7 +114,15 @@ function ErrorSessionsModal({
                 {sessions.map((session, idx) => (
                   <TableRow key={session.sessionId ?? `${session.createdAt}-${idx}`}>
                     <TableCell className="font-mono text-xs">
-                      {session.sessionId ?? session.cliSessionId ?? '—'}
+                      {(() => {
+                        const copyableId = session.sessionId ?? session.cliSessionId;
+                        return (
+                          <span className="flex items-center gap-1">
+                            {copyableId ?? '—'}
+                            {copyableId && <CopyButton text={copyableId} label="session ID" />}
+                          </span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-xs">
                       {session.orgId ? (
