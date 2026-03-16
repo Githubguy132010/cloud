@@ -138,16 +138,18 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
   });
 
   let gmailWatchSupervisor: Supervisor | null = null;
+  let googleAccountEmail: string | null = null;
   const hasGogCredentials = Boolean(env.KILOCLAW_GOG_CONFIG_TARBALL);
 
   if (hasGogCredentials) {
-    const googleAccountEmail = env.KILOCLAW_GOOGLE_ACCOUNT_EMAIL;
+    const email = env.KILOCLAW_GOOGLE_ACCOUNT_EMAIL;
     const hooksToken = env.KILOCLAW_HOOKS_TOKEN;
-    if (!googleAccountEmail || !hooksToken) {
+    if (!email || !hooksToken) {
       console.warn(
-        `[controller] KILOCLAW_GOG_CONFIG_TARBALL present but missing: ${!googleAccountEmail ? 'KILOCLAW_GOOGLE_ACCOUNT_EMAIL' : ''} ${!hooksToken ? 'KILOCLAW_HOOKS_TOKEN' : ''}, skipping gmail watch`
+        `[controller] KILOCLAW_GOG_CONFIG_TARBALL present but missing: ${!email ? 'KILOCLAW_GOOGLE_ACCOUNT_EMAIL' : ''} ${!hooksToken ? 'KILOCLAW_HOOKS_TOKEN' : ''}, skipping gmail watch`
       );
     } else {
+      googleAccountEmail = email;
       gmailWatchSupervisor = createSupervisor({
         command: 'gog',
         args: [
@@ -213,9 +215,9 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
   });
 
   await supervisor.start();
-  if (gmailWatchSupervisor) {
+  if (gmailWatchSupervisor && googleAccountEmail) {
     await gmailWatchSupervisor.start();
-    startWatchRenewal(env.KILOCLAW_GOOGLE_ACCOUNT_EMAIL!);
+    startWatchRenewal(googleAccountEmail);
     console.log('[controller] Gmail watch process started');
   }
 
