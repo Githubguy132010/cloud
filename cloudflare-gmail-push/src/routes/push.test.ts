@@ -73,7 +73,7 @@ describe('POST /push/user/:userId', () => {
     expect(res.status).toBe(401);
   });
 
-  it('passes correct audience to OIDC validator', async () => {
+  it('passes audience and allowedEmail to OIDC validator', async () => {
     mockValidateOidc.mockResolvedValue({ valid: true, email: TEST_SA_EMAIL });
     const { app } = createApp();
 
@@ -85,7 +85,8 @@ describe('POST /push/user/:userId', () => {
 
     expect(mockValidateOidc).toHaveBeenCalledWith(
       'Bearer valid-token',
-      `https://kiloclaw-gmail.kiloapps.io/push/user/${TEST_USER}`
+      `https://kiloclaw-gmail.kiloapps.io/push/user/${TEST_USER}`,
+      TEST_SA_EMAIL
     );
   });
 
@@ -114,8 +115,8 @@ describe('POST /push/user/:userId', () => {
 
   it('rejects when OIDC email does not match stored email', async () => {
     mockValidateOidc.mockResolvedValue({
-      valid: true,
-      email: 'attacker-sa@evil-project.iam.gserviceaccount.com',
+      valid: false,
+      error: 'Unexpected email: attacker-sa@evil-project.iam.gserviceaccount.com',
     });
     const { app, mockQueue } = createApp();
 
@@ -125,12 +126,11 @@ describe('POST /push/user/:userId', () => {
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
     });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
     expect(mockQueue.send).not.toHaveBeenCalled();
   });
 
   it('rejects when no OIDC email is stored (null)', async () => {
-    mockValidateOidc.mockResolvedValue({ valid: true, email: TEST_SA_EMAIL });
     const kiloFetch = () =>
       Promise.resolve(
         new Response(JSON.stringify({ gmailPushOidcEmail: null }), {
@@ -148,10 +148,10 @@ describe('POST /push/user/:userId', () => {
 
     expect(res.status).toBe(403);
     expect(mockQueue.send).not.toHaveBeenCalled();
+    expect(mockValidateOidc).not.toHaveBeenCalled();
   });
 
   it('returns 503 when OIDC email lookup fails', async () => {
-    mockValidateOidc.mockResolvedValue({ valid: true, email: TEST_SA_EMAIL });
     const kiloFetch = () => Promise.resolve(new Response('Internal error', { status: 500 }));
     const { app, mockQueue } = createApp(kiloFetch);
 
@@ -163,6 +163,7 @@ describe('POST /push/user/:userId', () => {
 
     expect(res.status).toBe(503);
     expect(mockQueue.send).not.toHaveBeenCalled();
+    expect(mockValidateOidc).not.toHaveBeenCalled();
   });
 
   it('rejects oversized payload with 413', async () => {

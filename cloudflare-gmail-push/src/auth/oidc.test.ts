@@ -12,6 +12,9 @@ import * as jose from 'jose';
 
 const mockJwtVerify = vi.mocked(jose.jwtVerify);
 
+const TEST_AUDIENCE = 'https://audience.example.com';
+const TEST_SA_EMAIL = 'gmail-push@my-project.iam.gserviceaccount.com';
+
 function mockVerifyResult(
   payload: Record<string, unknown>
 ): JWTVerifyResult<unknown> & ResolvedKey {
@@ -29,91 +32,52 @@ describe('validateOidcToken', () => {
   });
 
   it('rejects missing authorization header', async () => {
-    const result = await validateOidcToken(null, 'https://audience.example.com');
+    const result = await validateOidcToken(null, TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
   });
 
   it('rejects non-Bearer scheme', async () => {
-    const result = await validateOidcToken('Basic abc123', 'https://audience.example.com');
+    const result = await validateOidcToken('Basic abc123', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
   });
 
   it('rejects empty token', async () => {
-    const result = await validateOidcToken('Bearer ', 'https://audience.example.com');
+    const result = await validateOidcToken('Bearer ', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
   });
 
   it('accepts valid token with correct email', async () => {
     mockJwtVerify.mockResolvedValue(
       mockVerifyResult({
-        email: 'gmail-api-push@system.gserviceaccount.com',
+        email: TEST_SA_EMAIL,
         email_verified: true,
         iss: 'https://accounts.google.com',
       })
     );
 
-    const result = await validateOidcToken(
-      'Bearer valid-token',
-      'https://audience.example.com',
-      'gmail-api-push@system.gserviceaccount.com'
-    );
+    const result = await validateOidcToken('Bearer valid-token', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(true);
     if (result.valid) {
-      expect(result.email).toBe('gmail-api-push@system.gserviceaccount.com');
-    }
-  });
-
-  it('accepts valid token when allowedEmail is not specified', async () => {
-    mockJwtVerify.mockResolvedValue(
-      mockVerifyResult({
-        email: 'any-sa@my-project.iam.gserviceaccount.com',
-        email_verified: true,
-        iss: 'https://accounts.google.com',
-      })
-    );
-
-    const result = await validateOidcToken('Bearer valid-token', 'https://audience.example.com');
-    expect(result.valid).toBe(true);
-    if (result.valid) {
-      expect(result.email).toBe('any-sa@my-project.iam.gserviceaccount.com');
+      expect(result.email).toBe(TEST_SA_EMAIL);
     }
   });
 
   it('rejects token with email_verified=false', async () => {
     mockJwtVerify.mockResolvedValue(
       mockVerifyResult({
-        email: 'gmail-api-push@system.gserviceaccount.com',
+        email: TEST_SA_EMAIL,
         email_verified: false,
       })
     );
 
-    const result = await validateOidcToken(
-      'Bearer valid-token',
-      'https://audience.example.com',
-      'gmail-api-push@system.gserviceaccount.com'
-    );
+    const result = await validateOidcToken('Bearer valid-token', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.error).toContain('not verified');
     }
   });
 
-  it('rejects token with email_verified=false even without allowedEmail', async () => {
-    mockJwtVerify.mockResolvedValue(
-      mockVerifyResult({
-        email: 'any-sa@my-project.iam.gserviceaccount.com',
-        email_verified: false,
-      })
-    );
-
-    const result = await validateOidcToken('Bearer valid-token', 'https://audience.example.com');
-    expect(result.valid).toBe(false);
-    if (!result.valid) {
-      expect(result.error).toContain('not verified');
-    }
-  });
-
-  it('rejects valid token with wrong email when allowedEmail is set', async () => {
+  it('rejects valid token with wrong email', async () => {
     mockJwtVerify.mockResolvedValue(
       mockVerifyResult({
         email: 'attacker@evil-project.iam.gserviceaccount.com',
@@ -121,11 +85,7 @@ describe('validateOidcToken', () => {
       })
     );
 
-    const result = await validateOidcToken(
-      'Bearer valid-token',
-      'https://audience.example.com',
-      'expected-sa@my-project.iam.gserviceaccount.com'
-    );
+    const result = await validateOidcToken('Bearer valid-token', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.error).toContain('Unexpected email');
@@ -135,14 +95,14 @@ describe('validateOidcToken', () => {
   it('rejects token with missing email claim', async () => {
     mockJwtVerify.mockResolvedValue(mockVerifyResult({ iss: 'https://accounts.google.com' }));
 
-    const result = await validateOidcToken('Bearer valid-token', 'https://audience.example.com');
+    const result = await validateOidcToken('Bearer valid-token', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
   });
 
   it('rejects expired or invalid token', async () => {
     mockJwtVerify.mockRejectedValue(new Error('"exp" claim timestamp check failed'));
 
-    const result = await validateOidcToken('Bearer expired-token', 'https://audience.example.com');
+    const result = await validateOidcToken('Bearer expired-token', TEST_AUDIENCE, TEST_SA_EMAIL);
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.error).toContain('exp');
@@ -151,10 +111,10 @@ describe('validateOidcToken', () => {
 
   it('passes correct audience to jwtVerify', async () => {
     mockJwtVerify.mockResolvedValue(
-      mockVerifyResult({ email: 'gmail-api-push@system.gserviceaccount.com', email_verified: true })
+      mockVerifyResult({ email: TEST_SA_EMAIL, email_verified: true })
     );
 
-    await validateOidcToken('Bearer some-token', 'https://my-audience.example.com');
+    await validateOidcToken('Bearer some-token', 'https://my-audience.example.com', TEST_SA_EMAIL);
 
     expect(mockJwtVerify).toHaveBeenCalledWith(
       'some-token',

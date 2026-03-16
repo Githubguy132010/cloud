@@ -14,17 +14,7 @@ export const pushRoute = new Hono<HonoContext>();
 pushRoute.post('/user/:userId', async c => {
   const userId = c.req.param('userId');
 
-  // Validate Google OIDC token (mandatory).
-  // Each user's Pub/Sub subscription uses a per-user audience that embeds the userId,
-  // so the audience check implicitly binds the token to this specific user.
-  const perUserAudience = `${c.env.OIDC_AUDIENCE_BASE}/push/user/${userId}`;
-  const oidcResult = await validateOidcToken(c.req.header('authorization'), perUserAudience);
-  if (!oidcResult.valid) {
-    console.warn(`[gmail-push] OIDC validation failed for user ${userId}: ${oidcResult.error}`);
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-
-  // Validate that the OIDC token's SA email matches the one stored for this user.
+  // Look up the expected OIDC service account email for this user.
   // This prevents cross-project forgery: an attacker with their own GCP project
   // can get Google-signed tokens with a matching audience, but not with the
   // victim's service account email.
@@ -42,11 +32,21 @@ pushRoute.post('/user/:userId', async c => {
   }
 
   const { gmailPushOidcEmail }: { gmailPushOidcEmail: string | null } = await emailRes.json();
-  if (!gmailPushOidcEmail || oidcResult.email !== gmailPushOidcEmail) {
-    console.warn(
-      `[gmail-push] OIDC email mismatch for user ${userId}: got ${oidcResult.email}, expected ${gmailPushOidcEmail ?? '(not configured)'}`
-    );
+  if (!gmailPushOidcEmail) {
+    console.warn(`[gmail-push] No OIDC email configured for user ${userId}`);
     return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  // Validate Google OIDC token: issuer, per-user audience, and SA email.
+  const perUserAudience = `${c.env.OIDC_AUDIENCE_BASE}/push/user/${userId}`;
+  const oidcResult = await validateOidcToken(
+    c.req.header('authorization'),
+    perUserAudience,
+    gmailPushOidcEmail
+  );
+  if (!oidcResult.valid) {
+    console.warn(`[gmail-push] OIDC validation failed for user ${userId}: ${oidcResult.error}`);
+    return c.json({ error: 'Unauthorized' }, 401);
   }
 
   const pubSubBody = await c.req.text();

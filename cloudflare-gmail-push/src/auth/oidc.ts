@@ -17,7 +17,7 @@ export type OidcResult = { valid: true; email: string } | { valid: false; error:
 export async function validateOidcToken(
   authHeader: string | null | undefined,
   expectedAudience: string,
-  allowedEmail?: string
+  allowedEmail: string
 ): Promise<OidcResult> {
   if (!authHeader) {
     return { valid: false, error: 'Missing authorization header' };
@@ -45,7 +45,7 @@ export async function validateOidcToken(
     if (!payload.email_verified) {
       return { valid: false, error: 'Email not verified' };
     }
-    if (allowedEmail && email !== allowedEmail) {
+    if (email !== allowedEmail) {
       return { valid: false, error: `Unexpected email: ${email}` };
     }
 
