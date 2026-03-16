@@ -64,8 +64,8 @@ export class GitLabTokenService {
         return { success: false, reason: 'token_expired_no_refresh' };
       }
 
-      const clientId = metadata.client_id || this.env.GITLAB_OAUTH_CLIENT_ID;
-      const clientSecret = metadata.client_secret || this.env.GITLAB_OAUTH_CLIENT_SECRET;
+      const clientId = metadata.client_id || this.env.GITLAB_CLIENT_ID;
+      const clientSecret = metadata.client_secret || this.env.GITLAB_CLIENT_SECRET;
 
       if (!clientId || !clientSecret) {
         console.error('GitLab OAuth credentials not configured');
