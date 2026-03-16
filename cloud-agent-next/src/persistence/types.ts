@@ -132,7 +132,7 @@ export type CloudAgentSessionState = {
   /** Git branch name created for the session */
   branchName?: string;
   /** Sandbox ID where the session runs */
-  sandboxId?: string;
+  sandboxId?: SandboxId;
 };
 
 /**

@@ -1,4 +1,51 @@
-import type { SandboxId } from './types.js';
+import type { SandboxId, Env } from './types.js';
+import type { Sandbox } from '@cloudflare/sandbox';
+
+/**
+ * Org IDs that use per-session sandboxes (standard-2 instance type).
+ * Sessions for these orgs get an isolated container per session rather than
+ * a shared container per org/user pair.
+ *
+ * Intentionally hardcoded: changes require a deploy so we can gate rollout
+ * and quickly revert by removing an org from this set. Move to an env var
+ * once the feature is stable and broadly rolled out.
+ */
+const PER_SESSION_SANDBOX_ORG_IDS = new Set<string>(['abc']);
+
+/**
+ * Returns true if the given org should use per-session sandboxes.
+ */
+export function isPerSessionSandboxOrg(orgId?: string): boolean {
+  return orgId !== undefined && PER_SESSION_SANDBOX_ORG_IDS.has(orgId);
+}
+
+/**
+ * Generate a per-session sandbox ID tied to a specific session.
+ *
+ * Format: ses-{hash48}
+ * - prefix (3 chars): 'ses'
+ * - hash48 (48 chars): First 48 hex chars of SHA-256 hash of the session ID
+ * - Total: 52 characters
+ */
+export async function generatePerSessionSandboxId(sessionId: string): Promise<SandboxId> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(sessionId);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hash48 = hashHex.substring(0, 48);
+
+  return `ses-${hash48}` as SandboxId;
+}
+
+/**
+ * Returns the correct DurableObjectNamespace for the given sandbox ID.
+ * Per-session sandboxes (ses-* prefix) use SandboxSmall; all others use Sandbox.
+ */
+export function getSandboxNamespace(env: Env, sandboxId: string): DurableObjectNamespace<Sandbox> {
+  return sandboxId.startsWith('ses-') ? env.SandboxSmall : env.Sandbox;
+}
 
 /**
  * Generate a deterministic, Cloudflare-compatible sandboxId (≤63 chars).

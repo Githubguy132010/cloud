@@ -282,6 +282,7 @@ describe('router sessionId validation', () => {
             request: {} as Request,
             env: {
               Sandbox: {} as TRPCContext['env']['Sandbox'],
+              SandboxSmall: {} as TRPCContext['env']['SandboxSmall'],
               CLOUD_AGENT_SESSION: {
                 idFromName: vi.fn((id: string) => ({ id })),
                 get: vi.fn(() => ({
@@ -395,6 +396,30 @@ describe('router sessionId validation', () => {
             expect(getSandbox).toHaveBeenCalledWith(
               mockContext.env.Sandbox,
               expect.stringMatching(/^bot-[0-9a-f]{48}$/)
+            );
+          });
+
+          it('should route per-session sandbox ID to SandboxSmall namespace', async () => {
+            const sessionId: SessionId = 'agent_22222222-3333-4444-5555-666666666666';
+            const perSessionSandboxId = 'ses-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6';
+            const metadata: CloudAgentSessionState = {
+              version: 123456789,
+              sessionId,
+              orgId: 'org-123',
+              userId: 'test-user-123',
+              timestamp: 123456789,
+              sandboxId: perSessionSandboxId,
+            };
+
+            vi.mocked(fetchSessionMetadata).mockResolvedValue(metadata);
+
+            const result = await caller.deleteSession({ sessionId });
+
+            expect(result).toEqual({ success: true });
+            // ses- prefixed sandbox IDs should route to SandboxSmall, not Sandbox
+            expect(getSandbox).toHaveBeenCalledWith(
+              mockContext.env.SandboxSmall,
+              perSessionSandboxId
             );
           });
         });
@@ -628,6 +653,7 @@ describe('router sessionId validation', () => {
           request: {} as Request,
           env: {
             Sandbox: {} as TRPCContext['env']['Sandbox'],
+            SandboxSmall: {} as TRPCContext['env']['SandboxSmall'],
             CLOUD_AGENT_SESSION: {
               idFromName: vi.fn((id: string) => ({ id })),
               get: vi.fn(() => ({

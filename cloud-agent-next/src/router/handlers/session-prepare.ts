@@ -17,7 +17,12 @@ import {
   UpdateSessionInput,
   UpdateSessionOutput,
 } from '../schemas.js';
-import { generateSandboxId } from '../../sandbox-id.js';
+import {
+  generateSandboxId,
+  generatePerSessionSandboxId,
+  isPerSessionSandboxOrg,
+  getSandboxNamespace,
+} from '../../sandbox-id.js';
 import type { SandboxId } from '../../types.js';
 import {
   checkDiskAndCleanBeforeSetup,
@@ -100,11 +105,9 @@ const prepareSessionHandler = internalApiProtectedProcedure
 
       // 1. Generate new cloudAgentSessionId and sandboxId
       const cloudAgentSessionId = generateSessionId();
-      const sandboxId: SandboxId = await generateSandboxId(
-        input.kilocodeOrganizationId,
-        ctx.userId,
-        ctx.botId
-      );
+      const sandboxId: SandboxId = isPerSessionSandboxOrg(input.kilocodeOrganizationId)
+        ? await generatePerSessionSandboxId(cloudAgentSessionId)
+        : await generateSandboxId(input.kilocodeOrganizationId, ctx.userId, ctx.botId);
 
       logger.setTags({
         cloudAgentSessionId,
@@ -199,7 +202,7 @@ const prepareSessionHandler = internalApiProtectedProcedure
 
       // 3. Get sandbox
       logger.info('Getting sandbox');
-      const sandbox = getSandbox(ctx.env.Sandbox, sandboxId, {
+      const sandbox = getSandbox(getSandboxNamespace(ctx.env, sandboxId), sandboxId, {
         sleepAfter: SANDBOX_SLEEP_AFTER_SECONDS,
       });
 

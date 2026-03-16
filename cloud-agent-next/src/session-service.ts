@@ -460,12 +460,12 @@ export class SessionService {
 
     this._metadata = fetchedMetadata;
 
-    // Reconstruct sandboxId using the hash-based format
-    const sandboxId: SandboxId = await generateSandboxId(
-      this._metadata.orgId,
-      userId,
-      this._metadata.botId
-    );
+    // Use the stored sandboxId when available (handles per-session sandboxes).
+    // Fall back to generating from orgId/userId/botId for old sessions that
+    // predate sandboxId storage.
+    const sandboxId: SandboxId =
+      this._metadata.sandboxId ??
+      (await generateSandboxId(this._metadata.orgId, userId, this._metadata.botId));
 
     return sandboxId;
   }

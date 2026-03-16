@@ -58,8 +58,8 @@ import type {
   TokenResumeContext,
 } from '../execution/types.js';
 import { isExecutionError } from '../execution/errors.js';
-import type { Env as WorkerEnv } from '../types.js';
-import { generateSandboxId } from '../sandbox-id.js';
+import type { Env as WorkerEnv, SandboxId } from '../types.js';
+import { generateSandboxId, getSandboxNamespace } from '../sandbox-id.js';
 
 import { GitHubTokenService } from '../services/github-token-service.js';
 import { validateStreamTicket } from '../auth.js';
@@ -743,7 +743,7 @@ export class CloudAgentSession extends DurableObject {
     workspacePath?: string;
     sessionHome?: string;
     branchName?: string;
-    sandboxId?: string;
+    sandboxId?: SandboxId;
   }): Promise<OperationResult> {
     await this.requireSessionId(input.sessionId as SessionId);
     const existing = await this.ctx.storage.get<CloudAgentSessionState>('metadata');
@@ -1153,8 +1153,11 @@ export class CloudAgentSession extends DurableObject {
       .info('Stopping idle kilo server');
 
     try {
-      const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId);
-      const sandbox = getSandbox((this.env as unknown as WorkerEnv).Sandbox, sandboxId);
+      const sandboxId =
+        metadata.sandboxId ??
+        (await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId));
+      const workerEnv = this.env as unknown as WorkerEnv;
+      const sandbox = getSandbox(getSandboxNamespace(workerEnv, sandboxId), sandboxId);
 
       const rpcStart = Date.now();
       logger
@@ -1207,8 +1210,11 @@ export class CloudAgentSession extends DurableObject {
       const metadata = await this.getMetadata();
       if (!metadata) return;
 
-      const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId);
-      const sandbox = getSandbox((this.env as unknown as WorkerEnv).Sandbox, sandboxId);
+      const sandboxId =
+        metadata.sandboxId ??
+        (await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId));
+      const workerEnvForKeepAlive = this.env as unknown as WorkerEnv;
+      const sandbox = getSandbox(getSandboxNamespace(workerEnvForKeepAlive, sandboxId), sandboxId);
       await sandbox.setSleepAfter(SANDBOX_SLEEP_AFTER_SECONDS);
     } catch (error) {
       logger
@@ -1684,10 +1690,12 @@ export class CloudAgentSession extends DurableObject {
   private getOrCreateOrchestrator(): ExecutionOrchestrator {
     if (!this.orchestrator) {
       const deps: OrchestratorDeps = {
-        getSandbox: async (sandboxId: string) =>
-          getSandbox((this.env as unknown as WorkerEnv).Sandbox, sandboxId, {
+        getSandbox: async (sandboxId: string) => {
+          const workerEnvForOrch = this.env as unknown as WorkerEnv;
+          return getSandbox(getSandboxNamespace(workerEnvForOrch, sandboxId), sandboxId, {
             sleepAfter: SANDBOX_SLEEP_AFTER_SECONDS,
-          }),
+          });
+        },
         getSessionStub: (userId, sessionId) => {
           const doKey = `${userId}:${sessionId}`;
           const id = (this.env as unknown as WorkerEnv).CLOUD_AGENT_SESSION.idFromName(doKey);
@@ -1912,7 +1920,9 @@ export class CloudAgentSession extends DurableObject {
           );
         }
 
-        const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, request.botId);
+        const sandboxId =
+          metadata.sandboxId ??
+          (await generateSandboxId(metadata.orgId, metadata.userId, request.botId));
         const initContext: InitializeContext = {
           kilocodeToken: token,
           kilocodeModel: metadata.model,
@@ -1996,7 +2006,9 @@ export class CloudAgentSession extends DurableObject {
         );
       }
 
-      const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, request.botId);
+      const sandboxId =
+        metadata.sandboxId ??
+        (await generateSandboxId(metadata.orgId, metadata.userId, request.botId));
       const resumeContext: TokenResumeContext = {
         kilocodeToken: metadata.kilocodeToken ?? '',
         kilocodeModel: model,

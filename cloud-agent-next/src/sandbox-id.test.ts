@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { generateSandboxId } from './sandbox-id.js';
+import type { Sandbox } from '@cloudflare/sandbox';
+import {
+  generateSandboxId,
+  generatePerSessionSandboxId,
+  isPerSessionSandboxOrg,
+  getSandboxNamespace,
+} from './sandbox-id.js';
+import type { Env } from './types.js';
 
 describe('generateSandboxId', () => {
   describe('length validation', () => {
@@ -116,5 +123,73 @@ describe('generateSandboxId', () => {
       const sandboxId = await generateSandboxId('org-日本', 'user-한국', 'bot-中国');
       expect(sandboxId.length).toBe(52);
     });
+  });
+});
+
+describe('generatePerSessionSandboxId', () => {
+  it('should produce a ses- prefixed ID', async () => {
+    const id = await generatePerSessionSandboxId('agent_abc123');
+    expect(id).toMatch(/^ses-[0-9a-f]{48}$/);
+  });
+
+  it('should be exactly 52 characters', async () => {
+    const id = await generatePerSessionSandboxId('agent_abc123');
+    expect(id.length).toBe(52);
+  });
+
+  it('should be deterministic for the same session ID', async () => {
+    const sessionId = 'agent_11111111-2222-3333-4444-555555555555';
+    const id1 = await generatePerSessionSandboxId(sessionId);
+    const id2 = await generatePerSessionSandboxId(sessionId);
+    expect(id1).toBe(id2);
+  });
+
+  it('should produce different IDs for different session IDs', async () => {
+    const id1 = await generatePerSessionSandboxId('agent_session-a');
+    const id2 = await generatePerSessionSandboxId('agent_session-b');
+    expect(id1).not.toBe(id2);
+  });
+});
+
+describe('isPerSessionSandboxOrg', () => {
+  it('should return true for a known per-session org', () => {
+    expect(isPerSessionSandboxOrg('abc')).toBe(true);
+  });
+
+  it('should return false for an unknown org', () => {
+    expect(isPerSessionSandboxOrg('some-other-org')).toBe(false);
+  });
+
+  it('should return false for undefined', () => {
+    expect(isPerSessionSandboxOrg(undefined)).toBe(false);
+  });
+});
+
+describe('getSandboxNamespace', () => {
+  const mockSandbox = {} as DurableObjectNamespace<Sandbox>;
+  const mockSandboxSmall = {} as DurableObjectNamespace<Sandbox>;
+  const mockEnv = {
+    Sandbox: mockSandbox,
+    SandboxSmall: mockSandboxSmall,
+  } as unknown as Env;
+
+  it('should return SandboxSmall for ses- prefixed IDs', () => {
+    const ns = getSandboxNamespace(mockEnv, 'ses-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6');
+    expect(ns).toBe(mockSandboxSmall);
+  });
+
+  it('should return Sandbox for org- prefixed IDs', () => {
+    const ns = getSandboxNamespace(mockEnv, 'org-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6');
+    expect(ns).toBe(mockSandbox);
+  });
+
+  it('should return Sandbox for usr- prefixed IDs', () => {
+    const ns = getSandboxNamespace(mockEnv, 'usr-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6');
+    expect(ns).toBe(mockSandbox);
+  });
+
+  it('should return Sandbox for bot- prefixed IDs', () => {
+    const ns = getSandboxNamespace(mockEnv, 'bot-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6');
+    expect(ns).toBe(mockSandbox);
   });
 });
