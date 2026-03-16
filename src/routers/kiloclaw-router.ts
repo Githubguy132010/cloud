@@ -510,7 +510,7 @@ export const kiloclawRouter = createTRPCRouter({
       expiresIn: TOKEN_EXPIRY.oneHour,
     });
     const isDev = process.env.NODE_ENV === 'development';
-    const imageTag = isDev ? ':dev' : '';
+    const imageTag = isDev ? ':dev' : ':latest';
     const workerFlag = isDev ? ' --worker-url=http://localhost:8795' : '';
     const gmailPushFlag = isDev ? ' --gmail-push-worker-url=${GMAIL_PUSH_WORKER_URL}' : '';
     return {
