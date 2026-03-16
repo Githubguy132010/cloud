@@ -225,6 +225,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
   };
 
   const approveChannel = async (channel: string, code: string): Promise<ApproveResult> => {
+    if (stopped) return approveFail('Cache is shutting down', 500);
     if (!CHANNEL_RE.test(channel)) return approveFail('Invalid channel name', 400);
     if (!CODE_RE.test(code)) return approveFail('Invalid pairing code', 400);
 
@@ -240,6 +241,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
   };
 
   const approveDevice = async (requestId: string): Promise<ApproveResult> => {
+    if (stopped) return approveFail('Cache is shutting down', 500);
     if (!UUID_RE.test(requestId)) return approveFail('Invalid request ID', 400);
 
     try {
