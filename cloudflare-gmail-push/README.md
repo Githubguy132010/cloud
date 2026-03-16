@@ -72,10 +72,10 @@ cloudflared tunnel --url http://localhost:8787
 cd kiloclaw && ./scripts/push-dev.sh kiloclaw-machines-dev
 ```
 
-**Connect Google account** with Pub/Sub setup by passing this env var to the setup container:
+**Connect Google account** with Pub/Sub setup, passing the tunnel URL to the setup container:
 
 ```bash
-GMAIL_PUSH_WORKER_URL=https://<tunnel-hostname>.trycloudflare.com
+--gmail-push-worker-url=https://<tunnel-hostname>.trycloudflare.com
 ```
 
 Then enable notifications in the Settings UI and send an email to the connected Gmail account.
