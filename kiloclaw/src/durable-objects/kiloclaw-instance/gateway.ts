@@ -103,7 +103,8 @@ export async function callGatewayController<T>(
       typeof (body as { code?: unknown }).code === 'string'
         ? (body as { code: string }).code
         : undefined;
-    const bodyObj = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+    const bodyObj =
+      typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
     const errorMessage =
       typeof bodyObj.error === 'string'
         ? bodyObj.error
