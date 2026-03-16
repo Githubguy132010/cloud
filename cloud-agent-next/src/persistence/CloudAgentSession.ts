@@ -1922,7 +1922,7 @@ export class CloudAgentSession extends DurableObject {
 
         const sandboxId =
           metadata.sandboxId ??
-          (await generateSandboxId(metadata.orgId, metadata.userId, request.botId));
+          (await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId));
         const initContext: InitializeContext = {
           kilocodeToken: token,
           kilocodeModel: metadata.model,
@@ -2008,7 +2008,7 @@ export class CloudAgentSession extends DurableObject {
 
       const sandboxId =
         metadata.sandboxId ??
-        (await generateSandboxId(metadata.orgId, metadata.userId, request.botId));
+        (await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId));
       const resumeContext: TokenResumeContext = {
         kilocodeToken: metadata.kilocodeToken ?? '',
         kilocodeModel: model,
