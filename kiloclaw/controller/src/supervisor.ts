@@ -163,9 +163,8 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
 
     restarts += 1;
 
-    // Clean exit (code 0, no signal) indicates an intentional restart
-    // (e.g., SIGUSR1 supervised restart after update.run). Respawn
-    // immediately without backoff.
+    // Clean exit (code 0, no signal) means the process exited intentionally.
+    // Respawn immediately without backoff.
     if (code === 0 && signal === null) {
       resetBackoff();
       void spawnProcess();
