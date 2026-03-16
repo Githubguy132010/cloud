@@ -89,10 +89,20 @@ async function reconcileApiKeyExpiry(
   const thresholdMs = getProactiveRefreshThresholdMs(env.PROACTIVE_REFRESH_THRESHOLD_HOURS);
   if (timeUntilExpiry > thresholdMs) return;
 
+  // Fetch controller version for observability (best-effort, not used for gating).
+  let controllerVersion: string | null = null;
+  try {
+    const info = await gateway.getControllerVersion(state, env);
+    controllerVersion = info?.version ?? null;
+  } catch {
+    // Version check failed — log null, don't block refresh.
+  }
+
   reconcileLog(reason, 'api_key_expiry_approaching', {
     user_id: userId,
     expires_at: state.kilocodeApiKeyExpiresAt,
     hours_remaining: Math.round(timeUntilExpiry / 3600000),
+    controller_version: controllerVersion,
   });
 
   // 1. Mint fresh key.
@@ -167,6 +177,7 @@ async function reconcileApiKeyExpiry(
     reconcileLog(reason, 'api_key_push_error', {
       user_id: userId,
       error: err instanceof Error ? err.message : String(err),
+      controller_version: controllerVersion,
     });
   }
 
@@ -196,6 +207,7 @@ async function reconcileApiKeyExpiry(
     new_expires_at: freshKey.expiresAt,
     pushed,
     flyConfigUpdated,
+    controller_version: controllerVersion,
   });
 }
 
