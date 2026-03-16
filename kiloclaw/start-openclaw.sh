@@ -198,6 +198,48 @@ else
     echo "uv global prefix: using default"
 fi
 
+# Feature: kilo-cli
+# Exports KILO_API_KEY so the CLI's built-in kilo provider auto-activates.
+# The controller also writes /root/.config/kilo/opencode.json on fresh install
+# (permissions) and patches base URL if KILOCODE_API_BASE_URL is set.
+# The kilo binary is always in the image; this flag controls auto-configuration only.
+if [ "${KILOCLAW_KILO_CLI:-}" = "true" ]; then
+    # The Kilo CLI's KiloAuthPlugin looks for KILO_API_KEY (not KILOCODE_API_KEY).
+    # Alias it so the built-in "kilo" provider auto-activates with full model access.
+    if [ -n "${KILOCODE_API_KEY:-}" ]; then
+        export KILO_API_KEY="$KILOCODE_API_KEY"
+    fi
+    echo "Kilo CLI auto-configuration enabled"
+fi
+
+# ============================================================
+# GITHUB CONFIGURATION
+# ============================================================
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    echo "Configuring GitHub access..."
+
+    echo "$GITHUB_TOKEN" | gh auth login --with-token 2>/dev/null \
+        && gh auth setup-git 2>/dev/null \
+        && echo "gh CLI authenticated" \
+        || echo "WARNING: gh auth login failed"
+
+    if [ -n "${GITHUB_USERNAME:-}" ]; then
+        git config --global user.name "$GITHUB_USERNAME"
+        echo "git user.name set to $GITHUB_USERNAME"
+    fi
+    if [ -n "${GITHUB_EMAIL:-}" ]; then
+        git config --global user.email "$GITHUB_EMAIL"
+        echo "git user.email set to $GITHUB_EMAIL"
+    fi
+else
+    # Clean up any previously stored credentials from the persistent volume
+    # so that removing GitHub secrets actually de-authenticates the machine.
+    gh auth logout --hostname github.com 2>/dev/null || true
+    git config --global --unset user.name 2>/dev/null || true
+    git config --global --unset user.email 2>/dev/null || true
+    echo "GitHub: not configured (credentials cleared)"
+fi
+
 # ============================================================
 # PATCH CONFIG (channels, gateway auth, exec policy)
 # ============================================================

@@ -8,6 +8,7 @@ import {
   ConfigRestoreResponseSchema,
   ControllerVersionResponseSchema,
   EnvPatchResponseSchema,
+  OpenclawConfigResponseSchema,
   GatewayControllerError,
 } from '../gateway-controller-types';
 import { HEALTH_PROBE_TIMEOUT_SECONDS, HEALTH_PROBE_INTERVAL_MS } from '../../config';
@@ -25,7 +26,7 @@ function requireGatewayControllerContext(
   sandboxId: string;
 } {
   if (!state.sandboxId) {
-    throw new GatewayControllerError(404, 'Instance not provisioned');
+    throw new GatewayControllerError(409, 'Instance not provisioned');
   }
   if (!state.flyMachineId) {
     throw new GatewayControllerError(409, 'Instance has no machine ID');
@@ -95,6 +96,13 @@ export async function callGatewayController<T>(
   }
 
   if (!response.ok) {
+    const errorCode =
+      typeof body === 'object' &&
+      body !== null &&
+      'code' in body &&
+      typeof (body as { code?: unknown }).code === 'string'
+        ? (body as { code: string }).code
+        : undefined;
     const errorMessage =
       typeof body === 'object' &&
       body !== null &&
@@ -102,7 +110,7 @@ export async function callGatewayController<T>(
       typeof (body as { error?: unknown }).error === 'string'
         ? (body as { error: string }).error
         : `Gateway controller request failed (${response.status})`;
-    throw new GatewayControllerError(response.status, errorMessage);
+    throw new GatewayControllerError(response.status, errorMessage, errorCode);
   }
 
   const parsed = responseSchema.safeParse(body ?? {});
@@ -199,6 +207,16 @@ export function restoreConfig(
   );
 }
 
+function isErrorUnknownRoute(error: unknown): boolean {
+  // If a controller predates a new route, the request will either:
+  //   - fall through to the catch-all proxy (401 REQUIRE_PROXY_TOKEN)
+  //   - forward to the gateway which returns 404 for the unknown path.
+  return (
+    error instanceof GatewayControllerError &&
+    (error.status === 404 || error.code === 'controller_route_unavailable')
+  );
+}
+
 export async function getControllerVersion(
   state: InstanceMutableState,
   env: KiloClawEnv
@@ -216,7 +234,52 @@ export async function getControllerVersion(
       ControllerVersionResponseSchema
     );
   } catch (error) {
-    if (error instanceof GatewayControllerError && (error.status === 404 || error.status === 401)) {
+    if (isErrorUnknownRoute(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** Returns null if the controller is too old to have the /_kilo/config/read endpoint. */
+export async function getOpenclawConfig(
+  state: InstanceMutableState,
+  env: KiloClawEnv
+): Promise<{ config: Record<string, unknown>; etag?: string } | null> {
+  try {
+    return await callGatewayController(
+      state,
+      env,
+      '/_kilo/config/read',
+      'GET',
+      OpenclawConfigResponseSchema
+    );
+  } catch (error) {
+    if (isErrorUnknownRoute(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/** Returns null if the controller is too old to have the /_kilo/config/replace endpoint. */
+export async function replaceConfigOnMachine(
+  state: InstanceMutableState,
+  env: KiloClawEnv,
+  config: Record<string, unknown>,
+  etag?: string
+): Promise<{ ok: boolean } | null> {
+  try {
+    return await callGatewayController(
+      state,
+      env,
+      '/_kilo/config/replace',
+      'POST',
+      GatewayCommandResponseSchema,
+      { config, etag }
+    );
+  } catch (error) {
+    if (isErrorUnknownRoute(error)) {
       return null;
     }
     throw error;

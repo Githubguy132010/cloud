@@ -4,14 +4,16 @@ import {
   AlertTriangle,
   Check,
   Copy,
+  FileCode,
   Hash,
   Package,
+  ShieldCheck,
   RotateCcw,
   Save,
   Square,
   X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePostHog } from 'posthog-js/react';
 import { toast } from 'sonner';
@@ -40,6 +42,7 @@ import { getEntriesByCategory } from '@kilocode/kiloclaw-secret-catalog';
 import { SecretEntrySection } from './SecretEntrySection';
 import { ConfirmActionDialog } from './ConfirmActionDialog';
 import { VersionPinCard } from './VersionPinCard';
+import { OpenclawConfigEditor } from './OpenclawConfigEditor';
 
 type ClawMutations = ReturnType<typeof useKiloClawMutations>;
 
@@ -98,7 +101,7 @@ function GoogleAccountSection({
         {!connected && command && (
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs">
-              Run this command in your terminal to connect your Google account:
+              Run this command in a terminal on your local machine to connect your Google account:
             </p>
             <div className="relative">
               <pre className="bg-muted overflow-x-auto rounded-md p-3 pr-10 text-xs">
@@ -176,6 +179,7 @@ export function SettingsTab({
     ? 'Failed to load the running OpenClaw version. Retry before changing the default model.'
     : undefined;
   const isLoadingModelSelection = isLoadingModels || (isRunning && isLoadingControllerVersion);
+  const [editConfigOpen, setEditConfigOpen] = useState(false);
 
   const modelOptions = useMemo<ModelOption[]>(
     () =>
@@ -210,6 +214,7 @@ export function SettingsTab({
   );
 
   const configuredSecrets = config?.configuredSecrets ?? {};
+  const toolEntries = getEntriesByCategory('tool');
 
   function handleSave() {
     if (hasModelSelectionError) {
@@ -237,6 +242,10 @@ export function SettingsTab({
       }
     );
   }
+
+  useEffect(() => {
+    if (!isRunning) setEditConfigOpen(false);
+  }, [isRunning]);
 
   // Determine if running version differs from tracked version
   // Old image: the DO returns null when the controller lacks /_kilo/version,
@@ -447,6 +456,56 @@ export function SettingsTab({
         </div>
       </div>
 
+      {toolEntries.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-foreground mb-1 text-sm font-medium">Tools</h3>
+            <p className="text-muted-foreground mb-4 text-xs">
+              Connect external tool accounts for your bot.
+            </p>
+            <div className="space-y-6">
+              {toolEntries.map(entry => (
+                <SecretEntrySection
+                  key={entry.id}
+                  entry={entry}
+                  configured={configuredSecrets[entry.id] ?? false}
+                  mutations={mutations}
+                  onSecretsChanged={onSecretsChanged}
+                  isDirty={dirtySecrets.has(entry.id)}
+                  actionRowExtra={
+                    entry.id === 'github' ? (
+                      <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                        We recommend using a{' '}
+                        <a
+                          href="https://docs.github.com/en/get-started/start-your-journey/creating-an-account-on-github"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          dedicated account
+                        </a>{' '}
+                        with a{' '}
+                        <a
+                          href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          fine-grained token
+                        </a>{' '}
+                        minimally scoped to specific repos and permissions.
+                      </span>
+                    ) : undefined
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       <Separator />
 
       <GoogleAccountSection connected={status.googleConnected} mutations={mutations} />
@@ -496,6 +555,16 @@ export function SettingsTab({
                   <TooltipContent>Unavailable until redeploy</TooltipContent>
                 )}
               </Tooltip>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!isRunning || isDestroying}
+                onClick={() => setEditConfigOpen(prev => !prev)}
+              >
+                <FileCode className="h-4 w-4" />
+                Edit Config
+              </Button>
 
               <Button
                 variant="outline"
@@ -564,6 +633,16 @@ export function SettingsTab({
                 </>
               )}
             </div>
+
+            {editConfigOpen && (
+              <div className="mt-4">
+                <OpenclawConfigEditor
+                  enabled={isRunning}
+                  mutations={mutations}
+                  onOpenChange={setEditConfigOpen}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -584,6 +663,7 @@ export function SettingsTab({
             });
             mutations.restoreConfig.mutate(undefined, {
               onSuccess: data => {
+                setEditConfigOpen(false);
                 if (data.signaled) {
                   toast.success('Config restored and gateway restarting');
                 } else {
