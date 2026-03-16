@@ -130,7 +130,7 @@ describe('POST /push/user/:userId', () => {
     expect(mockQueue.send).not.toHaveBeenCalled();
   });
 
-  it('rejects when no OIDC email is stored (null)', async () => {
+  it('acks stale delivery when no OIDC email is stored (null)', async () => {
     const kiloFetch = () =>
       Promise.resolve(
         new Response(JSON.stringify({ gmailPushOidcEmail: null }), {
@@ -146,7 +146,7 @@ describe('POST /push/user/:userId', () => {
       body: JSON.stringify({ message: { data: 'dGVzdA==' } }),
     });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
     expect(mockQueue.send).not.toHaveBeenCalled();
     expect(mockValidateOidc).not.toHaveBeenCalled();
   });
