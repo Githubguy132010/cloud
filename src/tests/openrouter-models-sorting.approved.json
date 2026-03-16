@@ -179,7 +179,7 @@
         "include_reasoning"
       ],
       "default_parameters": {},
-      "preferredIndex": 6,
+      "preferredIndex": 4,
       "isFree": true,
       "versioned_settings": {
         "4.146.0": {
