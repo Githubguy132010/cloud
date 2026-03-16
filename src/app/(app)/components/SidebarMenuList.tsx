@@ -39,7 +39,7 @@ export default function SidebarMenuList({ items, label = 'Dashboard' }: SidebarM
                 other =>
                   other.url !== item.url &&
                   other.url.length > item.url.length &&
-                  (pathname === other.url || pathname.startsWith(other.url + '/')),
+                  (pathname === other.url || pathname.startsWith(other.url + '/'))
               );
             const isActive = matchesPrefix && !hasMoreSpecificMatch;
             return (
