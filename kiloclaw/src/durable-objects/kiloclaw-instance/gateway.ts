@@ -103,13 +103,13 @@ export async function callGatewayController<T>(
       typeof (body as { code?: unknown }).code === 'string'
         ? (body as { code: string }).code
         : undefined;
+    const bodyObj = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
     const errorMessage =
-      typeof body === 'object' &&
-      body !== null &&
-      'error' in body &&
-      typeof (body as { error?: unknown }).error === 'string'
-        ? (body as { error: string }).error
-        : `Gateway controller request failed (${response.status})`;
+      typeof bodyObj.error === 'string'
+        ? bodyObj.error
+        : typeof bodyObj.message === 'string'
+          ? bodyObj.message
+          : `Gateway controller request failed (${response.status})`;
     throw new GatewayControllerError(response.status, errorMessage, errorCode);
   }
 

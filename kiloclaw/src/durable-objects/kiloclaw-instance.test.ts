@@ -3054,7 +3054,7 @@ describe('controller-first pairing', () => {
     fetchSpy.mockRestore();
   });
 
-  it('channel approve 400 from controller — returns failure without throwing', async () => {
+  it('channel approve 400 with { error } body — returns failure without throwing', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, { flyAppName: 'acct-test' });
 
@@ -3068,6 +3068,25 @@ describe('controller-first pairing', () => {
     const result = await instance.approvePairingRequest('telegram', 'ABC123');
 
     expect(result).toEqual({ success: false, message: 'Invalid channel name' });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('channel approve 400 with { success, message } body — surfaces real error text', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    // Controller approve routes return { success: false, message } on validation failures
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, message: 'Invalid pairing code' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const result = await instance.approvePairingRequest('telegram', 'ABC123');
+
+    expect(result).toEqual({ success: false, message: 'Invalid pairing code' });
     expect(flyClient.execCommand).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -3142,12 +3161,33 @@ describe('controller-first pairing', () => {
     fetchSpy.mockRestore();
   });
 
-  it('device approve 400 from controller — returns failure without throwing', async () => {
+  it('device approve 400 with { error } body — returns failure without throwing', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, { flyAppName: 'acct-test' });
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Invalid request ID' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    const result = await instance.approveDevicePairingRequest(
+      '58f4ac67-12b4-4f6e-adee-ff3463a7c30c'
+    );
+
+    expect(result).toEqual({ success: false, message: 'Invalid request ID' });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('device approve 400 with { success, message } body — surfaces real error text', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    // Controller approve routes return { success: false, message } on validation failures
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: false, message: 'Invalid request ID' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       })
