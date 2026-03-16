@@ -33,8 +33,10 @@ pushRoute.post('/user/:userId', async c => {
 
   const { gmailPushOidcEmail }: { gmailPushOidcEmail: string | null } = await emailRes.json();
   if (!gmailPushOidcEmail) {
-    console.warn(`[gmail-push] No OIDC email configured for user ${userId}`);
-    return c.json({ error: 'Forbidden' }, 403);
+    // User has disconnected Gmail — acknowledge so Pub/Sub stops retrying.
+    // The watch will expire on its own; no point building a retry backlog.
+    console.warn(`[gmail-push] No OIDC email configured for user ${userId}, acking stale delivery`);
+    return c.json({ ok: true }, 200);
   }
 
   // Validate Google OIDC token: issuer, per-user audience, and SA email.
