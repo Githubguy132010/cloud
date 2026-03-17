@@ -17,8 +17,7 @@ import {
   UpdateSessionInput,
   UpdateSessionOutput,
 } from '../schemas.js';
-import { generateSandboxId } from '../../sandbox-id.js';
-import type { SandboxId } from '../../types.js';
+import { generateSandboxId, getSandboxNamespace } from '../../sandbox-id.js';
 import {
   checkDiskAndCleanBeforeSetup,
   setupWorkspace,
@@ -26,7 +25,7 @@ import {
   cloneGitRepo,
   manageBranch,
 } from '../../workspace.js';
-import { ensureKiloServer, createKiloCliSession } from '../../kilo/server-manager.js';
+import { WrapperClient } from '../../kilo/wrapper-client.js';
 import { withDORetry } from '../../utils/do-retry.js';
 import { SANDBOX_SLEEP_AFTER_SECONDS } from '../../core/lease.js';
 
@@ -100,9 +99,11 @@ const prepareSessionHandler = internalApiProtectedProcedure
 
       // 1. Generate new cloudAgentSessionId and sandboxId
       const cloudAgentSessionId = generateSessionId();
-      const sandboxId: SandboxId = await generateSandboxId(
+      const sandboxId = await generateSandboxId(
+        ctx.env.PER_SESSION_SANDBOX_ORG_IDS,
         input.kilocodeOrganizationId,
         ctx.userId,
+        cloudAgentSessionId,
         ctx.botId
       );
 
@@ -199,7 +200,7 @@ const prepareSessionHandler = internalApiProtectedProcedure
 
       // 3. Get sandbox
       logger.info('Getting sandbox');
-      const sandbox = getSandbox(ctx.env.Sandbox, sandboxId, {
+      const sandbox = getSandbox(getSandboxNamespace(ctx.env, sandboxId), sandboxId, {
         sleepAfter: SANDBOX_SLEEP_AFTER_SECONDS,
       });
 
@@ -310,22 +311,17 @@ const prepareSessionHandler = internalApiProtectedProcedure
       // 10. Write auth file for session ingest
       await writeAuthFile(sandbox, sessionHome, ctx.authToken);
 
-      // 11. Start kilo server
-      logger.info('Starting kilo server');
-      const kiloServerPort = await ensureKiloServer(
-        sandbox,
-        session,
-        cloudAgentSessionId,
-        workspacePath
-      );
-
-      // 12. Create kilo CLI session
-      logger.info('Creating kilo CLI session');
-      const kiloSession = await createKiloCliSession(session, kiloServerPort);
-      const kiloSessionId = kiloSession.id;
+      // 11. Start wrapper (which starts kilo server in-process and creates session)
+      logger.info('Starting wrapper');
+      const { client: _wrapperClient, sessionId: kiloSessionId } =
+        await WrapperClient.ensureWrapper(sandbox, session, {
+          agentSessionId: cloudAgentSessionId,
+          userId: ctx.userId,
+          workspacePath,
+        });
 
       logger.setTags({ kiloSessionId });
-      logger.info('Created kilo CLI session');
+      logger.info('Wrapper started, kilo session created');
 
       // 13. Create cli_sessions_v2 record via session-ingest RPC (blocking)
       logger.info('Creating cli_sessions_v2 record via session-ingest');

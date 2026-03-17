@@ -58,13 +58,13 @@ import type {
   TokenResumeContext,
 } from '../execution/types.js';
 import { isExecutionError } from '../execution/errors.js';
-import type { Env as WorkerEnv } from '../types.js';
-import { generateSandboxId } from '../sandbox-id.js';
+import type { Env as WorkerEnv, SandboxId } from '../types.js';
+import { generateSandboxId, getSandboxNamespace } from '../sandbox-id.js';
 
 import { GitHubTokenService } from '../services/github-token-service.js';
 import { validateStreamTicket } from '../auth.js';
 import { getSandbox } from '@cloudflare/sandbox';
-import { stopKiloServer } from '../kilo/server-manager.js';
+import { stopWrapper } from '../kilo/wrapper-manager.js';
 
 // ---------------------------------------------------------------------------
 // Alarm Constants
@@ -84,6 +84,12 @@ const LAST_ACTIVITY_KEY = 'last_activity';
 
 /** Kilo server idle timeout: 15 minutes */
 const KILO_SERVER_IDLE_TIMEOUT_MS_DEFAULT = 15 * 60 * 1000;
+
+/** Default per-execution wall-clock deadline: 30 minutes */
+const DEFAULT_MAX_RUNTIME_MS = 1_800_000;
+
+/** Hung execution timeout: no non-heartbeat events for 2 minutes */
+const HUNG_EXECUTION_TIMEOUT_MS = 2 * 60 * 1000;
 
 /** Grace period before failing execution after wrapper disconnect (ms).
  *  Covers the first few reconnection attempts (exponential backoff: 1s, 2s, 4s …). */
@@ -273,6 +279,9 @@ export class CloudAgentSession extends DurableObject {
           // The wrapper heartbeat travels over an outbound WebSocket that
           // bypasses containerFetch(), so the idle timer never refreshes otherwise.
           void this.keepContainerAlive();
+        },
+        updateLastEventAt: async (executionId: string, timestamp: number) => {
+          await this.executionQueries.updateLastEventAt(executionId as ExecutionId, timestamp);
         },
         updateExecutionStatus: async (
           executionId: string,
@@ -746,7 +755,7 @@ export class CloudAgentSession extends DurableObject {
     workspacePath?: string;
     sessionHome?: string;
     branchName?: string;
-    sandboxId?: string;
+    sandboxId?: SandboxId;
   }): Promise<OperationResult> {
     await this.requireSessionId(input.sessionId as SessionId);
     const existing = await this.ctx.storage.get<CloudAgentSessionState>('metadata');
@@ -929,6 +938,16 @@ export class CloudAgentSession extends DurableObject {
 
       logger
         .withFields({ sessionId: this.sessionId, elapsedMs: Date.now() - now })
+        .debug('Starting checkHungExecution');
+      await this.checkHungExecution(now);
+
+      logger
+        .withFields({ sessionId: this.sessionId, elapsedMs: Date.now() - now })
+        .debug('Starting checkMaxRuntime');
+      await this.checkMaxRuntime(now);
+
+      logger
+        .withFields({ sessionId: this.sessionId, elapsedMs: Date.now() - now })
         .debug('Starting cleanupOldEvents');
       this.cleanupOldEvents(now);
 
@@ -1065,6 +1084,69 @@ export class CloudAgentSession extends DurableObject {
   }
 
   /**
+   * Fail a running execution that hasn't received any non-heartbeat events
+   * for HUNG_EXECUTION_TIMEOUT_MS. Skipped when lastEventAt is undefined
+   * (other checks handle that case).
+   */
+  private async checkHungExecution(now: number): Promise<void> {
+    const activeExecutionId = await this.executionQueries.getActiveExecutionId();
+    if (!activeExecutionId) return;
+
+    const execution = await this.executionQueries.get(activeExecutionId);
+    if (!execution || execution.status !== 'running') return;
+    if (execution.lastEventAt === undefined) return;
+
+    if (now - execution.lastEventAt > HUNG_EXECUTION_TIMEOUT_MS) {
+      logger
+        .withFields({
+          sessionId: this.sessionId,
+          executionId: activeExecutionId,
+          lastEventAt: execution.lastEventAt,
+          hungDurationMs: now - execution.lastEventAt,
+        })
+        .info('Marking hung execution as failed');
+
+      await this.failExecution({
+        executionId: activeExecutionId,
+        status: 'failed',
+        error: 'Execution hung — no events received for 2 minutes',
+        streamEventType: 'error',
+      });
+    }
+  }
+
+  /**
+   * Fail a running execution that has exceeded its wall-clock deadline
+   * (DEFAULT_MAX_RUNTIME_MS = 30 min).
+   */
+  private async checkMaxRuntime(now: number): Promise<void> {
+    const activeExecutionId = await this.executionQueries.getActiveExecutionId();
+    if (!activeExecutionId) return;
+
+    const execution = await this.executionQueries.get(activeExecutionId);
+    if (!execution || execution.status !== 'running') return;
+
+    if (now - execution.startedAt > DEFAULT_MAX_RUNTIME_MS) {
+      logger
+        .withFields({
+          sessionId: this.sessionId,
+          executionId: activeExecutionId,
+          startedAt: execution.startedAt,
+          maxRuntimeMs: DEFAULT_MAX_RUNTIME_MS,
+          elapsedMs: now - execution.startedAt,
+        })
+        .info('Marking execution as failed — exceeded maximum runtime');
+
+      await this.failExecution({
+        executionId: activeExecutionId,
+        status: 'failed',
+        error: 'Execution exceeded maximum runtime',
+        streamEventType: 'error',
+      });
+    }
+  }
+
+  /**
    * Clean up events older than the retention period.
    */
   private cleanupOldEvents(now: number): void {
@@ -1156,15 +1238,24 @@ export class CloudAgentSession extends DurableObject {
       .info('Stopping idle kilo server');
 
     try {
-      const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId);
-      const sandbox = getSandbox((this.env as unknown as WorkerEnv).Sandbox, sandboxId);
+      const workerEnv = this.env as unknown as WorkerEnv;
+      const sandboxId =
+        metadata.sandboxId ??
+        (await generateSandboxId(
+          workerEnv.PER_SESSION_SANDBOX_ORG_IDS,
+          metadata.orgId,
+          metadata.userId,
+          metadata.sessionId,
+          metadata.botId
+        ));
+      const sandbox = getSandbox(getSandboxNamespace(workerEnv, sandboxId), sandboxId);
 
       const rpcStart = Date.now();
       logger
         .withFields({ sessionId: this.sessionId, sandboxId })
         .debug('Starting stopKiloServer RPC');
 
-      await stopKiloServer(sandbox, metadata.sessionId);
+      await stopWrapper(sandbox, metadata.sessionId);
 
       logger
         .withFields({ sessionId: this.sessionId, sandboxId, rpcElapsedMs: Date.now() - rpcStart })
@@ -1210,8 +1301,17 @@ export class CloudAgentSession extends DurableObject {
       const metadata = await this.getMetadata();
       if (!metadata) return;
 
-      const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, metadata.botId);
-      const sandbox = getSandbox((this.env as unknown as WorkerEnv).Sandbox, sandboxId);
+      const workerEnvForKeepAlive = this.env as unknown as WorkerEnv;
+      const sandboxId =
+        metadata.sandboxId ??
+        (await generateSandboxId(
+          workerEnvForKeepAlive.PER_SESSION_SANDBOX_ORG_IDS,
+          metadata.orgId,
+          metadata.userId,
+          metadata.sessionId,
+          metadata.botId
+        ));
+      const sandbox = getSandbox(getSandboxNamespace(workerEnvForKeepAlive, sandboxId), sandboxId);
       await sandbox.setSleepAfter(SANDBOX_SLEEP_AFTER_SECONDS);
     } catch (error) {
       logger
@@ -1687,10 +1787,12 @@ export class CloudAgentSession extends DurableObject {
   private getOrCreateOrchestrator(): ExecutionOrchestrator {
     if (!this.orchestrator) {
       const deps: OrchestratorDeps = {
-        getSandbox: async (sandboxId: string) =>
-          getSandbox((this.env as unknown as WorkerEnv).Sandbox, sandboxId, {
+        getSandbox: async (sandboxId: string) => {
+          const workerEnvForOrch = this.env as unknown as WorkerEnv;
+          return getSandbox(getSandboxNamespace(workerEnvForOrch, sandboxId), sandboxId, {
             sleepAfter: SANDBOX_SLEEP_AFTER_SECONDS,
-          }),
+          });
+        },
         getSessionStub: (userId, sessionId) => {
           const doKey = `${userId}:${sessionId}`;
           const id = (this.env as unknown as WorkerEnv).CLOUD_AGENT_SESSION.idFromName(doKey);
@@ -1791,6 +1893,14 @@ export class CloudAgentSession extends DurableObject {
           return this.buildStartError('BAD_REQUEST', 'No model specified');
         }
 
+        const sandboxId = await generateSandboxId(
+          (this.env as unknown as WorkerEnv).PER_SESSION_SANDBOX_ORG_IDS,
+          request.orgId,
+          request.userId,
+          sessionId,
+          request.botId
+        );
+
         const prepareResult = await this.prepare({
           sessionId,
           userId: request.userId,
@@ -1811,6 +1921,7 @@ export class CloudAgentSession extends DurableObject {
           mcpServers: request.mcpServers,
           autoCommit: request.autoCommit,
           upstreamBranch: request.upstreamBranch,
+          sandboxId,
         });
 
         if (!prepareResult.success) {
@@ -1831,8 +1942,6 @@ export class CloudAgentSession extends DurableObject {
             initiateResult.error ?? 'Failed to initiate session'
           );
         }
-
-        const sandboxId = await generateSandboxId(request.orgId, request.userId, request.botId);
         const initContext: InitializeContext = {
           kilocodeToken: request.authToken,
           kilocodeModel: request.model,
@@ -1915,7 +2024,15 @@ export class CloudAgentSession extends DurableObject {
           );
         }
 
-        const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, request.botId);
+        const sandboxId =
+          metadata.sandboxId ??
+          (await generateSandboxId(
+            (this.env as unknown as WorkerEnv).PER_SESSION_SANDBOX_ORG_IDS,
+            metadata.orgId,
+            metadata.userId,
+            metadata.sessionId,
+            metadata.botId
+          ));
         const initContext: InitializeContext = {
           kilocodeToken: token,
           kilocodeModel: metadata.model,
@@ -1999,7 +2116,15 @@ export class CloudAgentSession extends DurableObject {
         );
       }
 
-      const sandboxId = await generateSandboxId(metadata.orgId, metadata.userId, request.botId);
+      const sandboxId =
+        metadata.sandboxId ??
+        (await generateSandboxId(
+          (this.env as unknown as WorkerEnv).PER_SESSION_SANDBOX_ORG_IDS,
+          metadata.orgId,
+          metadata.userId,
+          metadata.sessionId,
+          metadata.botId
+        ));
       const resumeContext: TokenResumeContext = {
         kilocodeToken: metadata.kilocodeToken ?? '',
         kilocodeModel: model,

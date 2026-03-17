@@ -23,6 +23,7 @@ import {
   STRIPE_KILOCLAW_EARLYBIRD_PRICE_ID,
   STRIPE_KILOCLAW_EARLYBIRD_COUPON_ID,
   STRIPE_KILOCLAW_BILLING_START,
+  KILOCLAW_BILLING_ENFORCEMENT,
 } from '@/lib/config.server';
 import { db } from '@/lib/drizzle';
 import {
@@ -408,6 +409,8 @@ async function ensureProvisionAccess(userId: string): Promise<void> {
       return;
     }
   }
+
+  if (!KILOCLAW_BILLING_ENFORCEMENT) return;
 
   throw new TRPCError({
     code: 'FORBIDDEN',
@@ -1107,8 +1110,8 @@ export const kiloclawRouter = createTRPCRouter({
 
     const now = new Date();
 
-    // Compute hasAccess
-    let hasAccess = false;
+    // Compute hasAccess — when enforcement is off, always grant access
+    let hasAccess = !KILOCLAW_BILLING_ENFORCEMENT;
     let accessReason: 'trial' | 'subscription' | 'earlybird' | null = null;
 
     if (sub?.status === 'active' || (sub?.status === 'past_due' && !sub.suspended_at)) {
