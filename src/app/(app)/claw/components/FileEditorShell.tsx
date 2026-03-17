@@ -100,7 +100,7 @@ export function FileEditorShell({
         )}
       </div>
       <div
-        className="flex overflow-hidden rounded-md border"
+        className="flex min-h-[500px] overflow-hidden rounded-md border"
         style={height ? { height } : undefined}
       >
         <div className="shrink-0 overflow-y-auto" style={{ width: `${sidebarWidth}px` }}>
