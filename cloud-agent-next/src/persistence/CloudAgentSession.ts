@@ -1004,6 +1004,16 @@ export class CloudAgentSession extends DurableObject {
           logger
             .withFields({ sessionId, error: initiateResult.error })
             .error('Auto-initiate failed after async preparation');
+
+          // startExecutionV2 persists initiatedAt via tryInitiate() before
+          // attempting execution. Roll it back so the session doesn't appear
+          // initiated with no running execution (stuck state).
+          const staleMetadata = await this.ctx.storage.get<CloudAgentSessionState>('metadata');
+          if (staleMetadata?.initiatedAt) {
+            const { initiatedAt: _, ...rest } = staleMetadata;
+            await this.ctx.storage.put('metadata', { ...rest, version: Date.now() });
+          }
+
           emitProgress('failed', `Auto-initiate failed: ${initiateResult.error}`);
           return;
         }
