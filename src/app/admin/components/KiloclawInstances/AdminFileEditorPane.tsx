@@ -58,6 +58,7 @@ export function AdminFileEditorPane({
 }: {
   userId: string;
   filePath: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   writeFileMutation: UseMutationResult<{ etag: string }, any, any>;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
