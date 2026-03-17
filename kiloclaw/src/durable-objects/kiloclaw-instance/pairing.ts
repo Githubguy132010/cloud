@@ -70,7 +70,13 @@ export async function listPairingRequests(
     );
     return { requests: result.requests };
   } catch (error) {
-    if (!isErrorUnknownRoute(error)) throw error;
+    if (!isErrorUnknownRoute(error)) {
+      console.warn(
+        `[DO] listPairingRequests controller call failed sandboxId=${state.sandboxId} appId=${state.flyAppName}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      throw error;
+    }
     // Controller predates this route — fall through to KV cache / fly exec
   }
 
@@ -163,7 +169,13 @@ export async function approvePairingRequest(
     if (error instanceof GatewayControllerError && error.status === 400) {
       return { success: false, message: error.message };
     }
-    if (!isErrorUnknownRoute(error)) throw error;
+    if (!isErrorUnknownRoute(error)) {
+      console.warn(
+        `[DO] approvePairingRequest controller call failed sandboxId=${state.sandboxId} appId=${state.flyAppName}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      throw error;
+    }
     // Controller predates this route — fall through to fly exec
   }
 
@@ -229,7 +241,13 @@ export async function listDevicePairingRequests(
     );
     return { requests: result.requests };
   } catch (error) {
-    if (!isErrorUnknownRoute(error)) throw error;
+    if (!isErrorUnknownRoute(error)) {
+      console.warn(
+        `[DO] listDevicePairingRequests controller call failed sandboxId=${state.sandboxId} appId=${state.flyAppName}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      throw error;
+    }
     // Controller predates this route — fall through to KV cache / fly exec
   }
 
@@ -320,7 +338,13 @@ export async function approveDevicePairingRequest(
     if (error instanceof GatewayControllerError && error.status === 400) {
       return { success: false, message: error.message };
     }
-    if (!isErrorUnknownRoute(error)) throw error;
+    if (!isErrorUnknownRoute(error)) {
+      console.warn(
+        `[DO] approveDevicePairingRequest controller call failed sandboxId=${state.sandboxId} appId=${state.flyAppName}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      throw error;
+    }
     // Controller predates this route — fall through to fly exec
   }
 

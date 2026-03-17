@@ -3049,6 +3049,28 @@ describe('controller-first pairing', () => {
     fetchSpy.mockRestore();
   });
 
+  it('channel list logs console.warn before re-throwing non-route error', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Internal error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const warnSpy = vi.spyOn(console, 'warn');
+
+    await expect(instance.listPairingRequests()).rejects.toThrow();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[DO] listPairingRequests controller call failed'),
+      expect.any(String)
+    );
+    warnSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
   it('channel list throws on 502 — no fallback', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, { flyAppName: 'acct-test' });
@@ -3301,6 +3323,28 @@ describe('controller-first pairing', () => {
     fetchSpy.mockRestore();
   });
 
+  it('device list logs console.warn before re-throwing non-route error', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Internal error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const warnSpy = vi.spyOn(console, 'warn');
+
+    await expect(instance.listDevicePairingRequests()).rejects.toThrow();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[DO] listDevicePairingRequests controller call failed'),
+      expect.any(String)
+    );
+    warnSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
+
   it('channel approve throws on 500 — no fallback', async () => {
     const { instance, storage } = createInstance();
     await seedRunning(storage, { flyAppName: 'acct-test' });
@@ -3317,6 +3361,28 @@ describe('controller-first pairing', () => {
     );
 
     expect(flyClient.execCommand).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('channel approve logs console.warn before re-throwing non-route error', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Internal error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const warnSpy = vi.spyOn(console, 'warn');
+
+    await expect(instance.approvePairingRequest('telegram', 'ABC123')).rejects.toThrow();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[DO] approvePairingRequest controller call failed'),
+      expect.any(String)
+    );
+    warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
 
@@ -3338,6 +3404,30 @@ describe('controller-first pairing', () => {
     );
 
     expect(flyClient.execCommand).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('device approve logs console.warn before re-throwing non-route error', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Internal error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const warnSpy = vi.spyOn(console, 'warn');
+
+    await expect(
+      instance.approveDevicePairingRequest('58f4ac67-12b4-4f6e-adee-ff3463a7c30c')
+    ).rejects.toThrow();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[DO] approveDevicePairingRequest controller call failed'),
+      expect.any(String)
+    );
+    warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
 
@@ -3456,6 +3546,82 @@ describe('controller-first pairing', () => {
     expect(result).toEqual({ success: true, message: 'Device pairing approved' });
     expect(flyClient.execCommand).toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it('channel list returns empty when instance is not running', async () => {
+    const { instance, storage } = createInstance();
+    await seedProvisioned(storage);
+
+    const result = await instance.listPairingRequests();
+
+    expect(result).toEqual({ requests: [] });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+  });
+
+  it('channel approve returns failure when instance is not running', async () => {
+    const { instance, storage } = createInstance();
+    await seedProvisioned(storage);
+
+    const result = await instance.approvePairingRequest('telegram', 'ABC123');
+
+    expect(result).toEqual({ success: false, message: 'Instance is not running' });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+  });
+
+  it('device list returns empty when instance is not running', async () => {
+    const { instance, storage } = createInstance();
+    await seedProvisioned(storage);
+
+    const result = await instance.listDevicePairingRequests();
+
+    expect(result).toEqual({ requests: [] });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+  });
+
+  it('device approve returns failure when instance is not running', async () => {
+    const { instance, storage } = createInstance();
+    await seedProvisioned(storage);
+
+    const result = await instance.approveDevicePairingRequest(
+      '58f4ac67-12b4-4f6e-adee-ff3463a7c30c'
+    );
+
+    expect(result).toEqual({ success: false, message: 'Instance is not running' });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+  });
+
+  it('channel list served from KV cache when controller returns 404 — skips fly exec', async () => {
+    const env = createFakeEnv();
+    const cachedData = { requests: [{ code: 'KV1', id: 'kv-r1', channel: 'slack' }] };
+    const kv = env.KV_CLAW_CACHE as { get: Mock };
+    kv.get.mockResolvedValueOnce(cachedData);
+
+    const { instance, storage } = createInstance(createFakeStorage(), env);
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    const result = await instance.listPairingRequests();
+
+    expect(result).toEqual({ requests: [{ code: 'KV1', id: 'kv-r1', channel: 'slack' }] });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
+  });
+
+  it('device list served from KV cache when controller returns 404 — skips fly exec', async () => {
+    const env = createFakeEnv();
+    const cachedData = {
+      requests: [{ requestId: 'kv-dev-1', deviceId: 'dev-1', role: 'operator' }],
+    };
+    const kv = env.KV_CLAW_CACHE as { get: Mock };
+    kv.get.mockResolvedValueOnce(cachedData);
+
+    const { instance, storage } = createInstance(createFakeStorage(), env);
+    await seedRunning(storage, { flyAppName: 'acct-test' });
+
+    const result = await instance.listDevicePairingRequests();
+
+    expect(result).toEqual({
+      requests: [{ requestId: 'kv-dev-1', deviceId: 'dev-1', role: 'operator' }],
+    });
+    expect(flyClient.execCommand).not.toHaveBeenCalled();
   });
 
   it('device list with forceRefresh — appends ?refresh=true to controller URL', async () => {
@@ -4383,5 +4549,41 @@ describe("syncStatusWithFly: backfill lastStartedAt on 'starting' → 'running'"
 
     // lastStartedAt should be unchanged (already running, no sync_status transition)
     expect(storage._store.get('lastStartedAt')).toBe(existingStartedAt);
+  });
+});
+
+describe('reconcileStarting: transient Fly API errors respect starting timeout', () => {
+  it("stays 'starting' on transient error when NOT timed out", async () => {
+    const { instance, storage } = createInstance();
+    await seedStarting(storage, {
+      flyMachineId: 'machine-1',
+      startingAt: Date.now() - 60_000, // 1 min ago, well within timeout
+    });
+
+    // getMachine throws a transient error (not 404)
+    (flyClient.getMachine as Mock).mockRejectedValue(new Error('connection timeout'));
+
+    await instance.alarm();
+
+    // Should remain in 'starting' — transient error, not yet timed out
+    expect(storage._store.get('status')).toBe('starting');
+    expect(storage._store.get('startingAt')).not.toBeNull();
+  });
+
+  it("falls back to 'stopped' on transient error when timed out", async () => {
+    const { instance, storage } = createInstance();
+    await seedStarting(storage, {
+      flyMachineId: 'machine-1',
+      startingAt: Date.now() - STARTING_TIMEOUT_MS - 1000, // past timeout
+    });
+
+    // getMachine throws a transient error (not 404)
+    (flyClient.getMachine as Mock).mockRejectedValue(new Error('connection timeout'));
+
+    await instance.alarm();
+
+    // Should fall back to 'stopped' — transient error + timed out
+    expect(storage._store.get('status')).toBe('stopped');
+    expect(storage._store.get('startingAt')).toBeNull();
   });
 });

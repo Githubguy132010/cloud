@@ -90,8 +90,48 @@ describe('createPairingCache', () => {
       await cache.refreshChannelPairing();
 
       const result = cache.getChannelPairing();
+      // telegram had no prior data, so only discord's results appear
       expect(result.requests).toHaveLength(1);
       expect(result.requests[0]).toEqual({ code: 'DEF', id: '2', channel: 'discord' });
+    });
+
+    it('preserves stale data for a failed channel when it had prior cached requests', async () => {
+      let telegramShouldFail = false;
+      const execImpl = vi.fn<ExecImpl>().mockImplementation((_cmd, args) => {
+        const channel = args[2];
+        if (channel === 'telegram' && telegramShouldFail) {
+          return Promise.reject(new Error('cli failed'));
+        }
+        if (channel === 'telegram') {
+          return Promise.resolve({
+            stdout: JSON.stringify({ requests: [{ code: 'ABC', id: '1' }] }),
+            stderr: '',
+          });
+        }
+        return Promise.resolve({
+          stdout: JSON.stringify({ requests: [{ code: 'DEF', id: '2' }] }),
+          stderr: '',
+        });
+      });
+
+      const { cache } = createTestHarness({ execImpl });
+
+      // First refresh: both channels succeed
+      await cache.refreshChannelPairing();
+      expect(cache.getChannelPairing().requests).toHaveLength(2);
+
+      // Second refresh: telegram fails — its prior data should be preserved
+      telegramShouldFail = true;
+      await cache.refreshChannelPairing();
+
+      const result = cache.getChannelPairing();
+      expect(result.requests).toHaveLength(2);
+      expect(result.requests).toEqual(
+        expect.arrayContaining([
+          { code: 'ABC', id: '1', channel: 'telegram' },
+          { code: 'DEF', id: '2', channel: 'discord' },
+        ])
+      );
     });
 
     it('logs WARNING prefix when a previously-successful channel fails', async () => {
@@ -122,7 +162,7 @@ describe('createPairingCache', () => {
       await cache.refreshChannelPairing();
 
       const calls = consoleErrorSpy.mock.calls.map(args => String(args[0]));
-      const warnCall = calls.find(msg => msg.includes('WARNING: dropping stale data for'));
+      const warnCall = calls.find(msg => msg.includes('WARNING: keeping stale data for'));
       expect(warnCall).toBeDefined();
       expect(warnCall).toContain('telegram');
 
@@ -645,6 +685,34 @@ describe('createPairingCache', () => {
       cache.cleanup();
 
       await cache.refreshDevicePairing();
+      expect(execImpl).not.toHaveBeenCalled();
+    });
+
+    it('approveChannel returns 500 after cleanup', async () => {
+      const execImpl = vi.fn<ExecImpl>();
+      const { cache } = createTestHarness({ execImpl });
+      cache.cleanup();
+
+      const result = await cache.approveChannel('telegram', 'ABC123');
+      expect(result).toEqual({
+        success: false,
+        message: 'Cache is shutting down',
+        statusHint: 500,
+      });
+      expect(execImpl).not.toHaveBeenCalled();
+    });
+
+    it('approveDevice returns 500 after cleanup', async () => {
+      const execImpl = vi.fn<ExecImpl>();
+      const { cache } = createTestHarness({ execImpl });
+      cache.cleanup();
+
+      const result = await cache.approveDevice('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+      expect(result).toEqual({
+        success: false,
+        message: 'Cache is shutting down',
+        statusHint: 500,
+      });
       expect(execImpl).not.toHaveBeenCalled();
     });
 

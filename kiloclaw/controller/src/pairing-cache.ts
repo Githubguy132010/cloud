@@ -177,11 +177,13 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
           err && typeof err === 'object' && 'stderr' in err
             ? String(err.stderr).trim()
             : String(err);
-        const hadPriorRequests = channelCache.requests.some(r => r.channel === channels[i]);
-        const prefix = hadPriorRequests
-          ? '[pairing-cache] WARNING: dropping stale data for'
-          : '[pairing-cache]';
-        console.error(`${prefix} ${channels[i]}: ${msg}`);
+        const priorRequests = channelCache.requests.filter(r => r.channel === channels[i]);
+        if (priorRequests.length > 0) {
+          console.error(`[pairing-cache] WARNING: keeping stale data for ${channels[i]}: ${msg}`);
+          allRequests.push(...priorRequests);
+        } else {
+          console.error(`[pairing-cache] ${channels[i]}: ${msg}`);
+        }
       }
     }
 

@@ -394,6 +394,33 @@ describe('onStdoutLine callback', () => {
     pipeSpy.mockRestore();
   });
 
+  it('continues delivering lines after onStdoutLine callback throws', async () => {
+    const { spawnImpl, children } = createSpawnHarnessWithStdout();
+    const lines: string[] = [];
+    let callCount = 0;
+    const supervisor = createSupervisor({
+      args: ['--port', '3001'],
+      spawnImpl: spawnImpl as never,
+      onStdoutLine: line => {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error('callback boom');
+        }
+        lines.push(line);
+      },
+    });
+
+    await supervisor.start();
+    await flushMicrotasks();
+
+    // Push three lines — the second will throw
+    children[0].stdout.push('line1\nline2\nline3\n');
+
+    // line1 delivered, line2 threw, line3 still delivered
+    expect(lines).toEqual(['line1', 'line3']);
+    expect(supervisor.getState()).toBe('running');
+  });
+
   it('works without onStdoutLine callback (backward compat)', async () => {
     const { spawnImpl, children } = createSpawnHarnessWithStdout();
     const supervisor = createSupervisor({

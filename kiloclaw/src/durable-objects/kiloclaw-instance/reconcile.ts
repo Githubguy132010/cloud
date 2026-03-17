@@ -325,9 +325,30 @@ async function reconcileStarting(
           healthCheckFailCount: 0,
         })
       );
+    } else if (isTimedOut) {
+      // Transient Fly API error but we've exceeded the starting timeout.
+      // Fall back to 'stopped' so the user can retry instead of staying
+      // stuck in 'starting' indefinitely while the Fly API is unreachable.
+      reconcileLog(reason, 'starting_timeout_transient_error', {
+        machine_id: state.flyMachineId,
+        error: err instanceof Error ? err.message : String(err),
+        elapsed_ms: startingAt !== null ? Date.now() - startingAt : undefined,
+        new_state: 'stopped',
+      });
+      state.status = 'stopped';
+      state.startingAt = null;
+      state.lastStoppedAt = Date.now();
+      state.healthCheckFailCount = 0;
+      await ctx.storage.put(
+        storageUpdate({
+          status: 'stopped',
+          startingAt: null,
+          lastStoppedAt: state.lastStoppedAt,
+          healthCheckFailCount: 0,
+        })
+      );
     } else {
       // Transient Fly API error — leave in 'starting', alarm will retry.
-      // If timed out, still give the next alarm a chance to reach Fly.
       console.error('[DO] reconcileStarting: transient error checking machine:', err);
     }
   }

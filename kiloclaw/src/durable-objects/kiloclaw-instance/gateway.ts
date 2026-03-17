@@ -96,21 +96,17 @@ export async function callGatewayController<T>(
   }
 
   if (!response.ok) {
-    const errorCode =
-      typeof body === 'object' &&
-      body !== null &&
-      'code' in body &&
-      typeof (body as { code?: unknown }).code === 'string'
-        ? (body as { code: string }).code
-        : undefined;
     const bodyObj =
       typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
-    const errorMessage =
-      typeof bodyObj.error === 'string'
-        ? bodyObj.error
-        : typeof bodyObj.message === 'string'
-          ? bodyObj.message
-          : `Gateway controller request failed (${response.status})`;
+    const errorCode = typeof bodyObj.code === 'string' ? bodyObj.code : undefined;
+
+    let errorMessage = `Gateway controller request failed (${response.status})`;
+    if (typeof bodyObj.error === 'string') {
+      errorMessage = bodyObj.error;
+    } else if (typeof bodyObj.message === 'string') {
+      errorMessage = bodyObj.message;
+    }
+
     throw new GatewayControllerError(response.status, errorMessage, errorCode);
   }
 
