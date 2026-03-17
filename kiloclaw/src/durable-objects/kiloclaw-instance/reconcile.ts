@@ -253,6 +253,7 @@ async function reconcileStarting(
         starting_at: state.startingAt,
         elapsed_ms: Date.now() - startingAt,
         new_state: 'stopped',
+        last_start_error: state.lastStartErrorMessage,
       });
       state.status = 'stopped';
       state.startingAt = null;
@@ -294,6 +295,7 @@ async function reconcileStarting(
         fly_state: machine.state,
         elapsed_ms: Date.now() - startingAt,
         new_state: 'stopped',
+        last_start_error: state.lastStartErrorMessage,
       });
       state.status = 'stopped';
       state.startingAt = null;
@@ -602,6 +604,7 @@ export async function syncStatusFromLiveCheck(
   env: KiloClawEnv
 ): Promise<void> {
   if (!state.flyMachineId) return;
+  if (state.restartingAt !== null) return;
 
   try {
     const appName = state.flyAppName ?? env.FLY_APP_NAME;
@@ -641,7 +644,7 @@ export async function syncStatusFromLiveCheck(
 /**
  * Check that a running machine has the correct volume mount.
  */
-async function reconcileMachineMount(
+export async function reconcileMachineMount(
   flyConfig: FlyClientConfig,
   ctx: DurableObjectState,
   state: InstanceMutableState,
