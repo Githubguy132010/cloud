@@ -49,12 +49,6 @@ describe('resolveSafePath', () => {
   it('rejects empty path', () => {
     expect(() => resolveSafePath('', ROOT)).toThrow();
   });
-
-  it('allows credentials directory in admin mode', () => {
-    expect(resolveSafePath('credentials/key.json', ROOT, { admin: true })).toBe(
-      '/root/.openclaw/credentials/key.json'
-    );
-  });
 });
 
 describe('verifyCanonicalized', () => {
@@ -75,11 +69,5 @@ describe('verifyCanonicalized', () => {
     expect(() =>
       verifyCanonicalized('/root/.openclaw/workspace/credentials/key.json', ROOT)
     ).toThrow('credentials');
-  });
-
-  it('allows credentials directory in admin mode', () => {
-    expect(() =>
-      verifyCanonicalized('/root/.openclaw/credentials/key.json', ROOT, { admin: true })
-    ).not.toThrow();
   });
 });

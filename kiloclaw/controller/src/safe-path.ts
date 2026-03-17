@@ -11,14 +11,8 @@ export class SafePathError extends Error {
  * Resolve a relative path within a root directory, rejecting any escape attempts.
  * Returns the absolute resolved path (not canonicalized — callers should use
  * `verifyCanonicalized` after confirming the path exists on disk).
- *
- * When `admin` is true, the credentials directory restriction is bypassed.
  */
-export function resolveSafePath(
-  relativePath: string,
-  rootDir: string,
-  options?: { admin?: boolean }
-): string {
+export function resolveSafePath(relativePath: string, rootDir: string): string {
   if (!relativePath) {
     throw new SafePathError('Path must not be empty');
   }
@@ -37,11 +31,9 @@ export function resolveSafePath(
     throw new SafePathError('Path escapes root directory');
   }
 
-  if (!options?.admin) {
-    const segments = path.relative(rootDir, resolved).split('/');
-    if (segments.includes('credentials')) {
-      throw new SafePathError('Access to credentials directory is forbidden');
-    }
+  const segments = path.relative(rootDir, resolved).split('/');
+  if (segments.includes('credentials')) {
+    throw new SafePathError('Access to credentials directory is forbidden');
   }
 
   return resolved;
@@ -51,22 +43,14 @@ export function resolveSafePath(
  * Verify that a resolved path, after canonicalization via realpath, still
  * stays within the root directory. This catches symlinked ancestors that
  * escape the allowed tree.
- *
- * When `admin` is true, the credentials directory restriction is bypassed.
  */
-export function verifyCanonicalized(
-  canonicalPath: string,
-  rootDir: string,
-  options?: { admin?: boolean }
-): void {
+export function verifyCanonicalized(canonicalPath: string, rootDir: string): void {
   if (canonicalPath !== rootDir && !canonicalPath.startsWith(rootDir + '/')) {
     throw new SafePathError('Path escapes root directory via symlink');
   }
 
-  if (!options?.admin) {
-    const segments = path.relative(rootDir, canonicalPath).split('/');
-    if (segments.includes('credentials')) {
-      throw new SafePathError('Access to credentials directory is forbidden');
-    }
+  const segments = path.relative(rootDir, canonicalPath).split('/');
+  if (segments.includes('credentials')) {
+    throw new SafePathError('Access to credentials directory is forbidden');
   }
 }
