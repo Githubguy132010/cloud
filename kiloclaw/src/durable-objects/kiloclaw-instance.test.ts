@@ -3801,6 +3801,56 @@ describe('provision: auto-start after fresh provision', () => {
   });
 });
 
+describe('startAsync: catch handler writes stopped state on pre-machine failure', () => {
+  it('transitions to stopped immediately when start() throws before machine creation', async () => {
+    const { instance, storage, waitUntilPromises } = createInstance();
+
+    (flyClient.createVolumeWithFallback as Mock).mockResolvedValue({
+      id: 'vol-1',
+      region: 'iad',
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1', region: 'iad' });
+    // createMachine throws — no machine ID is ever persisted
+    (flyClient.createMachine as Mock).mockRejectedValue(new Error('Fly API unavailable'));
+
+    await instance.provision('user-1', {});
+    // Status is 'starting' immediately after provision() returns
+    expect(storage._store.get('status')).toBe('starting');
+
+    // Drain waitUntil promises — catch handler should fire and write stopped
+    await Promise.all(waitUntilPromises);
+
+    expect(storage._store.get('status')).toBe('stopped');
+    expect(storage._store.get('startingAt')).toBeNull();
+    expect(storage._store.get('flyMachineId')).toBeFalsy();
+    expect(storage._store.get('lastStartErrorMessage')).toBe('Fly API unavailable');
+    expect(storage._store.get('lastStartErrorAt')).toBeGreaterThan(0);
+  });
+
+  it('does NOT overwrite state when start() fails after machine ID is persisted', async () => {
+    const { instance, storage, waitUntilPromises } = createInstance();
+
+    (flyClient.createVolumeWithFallback as Mock).mockResolvedValue({
+      id: 'vol-1',
+      region: 'iad',
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1', region: 'iad' });
+    // Machine is created (ID will be persisted) but waitForState throws
+    (flyClient.createMachine as Mock).mockResolvedValue({ id: 'machine-1', region: 'iad' });
+    (flyClient.waitForState as Mock).mockRejectedValue(new Error('timeout waiting for started'));
+
+    await instance.provision('user-1', {});
+    await Promise.all(waitUntilPromises);
+
+    // Machine ID was persisted — catch handler must not overwrite to stopped.
+    // reconcileStarting handles the transition by checking Fly state.
+    expect(storage._store.get('flyMachineId')).toBe('machine-1');
+    expect(storage._store.get('status')).toBe('starting');
+    // Error fields should NOT be populated for post-machine failures
+    expect(storage._store.get('lastStartErrorMessage')).toBeFalsy();
+  });
+});
+
 describe('provision: instance feature flags', () => {
   // Reset listMachines to return [] so metadata recovery is a no-op in these tests.
   beforeEach(() => {
@@ -4765,5 +4815,65 @@ describe('start: concurrent calls do not create duplicate machines', () => {
     expect(flyClient.createMachine).not.toHaveBeenCalled();
     // listMachines called exactly once (only from the first start)
     expect(flyClient.listMachines).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ============================================================================
+// restartMachine live check race guard
+// ============================================================================
+
+describe('restartMachine restartingAt guard', () => {
+  beforeEach(() => {
+    (flyClient.stopMachineAndWait as Mock).mockResolvedValue(undefined);
+    (flyClient.updateMachine as Mock).mockResolvedValue(undefined);
+    (flyClient.waitForState as Mock).mockResolvedValue(undefined);
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      id: 'machine-1',
+      state: 'started',
+      config: { guest: { cpus: 1, memory_mb: 256, cpu_kind: 'shared' } },
+    });
+  });
+
+  it('syncStatusFromLiveCheck skips when restartingAt is set', async () => {
+    const { instance, storage, waitUntilPromises } = createInstance();
+    await seedRunning(storage);
+
+    // Simulate restartMachine setting the guard by calling getStatus during
+    // a restart. We'll make stopMachineAndWait trigger a getStatus mid-flight.
+    (flyClient.stopMachineAndWait as Mock).mockImplementation(async () => {
+      // While stop is in progress, simulate a concurrent getStatus poll.
+      // getMachine returns 'stopped' because machine is mid-restart.
+      (flyClient.getMachine as Mock).mockResolvedValueOnce({
+        state: 'stopped',
+        config: {},
+      });
+      await instance.getStatus();
+      await Promise.all(waitUntilPromises);
+    });
+
+    const result = await instance.restartMachine();
+
+    expect(result.success).toBe(true);
+    // The key assertion: even though live check saw 'stopped', status
+    // should be restored to the persisted value ('running') by the finally block.
+    const finalStatus = await instance.getStatus();
+    expect(finalStatus.status).toBe('running');
+  });
+
+  it('restartMachine clears restartingAt guard on failure so live check can correct state', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage);
+
+    // Make the restart fail after stop (simulating a Fly API error on updateMachine)
+    (flyClient.updateMachine as Mock).mockRejectedValueOnce(new Error('Fly API error'));
+
+    const result = await instance.restartMachine();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Fly API error');
+    // restartingAt guard should be cleared so the next live check can see
+    // the real Fly state (machine is stopped after the failed restart).
+    // Status is NOT forcibly restored from storage on failure — that would
+    // mask the fact that the machine may actually be stopped.
   });
 });

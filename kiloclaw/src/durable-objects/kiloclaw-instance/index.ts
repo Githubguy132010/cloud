@@ -17,7 +17,7 @@ import type {
   GoogleCredentials,
   MachineSize,
 } from '../../schemas/instance-config';
-import { DEFAULT_INSTANCE_FEATURES } from '../../schemas/instance-config';
+import { DEFAULT_INSTANCE_FEATURES, PersistedStateSchema } from '../../schemas/instance-config';
 import type { FlyVolumeSnapshot } from '../../fly/types';
 import * as fly from '../../fly/client';
 import { sandboxIdFromUserId } from '../../auth/sandbox-id';
@@ -46,7 +46,7 @@ import type { GatewayProcessStatus } from '../gateway-controller-types';
 import type { InstanceMutableState, InstanceStatus, DestroyResult } from './types';
 import { getFlyConfig } from './types';
 import { createMutableState, loadState, storageUpdate } from './state';
-import { reconcileLog, nextAlarmTime } from './log';
+import { nextAlarmTime } from './log';
 import { attemptMetadataRecovery } from './reconcile';
 import { resolveImageTag, getRegistryApp, buildUserEnvVars } from './config';
 import * as gateway from './gateway';
@@ -58,6 +58,7 @@ import {
   tryDeleteMachine,
   tryDeleteVolume,
   finalizeDestroyIfComplete,
+  reconcileMachineMount,
 } from './reconcile';
 import { restoreFromPostgres, markDestroyedInPostgresHelper } from './postgres';
 
@@ -677,30 +678,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       try {
         const machine = await fly.getMachine(flyConfig, this.s.flyMachineId);
         if (machine.state === 'started') {
-          // Inline mount reconciliation — reconcileMachineMount is internal to reconcile.ts
-          if (this.s.flyVolumeId) {
-            const mounts = machine.config?.mounts ?? [];
-            const hasCorrectMount = mounts.some(
-              m => m.volume === this.s.flyVolumeId && m.path === '/root'
-            );
-            if (!hasCorrectMount && this.s.flyMachineId) {
-              reconcileLog('start', 'repair_mount', {
-                machine_id: this.s.flyMachineId,
-                volume_id: this.s.flyVolumeId,
-              });
-              await fly.stopMachineAndWait(flyConfig, this.s.flyMachineId);
-              await fly.updateMachine(flyConfig, this.s.flyMachineId, {
-                ...machine.config,
-                mounts: [{ volume: this.s.flyVolumeId, path: '/root' }],
-              });
-              await fly.waitForState(
-                flyConfig,
-                this.s.flyMachineId,
-                'started',
-                STARTUP_TIMEOUT_SECONDS
-              );
-            }
-          }
+          await reconcileMachineMount(flyConfig, this.ctx, this.s, machine, 'start');
           console.log('[DO] Machine already running, mount verified');
           await this.scheduleAlarm();
           return;
@@ -807,12 +785,16 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     this.s.startingAt = null;
     this.s.lastStartedAt = Date.now();
     this.s.healthCheckFailCount = 0;
+    this.s.lastStartErrorMessage = null;
+    this.s.lastStartErrorAt = null;
     await this.persist({
       status: 'running',
       startingAt: null,
       lastStartedAt: this.s.lastStartedAt,
       healthCheckFailCount: 0,
       flyMachineId: this.s.flyMachineId,
+      lastStartErrorMessage: null,
+      lastStartErrorAt: null,
     });
 
     await this.scheduleAlarm();
@@ -841,8 +823,37 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     // Run the actual start in the background; the reconcile alarm will
     // pick up the result and transition to 'running' (or fall back on error).
     this.ctx.waitUntil(
-      this.start(userId).catch(err => {
+      this.start(userId).catch(async err => {
         console.error('[DO] startAsync: background start failed:', err);
+        // Read from storage rather than this.s — waitUntil runs after the
+        // originating request context completes and other handlers may have
+        // mutated in-memory state in the interim.
+        const storedMachineId = await this.ctx.storage.get('flyMachineId');
+        const currentStatus = await this.ctx.storage.get('status');
+        if (!storedMachineId && currentStatus !== 'destroying') {
+          // start() threw before persisting a machine ID. Reconcile cannot
+          // distinguish this from "still in progress", so write the terminal
+          // state explicitly to avoid the 5-min stuck window.
+          // Skip if destroy() has taken ownership — writing 'stopped' would
+          // clobber the 'destroying' state and strand cleanup.
+          const now = Date.now();
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          this.s.status = 'stopped';
+          this.s.startingAt = null;
+          this.s.lastStoppedAt = now;
+          this.s.lastStartErrorMessage = errorMessage;
+          this.s.lastStartErrorAt = now;
+          await this.persist({
+            status: 'stopped',
+            startingAt: null,
+            lastStoppedAt: now,
+            lastStartErrorMessage: errorMessage,
+            lastStartErrorAt: now,
+          });
+        }
+        // If storedMachineId exists the machine was created — reconcileStarting
+        // will pick up its Fly state via getMachine + syncStatusWithFly. Writing
+        // 'stopped' here would race with a machine that is still booting.
       })
     );
   }
@@ -1017,6 +1028,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     lastDestroyErrorStatus: number | null;
     lastDestroyErrorMessage: string | null;
     lastDestroyErrorAt: number | null;
+    lastStartErrorMessage: string | null;
+    lastStartErrorAt: number | null;
   }> {
     await this.loadState();
     const alarmScheduledAt = await this.ctx.storage.getAlarm();
@@ -1054,6 +1067,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       lastDestroyErrorStatus: this.s.lastDestroyErrorStatus,
       lastDestroyErrorMessage: this.s.lastDestroyErrorMessage,
       lastDestroyErrorAt: this.s.lastDestroyErrorAt,
+      lastStartErrorMessage: this.s.lastStartErrorMessage,
+      lastStartErrorAt: this.s.lastStartErrorAt,
     };
   }
 
@@ -1144,6 +1159,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       return { success: false, error: 'Instance is not running' };
     }
 
+    this.s.restartingAt = Date.now();
+
     const action = options?.imageTag
       ? options.imageTag === 'latest'
         ? 'upgrade-to-latest'
@@ -1230,10 +1247,21 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       await fly.waitForState(flyConfig, this.s.flyMachineId, 'started', STARTUP_TIMEOUT_SECONDS);
       await gateway.waitForHealthy(this.s, this.env, flyConfig.appName, this.s.flyMachineId);
 
+      // Restore in-memory status from persisted state, in case a concurrent
+      // live check mutated it while the machine was temporarily stopped.
+      // Only restore on success — on failure the machine may actually be
+      // stopped, so let the next live check see the real Fly state.
+      const persisted = await this.ctx.storage.get('status');
+      const parsed = PersistedStateSchema.shape.status.safeParse(persisted);
+      if (parsed.success) {
+        this.s.status = parsed.data;
+      }
       return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       return { success: false, error: errorMessage };
+    } finally {
+      this.s.restartingAt = null;
     }
   }
 
