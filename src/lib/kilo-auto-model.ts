@@ -27,7 +27,7 @@ type AutoModel = {
 export const KILO_AUTO_FRONTIER_MODEL: AutoModel = {
   id: 'kilo-auto/frontier',
   name: 'Kilo Auto Frontier',
-  description: 'Automatically routes your request to the best model for the task.',
+  description: 'Highest performance and capability for any task`,
   context_length: 1_000_000,
   max_completion_tokens: 128_000,
   prompt_price: '0.000005',
