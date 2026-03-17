@@ -7,7 +7,7 @@ export class SafePathError extends Error {
   }
 }
 
-const BLOCKED_SEGMENTS = new Set(['credentials']);
+export const BLOCKED_SEGMENTS = new Set(['credentials']);
 
 function assertNoBlockedSegments(absolutePath: string, rootDir: string): void {
   const segments = path.relative(rootDir, absolutePath).split('/');
