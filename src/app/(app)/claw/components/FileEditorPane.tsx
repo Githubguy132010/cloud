@@ -87,7 +87,7 @@ export function FileEditorPane({
   // savedContentRef holds the last successfully saved content, used as fallback
   // until the query refetches to avoid flashing stale content after save.
   const savedContentRef = useRef<string | null>(null);
-  const serverContent = data?.content ?? savedContentRef.current ?? '';
+  const serverContent = savedContentRef.current ?? data?.content ?? '';
   const [editedContent, setEditedContent] = useState<string | null>(null);
   const etagRef = useRef<string | undefined>(undefined);
 
@@ -101,6 +101,8 @@ export function FileEditorPane({
   useEffect(() => {
     if (data?.etag) {
       etagRef.current = data.etag;
+      // Clear the optimistic saved content once the refetch lands with a fresh ETag
+      savedContentRef.current = null;
     }
   }, [data?.etag]);
 
