@@ -229,7 +229,7 @@ if (projectChoice === '2') {
     console.log('Project created.\n');
   } catch (err) {
     const errOutput = err.stderr?.toString() ?? err.message;
-    if (errOutput.includes('Terms of Service')) {
+    if (/terms/i.test(errOutput)) {
       console.log('');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('  You need to accept the Google Cloud Terms of Service first.');
