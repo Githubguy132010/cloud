@@ -66,7 +66,7 @@ function resolveAndValidateFile(
 ): string | FileValidationError {
   let resolved: string;
   try {
-    resolved = resolveSafePath(relativePath, rootDir, { admin: true });
+    resolved = resolveSafePath(relativePath, rootDir);
   } catch (e) {
     if (e instanceof SafePathError) {
       return { error: e.message, status: 400 };
@@ -80,7 +80,7 @@ function resolveAndValidateFile(
 
   // Canonicalize to catch symlinked ancestors escaping the root
   try {
-    verifyCanonicalized(fs.realpathSync(resolved), rootDir, { admin: true });
+    verifyCanonicalized(fs.realpathSync(resolved), rootDir);
   } catch (e) {
     if (e instanceof SafePathError) {
       return { error: e.message, status: 400 };
