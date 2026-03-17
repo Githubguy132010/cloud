@@ -20,8 +20,23 @@ WORKSPACE_DIR="/root/clawd"
 echo "Config directory: $CONFIG_DIR"
 
 mkdir -p "$CONFIG_DIR"
+chmod 700 "$CONFIG_DIR"
 mkdir -p "$WORKSPACE_DIR"
 cd "$WORKSPACE_DIR"
+
+# ============================================================
+# STARTUP OPTIMIZATION (openclaw doctor → Startup optimization)
+# ============================================================
+# Avoid extra process self-respawn overhead — the controller already supervises
+# the gateway, so the CLI/gateway don't need their own detached-restart path.
+export OPENCLAW_NO_RESPAWN=1
+
+# Enable Node's module compile cache. The cache is version-keyed (Node
+# auto-creates a subdirectory per NODE_VERSION+ARCH+V8 tag), so stale
+# entries from a different Node version are harmlessly ignored.
+# /var/tmp matches the upstream openclaw doctor recommendation.
+export NODE_COMPILE_CACHE=/var/tmp/openclaw-compile-cache
+mkdir -p "$NODE_COMPILE_CACHE"
 
 # ============================================================
 # DECRYPT ENCRYPTED ENV VARS
@@ -210,6 +225,16 @@ if [ "${KILOCLAW_KILO_CLI:-}" = "true" ]; then
         export KILO_API_KEY="$KILOCODE_API_KEY"
     fi
     echo "Kilo CLI auto-configuration enabled"
+fi
+
+# ============================================================
+# GENERATE HOOKS TOKEN (for Gmail push via gog)
+# ============================================================
+# OpenClaw requires hooks.token != gateway.auth.token.
+# Generate a per-boot random token shared between openclaw config and the
+# controller (which passes it to gog's --hook-token).
+if [ -n "${KILOCLAW_GOG_CONFIG_TARBALL:-}" ]; then
+    export KILOCLAW_HOOKS_TOKEN="$(openssl rand -hex 32)"
 fi
 
 # ============================================================
@@ -431,6 +456,20 @@ if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
     config.plugins.entries = config.plugins.entries || {};
     config.plugins.entries.slack = config.plugins.entries.slack || {};
     config.plugins.entries.slack.enabled = true;
+}
+
+// Webhook hooks configuration (required for Gmail push notifications via gog).
+// hooks.token authenticates incoming hook requests from gog's --hook-token.
+// The gmail preset maps gog's gmailHookPayload into OpenClaw's expected format.
+if (process.env.KILOCLAW_HOOKS_TOKEN) {
+    config.hooks = config.hooks || {};
+    config.hooks.enabled = true;
+    config.hooks.token = process.env.KILOCLAW_HOOKS_TOKEN;
+    config.hooks.presets = config.hooks.presets || [];
+    if (!config.hooks.presets.includes('gmail')) {
+        config.hooks.presets.push('gmail');
+    }
+    console.log('Hooks enabled with gmail preset (dedicated token)');
 }
 
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));

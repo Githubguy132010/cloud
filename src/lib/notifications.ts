@@ -1,18 +1,26 @@
 import { type User } from '@kilocode/db/schema';
-import { getBalanceForUser } from './user.balance';
+import { type BalanceForUser, getBalanceForUser } from './user.balance';
 import { FIRST_TOPUP_BONUS_AMOUNT, APP_URL } from '@/lib/constants';
-import {
-  getUserOrganizationsWithSeats,
-  userHasOrganizations,
-} from '@/lib/organizations/organizations';
+import { getUserOrganizationsWithSeats } from '@/lib/organizations/organizations';
+import type { UserOrganizationWithSeats } from '@/lib/organizations/organization-types';
 import { summarizeUserPayments } from '@/lib/creditTransactions';
 import { hasOrganizationEverPaid, hasUserEverPaid } from '@/lib/creditTransactions';
 import { cachedPosthogQuery } from '@/lib/posthog-query';
 import * as z from 'zod';
+import { subDays } from 'date-fns';
+import { hasReceivedPromotion } from '@/lib/promotionalCredits';
+
 import { getKiloPassStateForUser } from '@/lib/kilo-pass/state';
 import { db } from '@/lib/drizzle';
 import { fromMicrodollars } from '@/lib/utils';
 import { KILO_AUTO_FREE_MODEL } from '@/lib/kilo-auto-model';
+
+/** Pre-fetched data shared across notification generators to avoid duplicate DB queries. */
+type NotificationContext = {
+  userOrganizations: UserOrganizationWithSeats[];
+  isInTeam: boolean;
+  balance: BalanceForUser;
+};
 
 export type KiloNotification = {
   id: string;
@@ -88,18 +96,37 @@ const normalUnconditionalNotifications: KiloNotification[] = [
 ];
 
 export async function generateUserNotifications(user: User): Promise<KiloNotification[]> {
-  const conditionalNotifications: ((user: User) => Promise<KiloNotification[]>)[] = [
+  // Pre-fetch shared data once to avoid duplicate DB queries across generators.
+  // This eliminates ~5 redundant queries per request (2× userHasOrganizations,
+  // 3× getUserOrganizationsWithSeats, 2× getBalanceForUser → 1+1 queries).
+  const [userOrganizations, balance] = await Promise.all([
+    getUserOrganizationsWithSeats(user.id),
+    getBalanceForUser(user),
+  ]);
+  const ctx: NotificationContext = {
+    userOrganizations,
+    // Replaces the old userHasOrganizations() LIMIT-1 existence check; acceptable
+    // because getUserOrganizationsWithSeats is already needed by other generators.
+    isInTeam: userOrganizations.length > 0,
+    balance,
+  };
+
+  const conditionalNotifications: ((
+    user: User,
+    ctx: NotificationContext
+  ) => Promise<KiloNotification[]>)[] = [
     generateTeamsTrialNotification,
     generateLowCreditNotification,
     generateAutoTopUpNotification,
     generateAutoTopUpOrgsNotification,
     generateByokProvidersNotification,
+    generateFirstDayWelcomeNotification,
     generateKiloPassNotification,
     generateKimiFreeEndingNotification,
   ];
 
   const resolvedConditionalNotifications = (
-    await Promise.all(conditionalNotifications.map(f => f(user)))
+    await Promise.all(conditionalNotifications.map(f => f(user, ctx)))
   ).flat();
 
   const now = new Date();
@@ -108,12 +135,14 @@ export async function generateUserNotifications(user: User): Promise<KiloNotific
   );
 }
 
-async function generateLowCreditNotification(user: User): Promise<KiloNotification[]> {
-  const isInTeam = await userHasOrganizations(user.id);
+async function generateLowCreditNotification(
+  user: User,
+  ctx: NotificationContext
+): Promise<KiloNotification[]> {
   // For now, let's not confuse users when they're on a team
-  if (isInTeam) return [];
+  if (ctx.isInTeam) return [];
 
-  const { balance } = await getBalanceForUser(user);
+  const { balance } = ctx.balance;
 
   if (balance >= 2) return [];
   const payments = await summarizeUserPayments(user.id);
@@ -137,12 +166,15 @@ async function generateLowCreditNotification(user: User): Promise<KiloNotificati
   ];
 }
 
-async function generateAutoTopUpNotification(user: User): Promise<KiloNotification[]> {
+async function generateAutoTopUpNotification(
+  user: User,
+  ctx: NotificationContext
+): Promise<KiloNotification[]> {
   if (!(await hasUserEverPaid(user.id))) {
     return [];
   }
 
-  for (const org of await getUserOrganizationsWithSeats(user.id)) {
+  for (const org of ctx.userOrganizations) {
     if (await hasOrganizationEverPaid(org.organizationId)) {
       return [];
     }
@@ -163,9 +195,11 @@ async function generateAutoTopUpNotification(user: User): Promise<KiloNotificati
   ];
 }
 
-async function generateAutoTopUpOrgsNotification(user: User): Promise<KiloNotification[]> {
-  const orgs = await getUserOrganizationsWithSeats(user.id);
-  const isOwnerOrAdmin = orgs.some(org => org.role === 'owner');
+async function generateAutoTopUpOrgsNotification(
+  _user: User,
+  ctx: NotificationContext
+): Promise<KiloNotification[]> {
+  const isOwnerOrAdmin = ctx.userOrganizations.some(org => org.role === 'owner');
   if (!isOwnerOrAdmin) return [];
 
   return [
@@ -183,10 +217,12 @@ async function generateAutoTopUpOrgsNotification(user: User): Promise<KiloNotifi
   ];
 }
 
-async function generateTeamsTrialNotification(user: User): Promise<KiloNotification[]> {
+async function generateTeamsTrialNotification(
+  _user: User,
+  ctx: NotificationContext
+): Promise<KiloNotification[]> {
   // Only show teams notification if user is NOT already in a team
-  const isInTeam = await userHasOrganizations(user.id);
-  if (isInTeam) return [];
+  if (ctx.isInTeam) return [];
 
   return [
     {
@@ -203,7 +239,10 @@ async function generateTeamsTrialNotification(user: User): Promise<KiloNotificat
   ];
 }
 
-async function generateByokProvidersNotification(user: User): Promise<KiloNotification[]> {
+async function generateByokProvidersNotification(
+  user: User,
+  _ctx: NotificationContext
+): Promise<KiloNotification[]> {
   try {
     const byokProviderUsers = await cachedPosthogQuery(
       z.array(
@@ -270,7 +309,45 @@ async function generateByokProvidersNotification(user: User): Promise<KiloNotifi
   }
 }
 
-async function generateKiloPassNotification(user: User): Promise<KiloNotification[]> {
+async function generateFirstDayWelcomeNotification(
+  user: User,
+  ctx: NotificationContext
+): Promise<KiloNotification[]> {
+  // Check if user was created within the last day
+  if (new Date(user.created_at) < subDays(new Date(), 1)) {
+    return [];
+  }
+
+  // Check if user has received the signup bonus
+  const hasReceivedBonus = await hasReceivedPromotion(user.id, 'automatic-welcome-credits');
+  if (!hasReceivedBonus) {
+    return [];
+  }
+
+  // Check if user still has credit balance
+  if (ctx.balance.balance <= 1) {
+    return [];
+  }
+
+  return [
+    {
+      id: 'first-day-welcome-jan-8',
+      title: 'Welcome to Kilo Code!',
+      message:
+        'We added $5 to your balance to get started! If you want something to try, try asking Kilo to clone Kilo-Org/KiloMan and run it.',
+      action: {
+        actionText: 'Open Kilo-Org/KiloMan',
+        actionURL: 'https://github.com/Kilo-Org/kiloman',
+      },
+      showIn: ['cli', 'extension'],
+    },
+  ];
+}
+
+async function generateKiloPassNotification(
+  user: User,
+  ctx: NotificationContext
+): Promise<KiloNotification[]> {
   // Exclude users who already have a Kilo Pass
   const kiloPassState = await getKiloPassStateForUser(db, user.id);
   if (kiloPassState) {
@@ -278,8 +355,7 @@ async function generateKiloPassNotification(user: User): Promise<KiloNotificatio
   }
 
   // Check if user belongs to an organization with balance > $5
-  const orgs = await getUserOrganizationsWithSeats(user.id);
-  const hasHighBalanceOrg = orgs.some(org => fromMicrodollars(org.balance) > 5);
+  const hasHighBalanceOrg = ctx.userOrganizations.some(org => fromMicrodollars(org.balance) > 5);
   if (hasHighBalanceOrg) {
     return [];
   }
@@ -298,7 +374,10 @@ async function generateKiloPassNotification(user: User): Promise<KiloNotificatio
   ];
 }
 
-async function generateKimiFreeEndingNotification(user: User): Promise<KiloNotification[]> {
+async function generateKimiFreeEndingNotification(
+  user: User,
+  _ctx: NotificationContext
+): Promise<KiloNotification[]> {
   try {
     const kimiFreeUsers = await cachedPosthogQuery(
       z.array(z.tuple([z.string()]).transform(([userId]) => userId))

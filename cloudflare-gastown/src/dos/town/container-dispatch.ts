@@ -200,6 +200,7 @@ export function systemPromptForRole(params: {
   agentName: string;
   rigId: string;
   townId: string;
+  gates: string[];
 }): string {
   switch (params.role) {
     case 'polecat':
@@ -208,6 +209,7 @@ export function systemPromptForRole(params: {
         rigId: params.rigId,
         townId: params.townId,
         identity: params.identity,
+        gates: params.gates,
       });
     case 'mayor':
       return buildMayorSystemPrompt({
@@ -383,6 +385,7 @@ export async function startAgentInContainer(
             agentName: params.agentName,
             rigId: params.rigId,
             townId: params.townId,
+            gates: params.townConfig.refinery?.gates ?? [],
           }),
         gitUrl: params.gitUrl,
         branch: params.convoyFeatureBranch
@@ -552,6 +555,30 @@ export async function stopAgentInContainer(
     });
   } catch {
     // Best-effort
+  }
+}
+
+/**
+ * Push the latest dashboard context XML to the running container.
+ * Best-effort — silently ignores failures if the container is down.
+ */
+export async function pushDashboardContext(
+  env: Env,
+  townId: string,
+  context: string
+): Promise<void> {
+  const container = getTownContainerStub(env, townId);
+  try {
+    const resp = await container.fetch('http://container/dashboard-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context }),
+    });
+    if (!resp.ok) {
+      console.warn(`${TOWN_LOG} pushDashboardContext: container returned ${resp.status}`);
+    }
+  } catch {
+    // Container not running — context will be pushed on next navigation
   }
 }
 

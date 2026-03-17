@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { Zap, TriangleAlert } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2, Settings, TriangleAlert, Zap } from 'lucide-react';
 import type { KiloClawDashboardStatus } from '@/lib/kiloclaw/types';
 import {
   useKiloClawGatewayStatus,
@@ -9,6 +9,7 @@ import {
   useKiloClawServiceDegraded,
 } from '@/hooks/useKiloClaw';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGatewayUrl } from '../hooks/useGatewayUrl';
@@ -16,12 +17,11 @@ import { ClawHeader } from './ClawHeader';
 import { CreateInstanceCard } from './CreateInstanceCard';
 import { InstanceControls } from './InstanceControls';
 import { InstanceTab } from './InstanceTab';
+import { OpenClawButton } from './OpenClawButton';
 import { SettingsTab } from './SettingsTab';
-import { useTRPC } from '@/lib/trpc/utils';
-import { useQuery } from '@tanstack/react-query';
 import { ChangelogCard } from './ChangelogCard';
-import { EarlybirdBanner } from './EarlybirdBanner';
 import { PairingCard } from './PairingCard';
+import { BillingWrapper } from './billing/BillingWrapper';
 
 type PopulatedClawStatus = KiloClawDashboardStatus & {
   status: NonNullable<KiloClawDashboardStatus['status']>;
@@ -33,8 +33,15 @@ function hasPopulatedStatus(
   return candidate !== undefined && candidate.status !== null;
 }
 
-export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | undefined }) {
-  const trpc = useTRPC();
+export function ClawDashboard({
+  status,
+  isNewSetup,
+  onNewSetupChange,
+}: {
+  status: KiloClawDashboardStatus | undefined;
+  isNewSetup: boolean;
+  onNewSetupChange: (v: boolean) => void;
+}) {
   const mutations = useKiloClawMutations();
   const gatewayUrl = useGatewayUrl(status);
   const instanceStatus = hasPopulatedStatus(status) ? status : null;
@@ -46,7 +53,6 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
   } = useKiloClawGatewayStatus(isRunning);
 
   const { data: isServiceDegraded } = useKiloClawServiceDegraded();
-  const { data: earlybirdStatus } = useQuery(trpc.kiloclaw.getEarlybirdStatus.queryOptions());
 
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const instanceYoung =
@@ -64,6 +70,10 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
     setDirtySecrets(new Set());
   }, []);
 
+  // Billing gating (welcome page for new users, loading spinner) is handled
+  // by page.tsx before this component mounts. ClawDashboard always renders
+  // the full dashboard with BillingWrapper handling lock dialogs and banners.
+
   return (
     <div className="container m-auto flex w-full max-w-[1140px] flex-col gap-6 p-4 md:p-6">
       <ClawHeader
@@ -72,6 +82,7 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
         region={status?.flyRegion || null}
         gatewayUrl={gatewayUrl}
         gatewayReady={gatewayStatus?.state === 'running'}
+        isSetupWizard={isNewSetup}
       />
 
       {isServiceDegraded && (
@@ -97,7 +108,7 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
         </Alert>
       )}
 
-      {configServiceNudgeVisible && (
+      {configServiceNudgeVisible && !isNewSetup && (
         <div className="border-brand-primary/30 bg-brand-primary/5 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <Zap className="text-brand-primary mt-0.5 h-5 w-5 shrink-0" />
@@ -122,13 +133,39 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
         </div>
       )}
 
-      <Card className="mt-6">
+      <BillingWrapper hideBanners={isNewSetup}>
         {!instanceStatus ? (
-          <CardContent className="p-5">
-            <CreateInstanceCard mutations={mutations} />
-          </CardContent>
+          <CreateInstanceCard
+            mutations={mutations}
+            onProvisionStart={() => onNewSetupChange(true)}
+          />
+        ) : isNewSetup &&
+          (instanceStatus.status !== 'running' || gatewayStatus?.state !== 'running') ? (
+          <ProvisioningSpinner onViewDashboard={() => onNewSetupChange(false)} />
+        ) : isNewSetup ? (
+          <Card className="mt-6">
+            <CardContent className="flex flex-col items-center justify-center gap-4 py-16">
+              <p className="text-foreground text-lg font-semibold">Your instance is ready!</p>
+              <div className="flex gap-3">
+                <OpenClawButton
+                  canShow={gatewayStatus?.state === 'running'}
+                  gatewayUrl={gatewayUrl}
+                  look="hero"
+                  label="Open KiloClaw"
+                />
+                <Button
+                  className="min-w-[180px]"
+                  variant="outline"
+                  onClick={() => onNewSetupChange(false)}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configure Instance
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
-          <>
+          <Card className="mt-6">
             <CardContent className="border-b p-5">
               <InstanceControls
                 status={instanceStatus}
@@ -172,14 +209,48 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
                 </TabsContent>
               </CardContent>
             </Tabs>
-          </>
+          </Card>
         )}
-      </Card>
 
-      {instanceStatus?.status === 'running' && <PairingCard mutations={mutations} />}
+        {instanceStatus?.status === 'running' && !isNewSetup && (
+          <PairingCard mutations={mutations} />
+        )}
+      </BillingWrapper>
 
-      {earlybirdStatus?.purchased && <EarlybirdBanner />}
-      <ChangelogCard />
+      {instanceStatus && !isNewSetup && <ChangelogCard />}
     </div>
+  );
+}
+
+const SLOW_PROVISION_TIMEOUT_MS = 60_000;
+
+function ProvisioningSpinner({ onViewDashboard }: { onViewDashboard: () => void }) {
+  const [isSlow, setIsSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsSlow(true), SLOW_PROVISION_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Card className="mt-6">
+      <CardContent className="flex flex-col items-center justify-center gap-4 py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <p className="text-muted-foreground text-sm">Setting up your KiloClaw instance...</p>
+        {isSlow && (
+          <p className="text-muted-foreground animate-in fade-in max-w-md text-center text-xs duration-500">
+            This is taking longer than expected. If you&apos;re stuck, please reach out to{' '}
+            <a href="mailto:hi@kilocode.ai" className="underline hover:opacity-80">
+              hi@kilocode.ai
+            </a>{' '}
+            for help, or{' '}
+            <button type="button" onClick={onViewDashboard} className="underline hover:opacity-80">
+              view the dashboard
+            </button>{' '}
+            for details.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

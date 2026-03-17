@@ -1,8 +1,7 @@
 import type { FeatureValue } from '@/lib/feature-detection';
-import type { GatewayApiKind } from '@/lib/providers/openrouter/types';
 import type { ProviderId } from '@/lib/providers/provider-id';
 import type { FraudDetectionHeaders } from '@/lib/utils';
-import type { MicrodollarUsage, Organization } from '@kilocode/db';
+import type { GatewayApiKind, MicrodollarUsage, Organization } from '@kilocode/db';
 import type { OpenAI } from 'openai';
 
 export type OpenRouterUsage = {
@@ -153,6 +152,7 @@ export type UsageMetaData = {
   streamed: boolean | null;
   cancelled: boolean | null;
   editor_name: string | null;
+  api_kind: GatewayApiKind | null;
   has_tools: boolean | null;
   machine_id: string | null;
   feature: string | null;

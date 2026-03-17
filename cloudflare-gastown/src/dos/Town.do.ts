@@ -69,6 +69,7 @@ import type {
   BeadEventRecord,
   MergeStrategy,
   ConvoyMergeMode,
+  UiAction,
 } from '../types';
 
 const TOWN_LOG = '[Town.do]';
@@ -381,6 +382,24 @@ export class TownDO extends DurableObject<Env> {
     }
   }
 
+  /**
+   * Broadcast a ui_action event to all connected status WebSocket clients.
+   * Called by the mayor via the /mayor/ui-action HTTP route.
+   */
+  async broadcastUiAction(action: UiAction): Promise<void> {
+    await this.ensureInitialized();
+    const sockets = this.ctx.getWebSockets('status');
+    if (sockets.length === 0) return;
+    const frame = JSON.stringify({ channel: 'ui_action', action, ts: now() });
+    for (const ws of sockets) {
+      try {
+        ws.send(frame);
+      } catch {
+        // Client disconnected — will be cleaned up by webSocketClose
+      }
+    }
+  }
+
   // ── Initialization ──────────────────────────────────────────────────
 
   private async ensureInitialized(): Promise<void> {
@@ -421,6 +440,7 @@ export class TownDO extends DurableObject<Env> {
   }
 
   private _townId: string | null = null;
+  private _dashboardContext: string | null = null;
 
   private get townId(): string {
     return this._townId ?? this.ctx.id.name ?? this.ctx.id.toString();
@@ -434,6 +454,17 @@ export class TownDO extends DurableObject<Env> {
   async setTownId(townId: string): Promise<void> {
     this._townId = townId;
     await this.ctx.storage.put('town:id', townId);
+  }
+
+  async setDashboardContext(context: string): Promise<void> {
+    this._dashboardContext = context;
+    // Best-effort push to the running container so the plugin has it
+    // in-memory for the next LLM call without a network round-trip.
+    await dispatch.pushDashboardContext(this.env, this.townId, context);
+  }
+
+  async getDashboardContext(): Promise<string | null> {
+    return this._dashboardContext;
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -1086,7 +1117,7 @@ export class TownDO extends DurableObject<Env> {
       if (mayor) resolvedAgentId = mayor.id;
     }
     if (resolvedAgentId) {
-      reviewQueue.agentCompleted(this.sql, resolvedAgentId, input);
+      const result = reviewQueue.agentCompleted(this.sql, resolvedAgentId, input);
       const agent = agents.getAgent(this.sql, resolvedAgentId);
       this.emitEvent({
         event: 'agent.exited',
@@ -1094,6 +1125,35 @@ export class TownDO extends DurableObject<Env> {
         agentId: resolvedAgentId,
         role: agent?.role,
       });
+
+      // If the refinery exited without merging (rework), dispatch a
+      // polecat to re-work the source bead. This mirrors the rework
+      // dispatch in completeReviewWithResult.
+      if (result.reworkSourceBeadId) {
+        const sourceBead = beadOps.getBead(this.sql, result.reworkSourceBeadId);
+        if (sourceBead?.rig_id) {
+          try {
+            const reworkAgent = agents.getOrCreateAgent(
+              this.sql,
+              'polecat',
+              sourceBead.rig_id,
+              this.townId
+            );
+            agents.hookBead(this.sql, reworkAgent.id, result.reworkSourceBeadId);
+            this.dispatchAgent(reworkAgent, sourceBead).catch(err =>
+              console.error(
+                `${TOWN_LOG} agentCompleted: rework dispatch failed for bead=${result.reworkSourceBeadId}`,
+                err
+              )
+            );
+          } catch (err) {
+            console.warn(
+              `${TOWN_LOG} agentCompleted: could not dispatch rework for bead=${result.reworkSourceBeadId}:`,
+              err
+            );
+          }
+        }
+      }
     }
   }
 
@@ -1409,7 +1469,8 @@ export class TownDO extends DurableObject<Env> {
 
   async sendMayorMessage(
     message: string,
-    _model?: string
+    _model?: string,
+    uiContext?: string
   ): Promise<{ agentId: string; sessionStatus: 'idle' | 'active' | 'starting' }> {
     await this.ensureInitialized();
     const townId = this.townId;
@@ -1431,10 +1492,15 @@ export class TownDO extends DurableObject<Env> {
       `${TOWN_LOG} sendMayorMessage: townId=${townId} mayorId=${mayor.id} containerStatus=${containerStatus.status} isAlive=${isAlive}`
     );
 
+    const effectiveContext = uiContext ?? this._dashboardContext;
+    const combinedMessage = effectiveContext
+      ? `<system-reminder>\n${effectiveContext}\n</system-reminder>\n\n${message}`
+      : message;
+
     let sessionStatus: 'idle' | 'active' | 'starting';
 
     if (isAlive) {
-      const sent = await dispatch.sendMessageToAgent(this.env, townId, mayor.id, message);
+      const sent = await dispatch.sendMessageToAgent(this.env, townId, mayor.id, combinedMessage);
       sessionStatus = sent ? 'active' : 'idle';
     } else {
       const townConfig = await this.getTownConfig();
@@ -2308,6 +2374,14 @@ export class TownDO extends DurableObject<Env> {
       `,
       [now(), escalationId]
     );
+    // Acknowledging an escalation also closes it — the mayor has seen
+    // the issue and doesn't need it sitting open in the queue.
+    // Guard with getBead so stale/duplicate acknowledge calls remain
+    // idempotent instead of throwing on a missing bead.
+    const escalationBead = beadOps.getBead(this.sql, escalationId);
+    if (escalationBead && escalationBead.status !== 'closed') {
+      beadOps.updateBeadStatus(this.sql, escalationId, 'closed', null);
+    }
     this.emitEvent({
       event: 'escalation.acknowledged',
       townId: this.townId,
@@ -2498,12 +2572,13 @@ export class TownDO extends DurableObject<Env> {
       } catch (err) {
         console.warn(`${TOWN_LOG} alarm: container health check failed`, err);
       }
-    }
 
-    // Refresh the container-scoped JWT before any work that might
-    // trigger API calls. Throttled to once per hour (tokens have 8h
-    // expiry, so hourly refresh provides ample safety margin).
-    if (this.hasActiveWork()) {
+      // Refresh the container-scoped JWT before any work that might
+      // trigger API calls. Throttled to once per hour (tokens have 8h
+      // expiry, so hourly refresh provides ample safety margin).
+      // Gated on hasRigs (not hasActiveWork) because the container may
+      // still be running with an idle mayor accepting user messages,
+      // even when there are no active beads or agents.
       try {
         await this.refreshContainerToken();
       } catch (err) {

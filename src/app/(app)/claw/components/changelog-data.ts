@@ -11,6 +11,25 @@ export type ChangelogEntry = {
 // Newest entries first. Developers add new entries to the top of this array.
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: '2026-03-17',
+    description:
+      'Reduced OpenClaw startup overhead by disabling unnecessary CLI self-respawn, enabled Node compile cache for faster repeated CLI runs, and tightened state directory permissions.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
+    date: '2026-03-16',
+    description: 'Updated OpenClaw to 2026.3.13.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
+    date: '2026-03-16',
+    description: 'Updated OpenClaw to 2026.3.11, summarize CLI to 0.12.0, and gogcli to 0.12.0.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
     date: '2026-03-12',
     description:
       'Added support for Google Account and GitHub machine user connections. Connect your Google account for Gmail, Calendar, and Docs access. Add a GitHub identity so your bot can clone repos, push commits, and open PRs.',
