@@ -69,6 +69,16 @@ function handleFileOperationError(err: unknown, operation: string): never {
           : (message ?? `Failed to ${operation}`),
     });
   }
+  if (err instanceof KiloClawApiError && err.statusCode === 400) {
+    const { message, code } = getKiloClawApiErrorPayload(err);
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message:
+        code && UNSAFE_ERROR_CODES.has(code)
+          ? `Failed to ${operation}`
+          : (message ?? `Failed to ${operation}`),
+    });
+  }
   if (err instanceof KiloClawApiError && err.statusCode === 409) {
     const { message, code } = getKiloClawApiErrorPayload(err);
     throw new TRPCError({
