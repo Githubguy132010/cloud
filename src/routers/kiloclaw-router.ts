@@ -162,6 +162,10 @@ function validateUserFilePath(filePath: string): void {
   if (!USER_ALLOWED_EXTENSIONS.has(path.extname(filePath).toLowerCase())) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'File type not allowed' });
   }
+  const filename = path.basename(filePath);
+  if (USER_FILTERED_PATTERNS.some(p => p.test(filename))) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'File type not allowed' });
+  }
   const segments = filePath.split('/');
   if (segments.some(s => USER_FILTERED_DIRS.has(s))) {
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Access to this directory is forbidden' });

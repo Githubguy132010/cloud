@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback } from 'react';
-import { toast } from 'sonner';
 import { useFileTree, useReadFile, type useKiloClawMutations } from '@/hooks/useKiloClaw';
 import { FileEditorShell } from './FileEditorShell';
 import { FileEditorPane, type FileSaveError } from './FileEditorPane';
+import { validateOpenclawJsonForSave } from './validateOpenclawJson';
 
 type ClawMutations = ReturnType<typeof useKiloClawMutations>;
 
@@ -35,21 +35,7 @@ function UserFileEditorPane({
     [mutations.writeFile]
   );
 
-  const validateBeforeSave = useCallback((path: string, content: string) => {
-    if (path === 'openclaw.json') {
-      try {
-        const parsed = JSON.parse(content);
-        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-          toast.error('Config must be a JSON object');
-          return false;
-        }
-      } catch {
-        toast.error('Invalid JSON — fix syntax errors before saving');
-        return false;
-      }
-    }
-    return true;
-  }, []);
+  const validateBeforeSave = useCallback(validateOpenclawJsonForSave, []);
 
   return (
     <FileEditorPane
