@@ -95,13 +95,19 @@ export async function tryDispatchPendingReviews(owner: Owner): Promise<DispatchR
       return { dispatched: 0, pending: 0, activeCount };
     }
 
-    // 5. Dispatch each pending review
+    // 5. Dispatch all pending reviews in parallel
+    const results = await Promise.allSettled(
+      pendingReviews.map(review => dispatchReview(review, owner))
+    );
+
     let dispatched = 0;
-    for (const review of pendingReviews) {
-      try {
-        await dispatchReview(review, owner);
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === 'fulfilled') {
         dispatched++;
-      } catch (error) {
+      } else {
+        const review = pendingReviews[i];
+        const error = result.reason;
         errorExceptInTest('[tryDispatchPendingReviews] Failed to dispatch review', {
           reviewId: review.id,
           error,
