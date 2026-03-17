@@ -11,6 +11,7 @@ import type {
   PromptInfo,
 } from '@/lib/processUsage.types';
 import type { GatewayMessagesRequest } from '@/lib/providers/openrouter/types';
+import { OPENROUTER_BYOK_COST_MULTIPLIER } from '@/lib/processUsage.constants';
 
 // ref: https://docs.anthropic.com/en/api/messages
 // Anthropic usage combined with OpenRouter cost fields
@@ -48,9 +49,6 @@ type MessagesStreamEvent =
     }
   | { type: 'message_stop' }
   | { type: 'error'; error: { type: string; message: string } };
-
-// For BYOK requests, OpenRouter only reports 5% of the actual cost.
-const OPENROUTER_BYOK_COST_MULTIPLIER = 20.0;
 
 function processMessagesApiUsage(
   usage: MessagesApiUsage | null | undefined,
