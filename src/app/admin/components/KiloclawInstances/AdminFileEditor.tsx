@@ -29,10 +29,7 @@ export function AdminFileEditor({ userId }: { userId: string }) {
     error,
     refetch,
   } = useQuery(
-    trpc.admin.kiloclawInstances.fileTree.queryOptions(
-      { userId },
-      { refetchOnWindowFocus: false }
-    )
+    trpc.admin.kiloclawInstances.fileTree.queryOptions({ userId }, { refetchOnWindowFocus: false })
   );
 
   const writeFileMutation = useMutation(
