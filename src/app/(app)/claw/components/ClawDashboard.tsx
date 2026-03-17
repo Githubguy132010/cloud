@@ -143,6 +143,8 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
                 <OpenClawButton
                   canShow={gatewayStatus?.state === 'running'}
                   gatewayUrl={gatewayUrl}
+                  look="hero"
+                  label="Open KiloClaw"
                 />
                 <Button
                   className="min-w-[180px]"
