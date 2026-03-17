@@ -128,11 +128,7 @@ export function ClawDashboard({ status }: { status: KiloClawDashboardStatus | un
 
       <BillingWrapper hideBanners={isNewSetup}>
         {!instanceStatus ? (
-          <CreateInstanceCard
-            mutations={mutations}
-            onProvisionStart={() => setIsNewSetup(true)}
-            onProvisionError={() => setIsNewSetup(false)}
-          />
+          <CreateInstanceCard mutations={mutations} onProvisionStart={() => setIsNewSetup(true)} />
         ) : isNewSetup &&
           (instanceStatus.status !== 'running' || gatewayStatus?.state !== 'running') ? (
           <ProvisioningSpinner onViewDashboard={() => setIsNewSetup(false)} />

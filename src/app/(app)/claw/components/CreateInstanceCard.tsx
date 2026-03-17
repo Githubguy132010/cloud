@@ -25,11 +25,9 @@ type ClawMutations = ReturnType<typeof useKiloClawMutations>;
 export function CreateInstanceCard({
   mutations,
   onProvisionStart,
-  onProvisionError,
 }: {
   mutations: ClawMutations;
   onProvisionStart?: () => void;
-  onProvisionError?: () => void;
 }) {
   const posthog = usePostHog();
   const trpc = useTRPC();
@@ -189,9 +187,6 @@ export function CreateInstanceCard({
       {
         onError: err => {
           toast.error(`Failed to create: ${err.message}`);
-          // Don't call onProvisionError here — provisioning often succeeds
-          // server-side even when the HTTP request times out with a 500.
-          // The ProvisioningSpinner's escape hatch handles genuine failures.
         },
       }
     );
