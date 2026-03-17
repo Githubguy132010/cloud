@@ -79,9 +79,7 @@ export function FileEditorShell({
   if (error) {
     return (
       <Alert className="my-2">
-        <AlertDescription>
-          {error?.message ?? 'Failed to load file tree'}
-        </AlertDescription>
+        <AlertDescription>{error?.message ?? 'Failed to load file tree'}</AlertDescription>
       </Alert>
     );
   }
