@@ -829,10 +829,13 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         // originating request context completes and other handlers may have
         // mutated in-memory state in the interim.
         const storedMachineId = await this.ctx.storage.get('flyMachineId');
-        if (!storedMachineId) {
+        const currentStatus = await this.ctx.storage.get('status');
+        if (!storedMachineId && currentStatus !== 'destroying') {
           // start() threw before persisting a machine ID. Reconcile cannot
           // distinguish this from "still in progress", so write the terminal
           // state explicitly to avoid the 5-min stuck window.
+          // Skip if destroy() has taken ownership — writing 'stopped' would
+          // clobber the 'destroying' state and strand cleanup.
           const now = Date.now();
           const errorMessage = err instanceof Error ? err.message : String(err);
           this.s.status = 'stopped';
@@ -1244,19 +1247,21 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       await fly.waitForState(flyConfig, this.s.flyMachineId, 'started', STARTUP_TIMEOUT_SECONDS);
       await gateway.waitForHealthy(this.s, this.env, flyConfig.appName, this.s.flyMachineId);
 
+      // Restore in-memory status from persisted state, in case a concurrent
+      // live check mutated it while the machine was temporarily stopped.
+      // Only restore on success — on failure the machine may actually be
+      // stopped, so let the next live check see the real Fly state.
+      const persisted = await this.ctx.storage.get('status');
+      const parsed = PersistedStateSchema.shape.status.safeParse(persisted);
+      if (parsed.success) {
+        this.s.status = parsed.data;
+      }
       return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       return { success: false, error: errorMessage };
     } finally {
       this.s.restartingAt = null;
-      // Restore in-memory status from persisted state, in case a concurrent
-      // live check mutated it while the machine was temporarily stopped.
-      const persisted = await this.ctx.storage.get('status');
-      const parsed = PersistedStateSchema.shape.status.safeParse(persisted);
-      if (parsed.success) {
-        this.s.status = parsed.data;
-      }
     }
   }
 
