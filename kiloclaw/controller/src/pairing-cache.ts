@@ -59,7 +59,7 @@ type PairingCacheOptions = {
 
 export const PERIODIC_INTERVAL_MS = 120_000;
 export const DEBOUNCE_DELAY_MS = 2_000;
-// export const INITIAL_REFRESH_DELAY_MS = 120_000; // obsolete once file-reads are fully enabled — was protecting against startup CLI churn
+
 export const FAILURE_RETRY_BASE_MS = 30_000;
 export const FAILURE_RETRY_MAX_MS = 300_000;
 export const CONFIG_PATH = '/root/.openclaw/openclaw.json';
@@ -208,7 +208,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
         const parsed: unknown = await readChannelPairingImpl(channel);
         const data = isRecord(parsed) ? parsed : {};
         const requests = getArray(data, 'requests');
-        return requests
+        const filtered = requests
           .map((req): ChannelPairingRequest => {
             const r = isRecord(req) ? req : {};
             return {
@@ -228,6 +228,8 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
             if (!Number.isFinite(createdAtMs)) return false; // garbage timestamp → expired
             return nowMs - createdAtMs <= CHANNEL_PAIRING_TTL_MS;
           });
+        console.log(`[pairing-cache] channel ${channel}: read ok, ${filtered.length} request(s) after filtering`);
+        return filtered;
       })
     );
 
@@ -247,8 +249,9 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
           anyHadPriorData = true;
           console.warn(`[pairing-cache] WARNING: keeping stale data for ${channels[i]}: ${msg}`);
           allRequests.push(...priorRequests);
+        } else {
+          console.log(`[pairing-cache] channel ${channels[i]}: read failed: ${msg}`);
         }
-        // No log when no prior data — ENOENT is expected when no pairing is in progress
       }
     }
 
@@ -295,6 +298,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
       if (gen === deviceGeneration) {
         deviceCache = { requests, lastUpdated: nowImpl() };
       }
+      console.log(`[pairing-cache] devices: read ok, ${requests.length} pending`);
       return true;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return true;
@@ -336,6 +340,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
 
   const runPeriodicRefresh = async (): Promise<void> => {
     if (stopped) return;
+    console.log('[pairing-cache] periodic refresh');
     const ok = await refreshAll();
     hasCompletedInitialRefresh = true;
     const now = Date.now();
@@ -345,7 +350,12 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
 
   const runDebouncedRefresh = async (): Promise<void> => {
     if (stopped) return;
-    if (Date.now() < nextAllowedRefreshAt) return;
+    const remaining = nextAllowedRefreshAt - Date.now();
+    if (remaining > 0) {
+      console.log(`[pairing-cache] debounced refresh skipped (backoff, ${Math.ceil(remaining / 1000)}s remaining)`);
+      return;
+    }
+    console.log('[pairing-cache] debounced refresh');
     const ok = await refreshAll();
     const now = Date.now();
     const delayMs = ok ? PERIODIC_INTERVAL_MS : Math.max(0, nextAllowedRefreshAt - now);
@@ -392,6 +402,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
 
     if (debounceTimer !== null) return;
 
+    console.log(`[pairing-cache] debounce armed: "${line.slice(0, 80)}"`);
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
       void runDebouncedRefresh();
@@ -414,9 +425,7 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
     // server.listen() and delays the health endpoint past the DO's 60s startup probe.
     // An empty cache during the brief warmup window is acceptable — the DO-side
     // fallback chain (controller → KV → fly exec) handles it, and the cache
-    // self-heals within ms via the periodic timer and log-triggered debounce.
-    // Note: previously delayed by INITIAL_REFRESH_DELAY_MS to protect against CLI startup churn;
-    // no longer needed now that refreshes are file reads instead of subprocess calls.
+    // self-heals quickly via the periodic timer and log-triggered debounce.
     void runPeriodicRefresh();
   };
 

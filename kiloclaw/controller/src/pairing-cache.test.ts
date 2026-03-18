@@ -3,7 +3,6 @@ import {
   createPairingCache,
   OPENCLAW_BIN,
   DEBOUNCE_DELAY_MS,
-  // INITIAL_REFRESH_DELAY_MS, // commented out alongside the constant — re-enable with file-read delay
   PERIODIC_INTERVAL_MS,
   FAILURE_RETRY_BASE_MS,
   FAILURE_RETRY_MAX_MS,
@@ -631,7 +630,7 @@ describe('createPairingCache', () => {
   });
 
   describe('periodic refresh', () => {
-    it('refreshes every 60s after start', async () => {
+    it('fires immediately on start then refreshes every 120s', async () => {
       const readChannelPairingImpl = vi
         .fn<ReadChannelPairingImpl>()
         .mockResolvedValue({ requests: [] });
