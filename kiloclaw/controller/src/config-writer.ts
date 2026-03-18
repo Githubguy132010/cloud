@@ -97,14 +97,26 @@ export function generateBaseConfig(
   let config: ConfigObject = {};
 
   try {
-    const parsed: unknown = JSON.parse(deps.readFileSync(configPath, 'utf8'));
+    const raw = deps.readFileSync(configPath, 'utf8');
+    const parsed: unknown = JSON.parse(raw);
     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
       config = parsed as ConfigObject;
     } else {
       console.warn('Config file is not a JSON object, starting fresh');
     }
-  } catch {
-    console.log('Starting with empty config');
+  } catch (err) {
+    // If the file exists but can't be parsed, that's unexpected — openclaw
+    // doctor just ran against it, or writeBaseConfig just wrote it. Throwing
+    // here prevents silent data loss (wiping user customizations like channels,
+    // plugins, model preferences) by falling through to an empty config.
+    // On the onboard path this catch is hit when there's no file at all,
+    // which is fine — but we distinguish by checking if the file exists.
+    if (deps.existsSync(configPath)) {
+      throw new Error(
+        `Failed to parse existing config at ${configPath}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+    console.log('No existing config file, starting with empty config');
   }
 
   config.gateway = config.gateway ?? {};
@@ -364,7 +376,7 @@ export function writeBaseConfig(
     deps.writeFileSync(tmpPath, serialized);
     deps.renameSync(tmpPath, configPath);
 
-    console.log('Configuration restored successfully');
+    console.log('Configuration patched successfully');
     return config;
   } catch (error) {
     // Clean up the temp file so we don't leak partial writes

@@ -381,6 +381,7 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
 
   // ── Phase 6: Start gateway ──────────────────────────────────────────
   controllerState.current = { state: 'starting' };
+  console.log('[controller] Bootstrap complete, starting gateway...');
 
   try {
     await supervisor.start();
