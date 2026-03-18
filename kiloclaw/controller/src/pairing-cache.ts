@@ -306,7 +306,10 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
           ...(entry.clientId !== undefined ? { clientId: String(entry.clientId) } : {}),
           ...(typeof entry.ts === 'number' ? { ts: entry.ts } : {}),
         }))
-        .filter(req => req.requestId !== '' && req.deviceId !== '');
+        .filter(req => req.requestId !== '' && req.deviceId !== '')
+        // Mirrors listDevicePairing() sort — descending ts (newest first)
+        // https://github.com/openclaw/openclaw/blob/d073ec42cd7fabd1004f6959628743817a4cb0e8/src/infra/device-pairing.ts#L261
+        .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
 
       if (gen === deviceGeneration) {
         deviceCache = { requests, lastUpdated: nowImpl() };
