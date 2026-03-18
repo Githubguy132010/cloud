@@ -615,20 +615,24 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
           input.reason
         );
 
-        await createKiloClawAdminAuditLog({
-          action: 'kiloclaw.volume.reassociate',
-          actor_id: ctx.user.id,
-          actor_email: ctx.user.google_user_email,
-          actor_name: ctx.user.google_user_name,
-          target_user_id: input.userId,
-          message: `Volume reassociated: ${result.previousVolumeId ?? 'none'} → ${result.newVolumeId} (region: ${result.newRegion}). Reason: ${input.reason}`,
-          metadata: {
-            previousVolumeId: result.previousVolumeId,
-            newVolumeId: result.newVolumeId,
-            newRegion: result.newRegion,
-            reason: input.reason,
-          },
-        });
+        try {
+          await createKiloClawAdminAuditLog({
+            action: 'kiloclaw.volume.reassociate',
+            actor_id: ctx.user.id,
+            actor_email: ctx.user.google_user_email,
+            actor_name: ctx.user.google_user_name,
+            target_user_id: input.userId,
+            message: `Volume reassociated: ${result.previousVolumeId ?? 'none'} → ${result.newVolumeId} (region: ${result.newRegion}). Reason: ${input.reason}`,
+            metadata: {
+              previousVolumeId: result.previousVolumeId,
+              newVolumeId: result.newVolumeId,
+              newRegion: result.newRegion,
+              reason: input.reason,
+            },
+          });
+        } catch (auditErr) {
+          console.error('Failed to write audit log for volume reassociation:', auditErr);
+        }
 
         return result;
       } catch (err) {
