@@ -173,7 +173,6 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
   let started = false;
   let stopped = false;
   let periodicTimer: ReturnType<typeof setTimeout> | null = null;
-  let initialTimer: ReturnType<typeof setTimeout> | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let nextAllowedRefreshAt = 0;
   let hasCompletedInitialRefresh = false;
@@ -303,7 +302,13 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
       console.log(`[pairing-cache] devices: read ok, ${requests.length} pending`);
       return true;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return true;
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        // File absent means no pending requests (e.g. last request was approved/expired).
+        if (gen === deviceGeneration) {
+          deviceCache = { requests: [], lastUpdated: nowImpl() };
+        }
+        return true;
+      }
       console.error(`[pairing-cache] device refresh failed: ${errorMessage(err)}`);
       return false;
     }
@@ -436,10 +441,6 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
     if (periodicTimer !== null) {
       clearTimeout(periodicTimer);
       periodicTimer = null;
-    }
-    if (initialTimer !== null) {
-      clearTimeout(initialTimer);
-      initialTimer = null;
     }
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);

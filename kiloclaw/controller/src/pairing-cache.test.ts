@@ -456,13 +456,11 @@ describe('createPairingCache', () => {
     });
 
     it('returns success when approve succeeds but post-approve refresh throws', async () => {
-      let callCount = 0;
-      const execImpl = vi.fn<ExecImpl>().mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return Promise.resolve({ stdout: '{}', stderr: '' });
-        return Promise.reject(new Error('refresh boom'));
-      });
-      const { cache } = createTestHarness({ execImpl });
+      const execImpl = vi.fn<ExecImpl>().mockResolvedValue({ stdout: '{}', stderr: '' });
+      const readChannelPairingImpl = vi
+        .fn<ReadChannelPairingImpl>()
+        .mockRejectedValue(new Error('refresh boom'));
+      const { cache } = createTestHarness({ execImpl, readChannelPairingImpl });
 
       const result = await cache.approveChannel('telegram', 'ABC');
       expect(result).toEqual({ success: true, message: 'Pairing approved', statusHint: 200 });
@@ -493,13 +491,11 @@ describe('createPairingCache', () => {
     });
 
     it('returns success when approve succeeds but post-approve refresh throws', async () => {
-      let callCount = 0;
-      const execImpl = vi.fn<ExecImpl>().mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return Promise.resolve({ stdout: '{}', stderr: '' });
-        return Promise.reject(new Error('refresh boom'));
-      });
-      const { cache } = createTestHarness({ execImpl });
+      const execImpl = vi.fn<ExecImpl>().mockResolvedValue({ stdout: '{}', stderr: '' });
+      const readDevicePairingImpl = vi
+        .fn<ReadDevicePairingImpl>()
+        .mockRejectedValue(new Error('refresh boom'));
+      const { cache } = createTestHarness({ execImpl, readDevicePairingImpl });
 
       const result = await cache.approveDevice('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
       expect(result).toEqual({ success: true, message: 'Device approved', statusHint: 200 });
@@ -571,6 +567,29 @@ describe('createPairingCache', () => {
       await cache.refreshDevicePairing();
       // Should keep last-known-good
       expect(cache.getDevicePairing().requests).toHaveLength(1);
+    });
+
+    it('ENOENT on device read → clears device cache to empty (file removed after last approval)', async () => {
+      let callCount = 0;
+      const readDevicePairingImpl = vi.fn<ReadDevicePairingImpl>().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            r1: { requestId: 'r1', deviceId: 'd1', ts: RECENT_TS },
+          });
+        }
+        return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      });
+
+      const readConfigImpl = vi.fn(() => ({ channels: {} }));
+      const { cache } = createTestHarness({ readDevicePairingImpl, readConfigImpl });
+
+      await cache.refreshDevicePairing();
+      expect(cache.getDevicePairing().requests).toHaveLength(1);
+
+      await cache.refreshDevicePairing();
+      // ENOENT means file was removed → no pending requests, cache should be cleared
+      expect(cache.getDevicePairing().requests).toHaveLength(0);
     });
 
     it('ENOENT on first channel read → empty cache, no warning logged', async () => {
