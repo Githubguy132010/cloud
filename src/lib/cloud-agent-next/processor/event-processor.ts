@@ -23,6 +23,7 @@ import {
   stripPartContentIfFile,
   isUserMessage,
   isAssistantMessage,
+  isToolPart,
   type EventMessageUpdated,
   type EventMessagePartUpdated,
   type EventMessagePartRemoved,
@@ -438,6 +439,9 @@ export function createEventProcessor(config: EventProcessorConfig = {}): EventPr
           time: { ...message.info.time, completed: now },
         };
 
+        // Force-complete any in-flight tool parts so their spinners stop
+        forceCompleteToolParts(message, now);
+
         const [sessionId, messageId] = key.split(':');
         const parentSessionId = getParentSessionId(sessionId);
         callbacks.onMessageCompleted?.(sessionId, messageId, message, parentSessionId);
@@ -450,6 +454,30 @@ export function createEventProcessor(config: EventProcessorConfig = {}): EventPr
     if (!skipStreamingToggle && streaming) {
       streaming = false;
       callbacks.onStreamingChanged?.(false);
+    }
+  }
+
+  /**
+   * Force-complete tool parts that are stuck in pending/running state.
+   * Transitions them to error state with a synthetic timestamp so the UI
+   * stops showing a spinner.
+   */
+  function forceCompleteToolParts(message: ProcessedMessage, now: number): void {
+    for (let i = 0; i < message.parts.length; i++) {
+      const part = message.parts[i];
+      if (!isToolPart(part)) continue;
+      if (part.state.status === 'completed' || part.state.status === 'error') continue;
+
+      const start = part.state.status === 'running' ? part.state.time.start : now;
+      message.parts[i] = {
+        ...part,
+        state: {
+          status: 'error',
+          input: part.state.input,
+          error: 'Connection lost',
+          time: { start, end: now },
+        },
+      };
     }
   }
 

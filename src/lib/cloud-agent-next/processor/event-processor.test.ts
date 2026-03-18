@@ -1317,6 +1317,168 @@ describe('createEventProcessor', () => {
 
       expect(callbacks.onMessageCompleted).toHaveBeenCalledTimes(1);
     });
+
+    it('should force-complete running tool parts to error state preserving time.start', () => {
+      let completedMessage: ProcessedMessage | undefined;
+      const callbacks: EventProcessorCallbacks = {
+        onMessageUpdated: jest.fn(),
+        onPartUpdated: jest.fn(),
+        onMessageCompleted: jest.fn((_, __, message) => {
+          completedMessage = message;
+        }),
+        onStreamingChanged: jest.fn(),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      processor.processEvent(
+        createKilocodeEvent('session.status', {
+          sessionID: 'session-123',
+          status: { type: 'busy' },
+        })
+      );
+
+      processor.processEvent(
+        createKilocodeEvent('message.updated', { info: createAssistantInfo('msg-1') })
+      );
+
+      processor.processEvent(
+        createKilocodeEvent('message.part.updated', {
+          part: {
+            id: 'tool-1',
+            sessionID: 'session-123',
+            messageID: 'msg-1',
+            type: 'tool',
+            callID: 'call-1',
+            tool: 'some_tool',
+            state: { status: 'running', input: { arg: 'value' }, time: { start: 1000 } },
+          },
+        })
+      );
+
+      processor.forceCompleteAll();
+
+      expect(callbacks.onMessageCompleted).toHaveBeenCalledTimes(1);
+      const toolPart = completedMessage?.parts.find(p => p.type === 'tool');
+      if (!toolPart || toolPart.type !== 'tool') throw new Error('Expected tool part');
+      expect(toolPart.state.status).toBe('error');
+      if (toolPart.state.status !== 'error') throw new Error('Expected error status');
+      expect(toolPart.state.error).toBe('Connection lost');
+      expect(toolPart.state.time.start).toBe(1000);
+    });
+
+    it('should force-complete pending tool parts to error state', () => {
+      let completedMessage: ProcessedMessage | undefined;
+      const callbacks: EventProcessorCallbacks = {
+        onMessageUpdated: jest.fn(),
+        onPartUpdated: jest.fn(),
+        onMessageCompleted: jest.fn((_, __, message) => {
+          completedMessage = message;
+        }),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      processor.processEvent(
+        createKilocodeEvent('message.updated', { info: createAssistantInfo('msg-1') })
+      );
+
+      processor.processEvent(
+        createKilocodeEvent('message.part.updated', {
+          part: {
+            id: 'tool-1',
+            sessionID: 'session-123',
+            messageID: 'msg-1',
+            type: 'tool',
+            callID: 'call-1',
+            tool: 'some_tool',
+            state: { status: 'pending', input: { x: 1 }, raw: '{}' },
+          },
+        })
+      );
+
+      processor.forceCompleteAll();
+
+      const toolPart = completedMessage?.parts.find(p => p.type === 'tool');
+      if (!toolPart || toolPart.type !== 'tool') throw new Error('Expected tool part');
+      expect(toolPart.state.status).toBe('error');
+      if (toolPart.state.status !== 'error') throw new Error('Expected error status');
+      expect(toolPart.state.error).toBe('Connection lost');
+    });
+
+    it('should not modify already-completed or errored tool parts', () => {
+      let completedMessage: ProcessedMessage | undefined;
+      const callbacks: EventProcessorCallbacks = {
+        onMessageUpdated: jest.fn(),
+        onPartUpdated: jest.fn(),
+        onMessageCompleted: jest.fn((_, __, message) => {
+          completedMessage = message;
+        }),
+      };
+      const processor = createEventProcessor({ callbacks });
+
+      processor.processEvent(
+        createKilocodeEvent('message.updated', { info: createAssistantInfo('msg-1') })
+      );
+
+      // Add a completed tool part
+      processor.processEvent(
+        createKilocodeEvent('message.part.updated', {
+          part: {
+            id: 'tool-done',
+            sessionID: 'session-123',
+            messageID: 'msg-1',
+            type: 'tool',
+            callID: 'call-done',
+            tool: 'done_tool',
+            state: {
+              status: 'completed',
+              input: {},
+              output: 'ok',
+              title: 'Done',
+              metadata: {},
+              time: { start: 500, end: 600 },
+            },
+          },
+        })
+      );
+
+      // Add an already-errored tool part
+      processor.processEvent(
+        createKilocodeEvent('message.part.updated', {
+          part: {
+            id: 'tool-err',
+            sessionID: 'session-123',
+            messageID: 'msg-1',
+            type: 'tool',
+            callID: 'call-err',
+            tool: 'err_tool',
+            state: {
+              status: 'error',
+              input: {},
+              error: 'original error',
+              time: { start: 700, end: 800 },
+            },
+          },
+        })
+      );
+
+      processor.forceCompleteAll();
+
+      const completedPart = completedMessage?.parts.find(
+        p => p.type === 'tool' && p.id === 'tool-done'
+      );
+      const erroredPart = completedMessage?.parts.find(
+        p => p.type === 'tool' && p.id === 'tool-err'
+      );
+
+      // Completed part should remain completed
+      if (!completedPart || completedPart.type !== 'tool') throw new Error('Expected tool part');
+      expect(completedPart.state.status).toBe('completed');
+      // Errored part should keep original error
+      if (!erroredPart || erroredPart.type !== 'tool') throw new Error('Expected tool part');
+      expect(erroredPart.state.status).toBe('error');
+      if (erroredPart.state.status !== 'error') throw new Error('Expected error status');
+      expect(erroredPart.state.error).toBe('original error');
+    });
   });
 
   describe('question events', () => {
