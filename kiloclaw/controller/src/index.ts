@@ -282,110 +282,109 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
     return;
   }
 
-  // ── Phases 4-6 are wrapped so any failure degrades instead of crashing ──
+  // ── Phase 4: Best-effort pre-gateway setup ──────────────────────────
   try {
-    // Phase 4: Best-effort pre-gateway setup
-    try {
-      writeKiloCliConfig(env as Record<string, string | undefined>);
-    } catch (err) {
-      console.error('[kilo-cli] Failed to write config:', err);
-    }
+    writeKiloCliConfig(env as Record<string, string | undefined>);
+  } catch (err) {
+    console.error('[kilo-cli] Failed to write config:', err);
+  }
 
-    try {
-      await writeGogCredentials(env as Record<string, string | undefined>);
-    } catch (err) {
-      console.error('[gog] Failed to write credentials:', err);
-    }
+  try {
+    await writeGogCredentials(env as Record<string, string | undefined>);
+  } catch (err) {
+    console.error('[gog] Failed to write credentials:', err);
+  }
 
-    // Phase 5: Create supervisors and register full routes
-    const pc = createPairingCache();
-    pairingCache = pc;
+  // ── Phase 5: Create supervisors and register routes ─────────────────
+  // Routes are registered unconditionally so /_kilo/version, /_kilo/config/*,
+  // and /_kilo/env/* are available even if the gateway fails to start.
+  // The catch-all proxy returns 503 "Gateway not ready" when the supervisor
+  // isn't running, which is the correct behavior for degraded mode.
+  const pc = createPairingCache();
+  pairingCache = pc;
 
-    supervisor = createSupervisor({
-      args: ['gateway', ...config.gatewayArgs],
-      onStdoutLine: line => pc.onPairingLogLine(line),
-    });
+  supervisor = createSupervisor({
+    args: ['gateway', ...config.gatewayArgs],
+    onStdoutLine: line => pc.onPairingLogLine(line),
+  });
 
-    let googleAccountEmail: string | null = null;
-    const hasGogCredentials = Boolean(env.KILOCLAW_GOG_CONFIG_TARBALL);
+  let googleAccountEmail: string | null = null;
+  const hasGogCredentials = Boolean(env.KILOCLAW_GOG_CONFIG_TARBALL);
 
-    if (hasGogCredentials) {
-      const email = env.KILOCLAW_GOOGLE_ACCOUNT_EMAIL;
-      const hooksToken = env.KILOCLAW_HOOKS_TOKEN;
-      if (!email || !hooksToken) {
-        console.warn(
-          `[controller] KILOCLAW_GOG_CONFIG_TARBALL present but missing: ${!email ? 'KILOCLAW_GOOGLE_ACCOUNT_EMAIL' : ''} ${!hooksToken ? 'KILOCLAW_HOOKS_TOKEN' : ''}, skipping gmail watch`
-        );
-      } else {
-        googleAccountEmail = email;
-        gmailWatchSupervisor = createSupervisor({
-          command: 'gog',
-          args: [
-            'gmail',
-            'watch',
-            'serve',
-            '--account',
-            googleAccountEmail,
-            '--bind',
-            '127.0.0.1',
-            '--port',
-            '3002',
-            '--path',
-            '/gmail-pubsub',
-            '--token',
-            config.expectedToken,
-            '--hook-url',
-            `http://127.0.0.1:3001/hooks/gmail`,
-            '--hook-token',
-            hooksToken,
-            '--include-body',
-            '--max-bytes',
-            '20000',
-          ],
-        });
-      }
-    }
-
-    // Register all routes on a fresh Hono app — no shadowing issues.
-    const honoApp = new Hono();
-    registerHealthRoute(honoApp, supervisor, config.expectedToken, controllerState);
-    registerGatewayRoutes(honoApp, supervisor, config.expectedToken);
-    registerConfigRoutes(honoApp, supervisor, config.expectedToken);
-    registerPairingRoutes(honoApp, pairingCache, config.expectedToken);
-    registerEnvRoutes(honoApp, supervisor, config.expectedToken);
-    registerGmailPushRoute(honoApp, gmailWatchSupervisor ?? null, config.expectedToken);
-    honoApp.all(
-      '*',
-      createHttpProxy({
-        expectedToken: config.expectedToken,
-        requireProxyToken: config.requireProxyToken,
-        supervisor,
-      })
-    );
-
-    // Activate the Hono app — the HTTP server handler checks this ref on each request.
-    app = honoApp;
-
-    // Activate the WebSocket upgrade handler — the server.on('upgrade') listener
-    // registered earlier checks this ref and rejects with 503 when null.
-    const wsState = { activeConnections: 0 };
-    wsUpgradeRef.handler = (req, socket, head) => {
-      handleWebSocketUpgrade(req, socket, head, {
-        expectedToken: config.expectedToken,
-        requireProxyToken: config.requireProxyToken,
-        supervisor,
-        wsIdleTimeoutMs: config.wsIdleTimeoutMs,
-        wsHandshakeTimeoutMs: config.wsHandshakeTimeoutMs,
-        maxWsConnections: config.maxWsConnections,
-        wsState,
+  if (hasGogCredentials) {
+    const email = env.KILOCLAW_GOOGLE_ACCOUNT_EMAIL;
+    const hooksToken = env.KILOCLAW_HOOKS_TOKEN;
+    if (!email || !hooksToken) {
+      console.warn(
+        `[controller] KILOCLAW_GOG_CONFIG_TARBALL present but missing: ${!email ? 'KILOCLAW_GOOGLE_ACCOUNT_EMAIL' : ''} ${!hooksToken ? 'KILOCLAW_HOOKS_TOKEN' : ''}, skipping gmail watch`
+      );
+    } else {
+      googleAccountEmail = email;
+      gmailWatchSupervisor = createSupervisor({
+        command: 'gog',
+        args: [
+          'gmail',
+          'watch',
+          'serve',
+          '--account',
+          googleAccountEmail,
+          '--bind',
+          '127.0.0.1',
+          '--port',
+          '3002',
+          '--path',
+          '/gmail-pubsub',
+          '--token',
+          config.expectedToken,
+          '--hook-url',
+          `http://127.0.0.1:3001/hooks/gmail`,
+          '--hook-token',
+          hooksToken,
+          '--include-body',
+          '--max-bytes',
+          '20000',
+        ],
       });
-    };
+    }
+  }
 
-    // Phase 6: Start gateway
-    controllerState.current = { state: 'starting' };
+  const honoApp = new Hono();
+  registerHealthRoute(honoApp, supervisor, config.expectedToken, controllerState);
+  registerGatewayRoutes(honoApp, supervisor, config.expectedToken);
+  registerConfigRoutes(honoApp, supervisor, config.expectedToken);
+  registerPairingRoutes(honoApp, pairingCache, config.expectedToken);
+  registerEnvRoutes(honoApp, supervisor, config.expectedToken);
+  registerGmailPushRoute(honoApp, gmailWatchSupervisor ?? null, config.expectedToken);
+  honoApp.all(
+    '*',
+    createHttpProxy({
+      expectedToken: config.expectedToken,
+      requireProxyToken: config.requireProxyToken,
+      supervisor,
+    })
+  );
 
+  // Activate the Hono app and WebSocket handler.
+  app = honoApp;
+  const wsState = { activeConnections: 0 };
+  wsUpgradeRef.handler = (req, socket, head) => {
+    handleWebSocketUpgrade(req, socket, head, {
+      expectedToken: config.expectedToken,
+      requireProxyToken: config.requireProxyToken,
+      supervisor,
+      wsIdleTimeoutMs: config.wsIdleTimeoutMs,
+      wsHandshakeTimeoutMs: config.wsHandshakeTimeoutMs,
+      maxWsConnections: config.maxWsConnections,
+      wsState,
+    });
+  };
+
+  // ── Phase 6: Start gateway ──────────────────────────────────────────
+  controllerState.current = { state: 'starting' };
+
+  try {
     await supervisor.start();
-    pairingCache.start();
+    pc.start();
     if (gmailWatchSupervisor && googleAccountEmail) {
       await gmailWatchSupervisor.start();
       startWatchRenewal(googleAccountEmail);
@@ -398,12 +397,8 @@ export async function startController(env: NodeJS.ProcessEnv = process.env): Pro
     );
   } catch (err) {
     const fullError = err instanceof Error ? err.message : String(err);
-    controllerState.current = { state: 'degraded', error: toPublicDegradedError('post-bootstrap') };
-    console.error(
-      '[controller] Post-bootstrap startup failed, running in degraded mode:',
-      fullError
-    );
-    // HTTP server stays alive — don't return/exit
+    controllerState.current = { state: 'degraded', error: toPublicDegradedError('gateway-start') };
+    console.error('[controller] Gateway start failed, running in degraded mode:', fullError);
   }
 }
 
