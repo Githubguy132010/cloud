@@ -130,22 +130,19 @@ function defaultReadConfigImpl(): unknown {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 }
 
-// Zod schemas for IO boundary parsing — .passthrough() keeps forward compatibility
-// when openclaw adds fields without breaking the controller.
-const channelPairingRequestSchema = z
-  .object({
-    code: z.string(),
-    id: z.string(),
-    meta: z.unknown().optional(),
-    createdAt: z.string().optional(),
-  })
-  .passthrough();
+// No .passthrough() — Zod's default strip behavior drops unknown fields so that
+// new keys openclaw adds to <channel>-pairing.json don't leak into the controller
+// API response.  Mirrors the devicePendingEntrySchema pattern below.
+const channelPairingRequestSchema = z.object({
+  code: z.string(),
+  id: z.string(),
+  meta: z.unknown().optional(),
+  createdAt: z.string().optional(),
+});
 
-const channelPairingFileSchema = z
-  .object({
-    requests: z.array(z.unknown()).catch([]),
-  })
-  .passthrough();
+const channelPairingFileSchema = z.object({
+  requests: z.array(z.unknown()).catch([]),
+});
 
 // No .passthrough() — Zod's default strip behavior drops unknown fields (including
 // publicKey, which is sensitive and must not be forwarded to clients). This is

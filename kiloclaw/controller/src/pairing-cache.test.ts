@@ -351,6 +351,41 @@ describe('createPairingCache', () => {
 
       expect(cache.getChannelPairing().requests).toHaveLength(0);
     });
+
+    it('strips unknown fields from channel pairing requests', async () => {
+      const readChannelPairingImpl = vi.fn<ReadChannelPairingImpl>().mockImplementation(channel => {
+        if (channel === 'telegram') {
+          return Promise.resolve({
+            requests: [
+              {
+                code: 'ABC',
+                id: 'r1',
+                meta: { foo: 1 },
+                createdAt: new Date(RECENT_TS).toISOString(),
+                secretToken: 'SHOULD_BE_STRIPPED',
+                internalFlag: true,
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ requests: [] });
+      });
+
+      const { cache } = createTestHarness({ readChannelPairingImpl });
+      await cache.refreshChannelPairing();
+
+      const result = cache.getChannelPairing();
+      expect(result.requests).toHaveLength(1);
+      expect(result.requests[0]).toEqual({
+        code: 'ABC',
+        id: 'r1',
+        channel: 'telegram',
+        meta: { foo: 1 },
+        createdAt: new Date(RECENT_TS).toISOString(),
+      });
+      expect('secretToken' in result.requests[0]).toBe(false);
+      expect('internalFlag' in result.requests[0]).toBe(false);
+    });
   });
 
   describe('device pairing list', () => {
