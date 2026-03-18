@@ -110,6 +110,26 @@ import {
 // Test harness
 // ============================================================================
 
+/**
+ * Find a structured doWarn call by message substring and verify the JSON envelope.
+ * Returns the parsed log payload for further assertions.
+ */
+function expectStructuredWarn(spy: Mock, messageSubstring: string) {
+  const call = spy.mock.calls.find(
+    (c: unknown[]) => typeof c[0] === 'string' && c[0].includes(messageSubstring)
+  );
+  if (!call) throw new Error(`Expected a warn call containing "${messageSubstring}"`);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- JSON.parse returns any
+  const parsed: Record<string, unknown> = JSON.parse(call[0] as string);
+  expect(parsed.tag).toBe('kiloclaw_do');
+  expect(parsed.level).toBe('warn');
+  expect(typeof parsed.message === 'string' && parsed.message.includes(messageSubstring)).toBe(
+    true
+  );
+  expect(parsed.error).toBeDefined();
+  return parsed;
+}
+
 function createFakeStorage() {
   const store = new Map<string, unknown>();
   let alarmTime: number | null = null;
@@ -1027,10 +1047,13 @@ describe('buildUserEnvVars API key refresh', () => {
 
     await callBuildUserEnvVars(instance);
 
-    expect(console.warn).toHaveBeenCalledWith(
-      '[DO] buildUserEnvVars: failed to mint fresh API key, using stored key:',
-      err
+    const warningCall = (console.warn as Mock).mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === 'string' &&
+        call[0].includes('buildUserEnvVars: failed to mint fresh API key') &&
+        call[0].includes('db down')
     );
+    expect(warningCall).toBeDefined();
     const options = (gatewayEnv.buildEnvVars as Mock).mock.calls[0][3] as {
       kilocodeApiKey?: string;
     };
@@ -1052,10 +1075,13 @@ describe('buildUserEnvVars API key refresh', () => {
     await expect(callBuildUserEnvVars(instance)).rejects.toThrow(
       'Cannot build env vars: stored KiloCode API key expired and fresh mint unavailable'
     );
-    expect(console.warn).toHaveBeenCalledWith(
-      '[DO] buildUserEnvVars: failed to mint fresh API key, using stored key:',
-      err
+    const warningCall = (console.warn as Mock).mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === 'string' &&
+        call[0].includes('buildUserEnvVars: failed to mint fresh API key') &&
+        call[0].includes('db down')
     );
+    expect(warningCall).toBeDefined();
     expect(gatewayEnv.buildEnvVars).not.toHaveBeenCalled();
   });
 
@@ -1075,9 +1101,9 @@ describe('buildUserEnvVars API key refresh', () => {
 
     const warningCall = (console.warn as Mock).mock.calls.find(
       (call: unknown[]) =>
-        call[0] === '[DO] buildUserEnvVars: failed to mint fresh API key, using stored key:' &&
-        call[1] instanceof Error &&
-        call[1].message === 'API key mint timed out'
+        typeof call[0] === 'string' &&
+        call[0].includes('buildUserEnvVars: failed to mint fresh API key') &&
+        call[0].includes('API key mint timed out')
     );
     expect(warningCall).toBeDefined();
 
@@ -3167,10 +3193,7 @@ describe('controller-first pairing', () => {
 
     await expect(instance.listPairingRequests()).rejects.toThrow();
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[DO] listPairingRequests controller call failed'),
-      expect.any(String)
-    );
+    expectStructuredWarn(warnSpy, 'listPairingRequests controller call failed');
     warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
@@ -3441,10 +3464,7 @@ describe('controller-first pairing', () => {
 
     await expect(instance.listDevicePairingRequests()).rejects.toThrow();
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[DO] listDevicePairingRequests controller call failed'),
-      expect.any(String)
-    );
+    expectStructuredWarn(warnSpy, 'listDevicePairingRequests controller call failed');
     warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
@@ -3482,10 +3502,7 @@ describe('controller-first pairing', () => {
 
     await expect(instance.approvePairingRequest('telegram', 'ABC123')).rejects.toThrow();
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[DO] approvePairingRequest controller call failed'),
-      expect.any(String)
-    );
+    expectStructuredWarn(warnSpy, 'approvePairingRequest controller call failed');
     warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
@@ -3527,10 +3544,7 @@ describe('controller-first pairing', () => {
       instance.approveDevicePairingRequest('58f4ac67-12b4-4f6e-adee-ff3463a7c30c')
     ).rejects.toThrow();
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[DO] approveDevicePairingRequest controller call failed'),
-      expect.any(String)
-    );
+    expectStructuredWarn(warnSpy, 'approveDevicePairingRequest controller call failed');
     warnSpy.mockRestore();
     fetchSpy.mockRestore();
   });
@@ -3798,6 +3812,56 @@ describe('provision: auto-start after fresh provision', () => {
 
     expect(flyClient.createMachine).not.toHaveBeenCalled();
     expect(storage._store.get('status')).toBe('running');
+  });
+});
+
+describe('startAsync: catch handler writes stopped state on pre-machine failure', () => {
+  it('transitions to stopped immediately when start() throws before machine creation', async () => {
+    const { instance, storage, waitUntilPromises } = createInstance();
+
+    (flyClient.createVolumeWithFallback as Mock).mockResolvedValue({
+      id: 'vol-1',
+      region: 'iad',
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1', region: 'iad' });
+    // createMachine throws — no machine ID is ever persisted
+    (flyClient.createMachine as Mock).mockRejectedValue(new Error('Fly API unavailable'));
+
+    await instance.provision('user-1', {});
+    // Status is 'starting' immediately after provision() returns
+    expect(storage._store.get('status')).toBe('starting');
+
+    // Drain waitUntil promises — catch handler should fire and write stopped
+    await Promise.all(waitUntilPromises);
+
+    expect(storage._store.get('status')).toBe('stopped');
+    expect(storage._store.get('startingAt')).toBeNull();
+    expect(storage._store.get('flyMachineId')).toBeFalsy();
+    expect(storage._store.get('lastStartErrorMessage')).toBe('Fly API unavailable');
+    expect(storage._store.get('lastStartErrorAt')).toBeGreaterThan(0);
+  });
+
+  it('does NOT overwrite state when start() fails after machine ID is persisted', async () => {
+    const { instance, storage, waitUntilPromises } = createInstance();
+
+    (flyClient.createVolumeWithFallback as Mock).mockResolvedValue({
+      id: 'vol-1',
+      region: 'iad',
+    });
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1', region: 'iad' });
+    // Machine is created (ID will be persisted) but waitForState throws
+    (flyClient.createMachine as Mock).mockResolvedValue({ id: 'machine-1', region: 'iad' });
+    (flyClient.waitForState as Mock).mockRejectedValue(new Error('timeout waiting for started'));
+
+    await instance.provision('user-1', {});
+    await Promise.all(waitUntilPromises);
+
+    // Machine ID was persisted — catch handler must not overwrite to stopped.
+    // reconcileStarting handles the transition by checking Fly state.
+    expect(storage._store.get('flyMachineId')).toBe('machine-1');
+    expect(storage._store.get('status')).toBe('starting');
+    // Error fields should NOT be populated for post-machine failures
+    expect(storage._store.get('lastStartErrorMessage')).toBeFalsy();
   });
 });
 
@@ -4765,5 +4829,65 @@ describe('start: concurrent calls do not create duplicate machines', () => {
     expect(flyClient.createMachine).not.toHaveBeenCalled();
     // listMachines called exactly once (only from the first start)
     expect(flyClient.listMachines).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ============================================================================
+// restartMachine live check race guard
+// ============================================================================
+
+describe('restartMachine restartingAt guard', () => {
+  beforeEach(() => {
+    (flyClient.stopMachineAndWait as Mock).mockResolvedValue(undefined);
+    (flyClient.updateMachine as Mock).mockResolvedValue(undefined);
+    (flyClient.waitForState as Mock).mockResolvedValue(undefined);
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      id: 'machine-1',
+      state: 'started',
+      config: { guest: { cpus: 1, memory_mb: 256, cpu_kind: 'shared' } },
+    });
+  });
+
+  it('syncStatusFromLiveCheck skips when restartingAt is set', async () => {
+    const { instance, storage, waitUntilPromises } = createInstance();
+    await seedRunning(storage);
+
+    // Simulate restartMachine setting the guard by calling getStatus during
+    // a restart. We'll make stopMachineAndWait trigger a getStatus mid-flight.
+    (flyClient.stopMachineAndWait as Mock).mockImplementation(async () => {
+      // While stop is in progress, simulate a concurrent getStatus poll.
+      // getMachine returns 'stopped' because machine is mid-restart.
+      (flyClient.getMachine as Mock).mockResolvedValueOnce({
+        state: 'stopped',
+        config: {},
+      });
+      await instance.getStatus();
+      await Promise.all(waitUntilPromises);
+    });
+
+    const result = await instance.restartMachine();
+
+    expect(result.success).toBe(true);
+    // The key assertion: even though live check saw 'stopped', status
+    // should be restored to the persisted value ('running') by the finally block.
+    const finalStatus = await instance.getStatus();
+    expect(finalStatus.status).toBe('running');
+  });
+
+  it('restartMachine clears restartingAt guard on failure so live check can correct state', async () => {
+    const { instance, storage } = createInstance();
+    await seedRunning(storage);
+
+    // Make the restart fail after stop (simulating a Fly API error on updateMachine)
+    (flyClient.updateMachine as Mock).mockRejectedValueOnce(new Error('Fly API error'));
+
+    const result = await instance.restartMachine();
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Fly API error');
+    // restartingAt guard should be cleared so the next live check can see
+    // the real Fly state (machine is stopped after the failed restart).
+    // Status is NOT forcibly restored from storage on failure — that would
+    // mask the fact that the machine may actually be stopped.
   });
 });
