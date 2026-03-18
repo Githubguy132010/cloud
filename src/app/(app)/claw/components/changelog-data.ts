@@ -12,6 +12,12 @@ export type ChangelogEntry = {
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
     date: '2026-03-17',
+    description: 'Updated 1Password CLI to 2.33.0.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
+    date: '2026-03-17',
     description:
       'Reduced OpenClaw startup overhead by disabling unnecessary CLI self-respawn, enabled Node compile cache for faster repeated CLI runs, and tightened state directory permissions.',
     category: 'feature',
