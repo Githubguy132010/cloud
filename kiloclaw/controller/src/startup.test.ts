@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import { loadRuntimeConfig } from './index';
+import { buildGatewayArgs } from './bootstrap';
 import {
   DEFAULT_MAX_WS_CONNS,
   DEFAULT_WS_HANDSHAKE_TIMEOUT_MS,
@@ -95,39 +95,18 @@ describe('controller startup config', () => {
     ).toThrow('MAX_WS_CONNS must be a positive integer');
   });
 
-  it('serializes start-openclaw gateway args as JSON array', () => {
-    const result = spawnSync(
-      'node',
-      [
-        '-e',
-        `
-const args = ['--port', '3001', '--verbose', '--allow-unconfigured', '--bind', 'loopback'];
-if (process.env.OPENCLAW_GATEWAY_TOKEN) {
-  args.push('--token', process.env.OPENCLAW_GATEWAY_TOKEN);
-}
-process.stdout.write(JSON.stringify(args));
-`,
-      ],
-      {
-        env: {
-          ...process.env,
-          OPENCLAW_GATEWAY_TOKEN: 'tok-123',
-        },
-        encoding: 'utf8',
-      }
+  it('buildGatewayArgs output is accepted by loadRuntimeConfig', () => {
+    const args = buildGatewayArgs({ OPENCLAW_GATEWAY_TOKEN: 'tok-123' });
+    const serialized = JSON.stringify(args);
+
+    const config = loadRuntimeConfig(
+      asEnv({
+        OPENCLAW_GATEWAY_TOKEN: 'tok-123',
+        KILOCLAW_GATEWAY_ARGS: serialized,
+      })
     );
 
-    expect(result.status).toBe(0);
-    const parsed = JSON.parse(result.stdout) as string[];
-    expect(parsed).toEqual([
-      '--port',
-      '3001',
-      '--verbose',
-      '--allow-unconfigured',
-      '--bind',
-      'loopback',
-      '--token',
-      'tok-123',
-    ]);
+    expect(config.gatewayArgs).toEqual(args);
+    expect(config.expectedToken).toBe('tok-123');
   });
 });

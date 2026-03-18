@@ -183,11 +183,13 @@ export function generateBaseConfig(
     delete config.agents.defaults.models;
   }
 
-  // Tool profile: always set to "full" on config restore. The onboard
-  // default "messaging" only allows session/message tools, which leaves
-  // agents without file, shell, or web access.
+  // Tool profile: on fresh install (or explicit config restore), override the
+  // onboard default "messaging" with "full" so agents have all tools. On
+  // subsequent boots, leave the user's choice untouched.
   config.tools = config.tools ?? {};
-  config.tools.profile = 'full';
+  if (env.KILOCLAW_FRESH_INSTALL === 'true' || !config.tools.profile) {
+    config.tools.profile = 'full';
+  }
 
   // Exec: KiloClaw machines have no Docker sandbox, so exec must target the
   // gateway host directly. Allowlist mode gates unknown commands via the
@@ -257,6 +259,23 @@ export function generateBaseConfig(
     config.plugins.entries = config.plugins.entries ?? {};
     config.plugins.entries.slack = config.plugins.entries.slack ?? {};
     config.plugins.entries.slack.enabled = true;
+  }
+
+  // Webhook hooks configuration (required for Gmail push notifications via gog).
+  // hooks.token authenticates incoming hook requests from gog's --hook-token.
+  // The gmail preset maps gog's gmailHookPayload into OpenClaw's expected format.
+  if (env.KILOCLAW_HOOKS_TOKEN) {
+    config.hooks = config.hooks ?? {};
+    config.hooks.enabled = true;
+    config.hooks.token = env.KILOCLAW_HOOKS_TOKEN;
+    config.hooks.presets = config.hooks.presets ?? [];
+    if (!Array.isArray(config.hooks.presets)) {
+      config.hooks.presets = [];
+    }
+    if (!(config.hooks.presets as string[]).includes('gmail')) {
+      (config.hooks.presets as string[]).push('gmail');
+    }
+    console.log('Hooks enabled with gmail preset (dedicated token)');
   }
 
   return config;
