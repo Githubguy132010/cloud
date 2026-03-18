@@ -595,7 +595,9 @@ describe('createPairingCache', () => {
     it('non-ENOENT cold-start channel failure → returns false (triggers backoff)', async () => {
       const readChannelPairingImpl = vi
         .fn<ReadChannelPairingImpl>()
-        .mockRejectedValue(Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }));
+        .mockRejectedValue(
+          Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' })
+        );
       const readConfigImpl = vi.fn(() => ({
         channels: { telegram: { enabled: true, botToken: 'tok' } },
       }));
