@@ -401,7 +401,7 @@ describe('createPairingCache', () => {
       expect(result.requests[0].requestId).toBe('r-fresh');
     });
 
-    it('preserves entries with missing ts (NaN > TTL is always false)', async () => {
+    it('preserves entries with missing ts (isUnexpiredDeviceRequest returns true when ts is undefined)', async () => {
       const readDevicePairingImpl = vi.fn<ReadDevicePairingImpl>().mockResolvedValue({
         // ts is intentionally absent — matches openclaw pruneExpiredPending behaviour
         missingTs: { requestId: 'r-missing', deviceId: 'd-missing', publicKey: 'k' },

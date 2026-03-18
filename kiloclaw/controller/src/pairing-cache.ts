@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
+import { z } from 'zod';
 
 const execFileAsync = promisify(execFile);
 
@@ -129,13 +130,63 @@ function defaultReadConfigImpl(): unknown {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+// Zod schemas for IO boundary parsing — .passthrough() keeps forward compatibility
+// when openclaw adds fields without breaking the controller.
+const channelPairingRequestSchema = z
+  .object({
+    code: z.string(),
+    id: z.string(),
+    meta: z.unknown().optional(),
+    createdAt: z.string().optional(),
+  })
+  .passthrough();
+
+const channelPairingFileSchema = z
+  .object({
+    requests: z.array(z.unknown()).catch([]),
+  })
+  .passthrough();
+
+// No .passthrough() — Zod's default strip behavior drops unknown fields (including
+// publicKey, which is sensitive and must not be forwarded to clients). This is
+// intentional and structurally enforced: only the fields listed below survive parsing.
+// See test: 'returns device requests with stripped publicKey'.
+const devicePendingEntrySchema = z.object({
+  requestId: z.string(),
+  deviceId: z.string(),
+  role: z.string().optional(),
+  platform: z.string().optional(),
+  clientId: z.string().optional(),
+  ts: z.number().optional(),
+});
+
+const devicePendingFileSchema = z.record(z.string(), z.unknown());
+
+// Collects entries from an iterable that pass the given schema, skipping malformed ones.
+// Keeps tolerant per-entry parsing — one bad entry never kills the whole list.
+function collectValidEntries<T extends z.ZodTypeAny>(
+  items: Iterable<unknown>,
+  schema: T
+): Array<z.infer<T>> {
+  const results: Array<z.infer<T>> = [];
+  for (const item of items) {
+    const parsed = schema.safeParse(item);
+    if (parsed.success) {
+      results.push(parsed.data);
+    }
+  }
+  return results;
 }
 
-function getArray(obj: Record<string, unknown>, key: string): unknown[] {
-  const val = obj[key];
-  return Array.isArray(val) ? val : [];
+// Mirrors pruneExpiredPending() in openclaw/src/infra/pairing-files.ts:
+// entries with missing ts are preserved (no expiry); entries with a ts are compared to TTL.
+function isUnexpiredDeviceRequest(req: DevicePairingRequest, nowMs: number): boolean {
+  if (req.ts === undefined) return true;
+  return nowMs - req.ts <= DEVICE_PAIRING_TTL_MS;
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function detectChannels(config: unknown): string[] {
@@ -209,19 +260,10 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
     const results = await Promise.allSettled(
       channels.map(async channel => {
         const parsed: unknown = await readChannelPairingImpl(channel);
-        const data = isRecord(parsed) ? parsed : {};
-        const requests = getArray(data, 'requests');
-        const filtered = requests
-          .map((req): ChannelPairingRequest => {
-            const r = isRecord(req) ? req : {};
-            return {
-              code: String(r.code ?? ''),
-              id: String(r.id ?? ''),
-              channel,
-              ...('meta' in r ? { meta: r.meta } : {}),
-              ...('createdAt' in r ? { createdAt: String(r.createdAt) } : {}),
-            };
-          })
+        const parsedFile = channelPairingFileSchema.safeParse(parsed);
+        const entries = parsedFile.success ? parsedFile.data.requests : [];
+        const filtered = collectValidEntries(entries, channelPairingRequestSchema)
+          .map((req): ChannelPairingRequest => ({ ...req, channel }))
           .filter(req => req.code !== '' && req.id !== '')
           .filter(req => {
             // Mirrors pairing-store.ts isExpired() — PAIRING_PENDING_TTL_MS = 60 * 60 * 1000
@@ -287,26 +329,22 @@ export function createPairingCache(options?: PairingCacheOptions): PairingCache 
     const gen = ++deviceGeneration;
     try {
       const parsed: unknown = await readDevicePairingImpl();
-      const pendingById = isRecord(parsed) ? parsed : {};
+      const parsedFile = devicePendingFileSchema.safeParse(parsed);
+      // Graceful fallback: if the file is valid JSON but not an object (e.g. [] or null),
+      // treat as empty rather than triggering backoff — matches the channel path pattern.
+      // This returns true (success), so the periodic timer stays at its normal 120s cadence
+      // and self-heals on the next refresh once openclaw rewrites the file correctly.
+      const entries = parsedFile.success ? Object.values(parsedFile.data) : [];
       const nowMs = nowMsImpl();
 
-      const requests: DevicePairingRequest[] = Object.values(pendingById)
-        .filter(isRecord)
-        .filter(entry => {
-          // Mirrors pairing-files.ts pruneExpiredPending() — PENDING_TTL_MS = 5 * 60 * 1000
-          // https://github.com/openclaw/openclaw/blob/d073ec42cd7fabd1004f6959628743817a4cb0e8/src/infra/device-pairing.ts#L98
-          // No typeof guard: if ts is missing, nowMs - undefined = NaN, NaN > TTL is false → preserved
-          return !(nowMs - (entry.ts as number) > DEVICE_PAIRING_TTL_MS);
-        })
-        .map(entry => ({
-          requestId: String(entry.requestId ?? ''),
-          deviceId: String(entry.deviceId ?? ''),
-          ...(entry.role !== undefined ? { role: String(entry.role) } : {}),
-          ...(entry.platform !== undefined ? { platform: String(entry.platform) } : {}),
-          ...(entry.clientId !== undefined ? { clientId: String(entry.clientId) } : {}),
-          ...(typeof entry.ts === 'number' ? { ts: entry.ts } : {}),
-        }))
+      const requests: DevicePairingRequest[] = collectValidEntries(
+        entries,
+        devicePendingEntrySchema
+      )
         .filter(req => req.requestId !== '' && req.deviceId !== '')
+        // Mirrors pairing-files.ts pruneExpiredPending() — PENDING_TTL_MS = 5 * 60 * 1000
+        // https://github.com/openclaw/openclaw/blob/d073ec42cd7fabd1004f6959628743817a4cb0e8/src/infra/device-pairing.ts#L98
+        .filter(req => isUnexpiredDeviceRequest(req, nowMs))
         // Mirrors listDevicePairing() sort — descending ts (newest first)
         // https://github.com/openclaw/openclaw/blob/d073ec42cd7fabd1004f6959628743817a4cb0e8/src/infra/device-pairing.ts#L261
         .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
