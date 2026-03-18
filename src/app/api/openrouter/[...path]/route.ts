@@ -1,7 +1,7 @@
 import { NextResponse, type NextResponse as NextResponseType } from 'next/server';
 import { type NextRequest } from 'next/server';
 import { isOpenCodeBasedClient, isRooCodeBasedClient, stripRequiredPrefix } from '@/lib/utils';
-import { generateProviderSpecificHash } from '@/lib/providerHash';
+import { applyTrackingIds } from '@/lib/providerHash';
 import { extractPromptInfo } from '@/lib/processUsage';
 import { validateFeatureHeader, FEATURE_HEADER } from '@/lib/feature-detection';
 import type {
@@ -401,28 +401,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     return dataCollectionRequiredResponse();
   }
 
-  const userId = generateProviderSpecificHash(user.id, provider);
-  if (requestBodyParsed.kind === 'messages') {
-    requestBodyParsed.body.metadata = { ...requestBodyParsed.body.metadata, user_id: userId };
-    if (provider.id === 'openrouter') {
-      requestBodyParsed.body.user = userId;
-      if (taskId) {
-        requestBodyParsed.body.session_id = generateProviderSpecificHash(
-          user.id + taskId,
-          provider
-        );
-      }
-    }
-  } else {
-    if (taskId) {
-      requestBodyParsed.body.prompt_cache_key = generateProviderSpecificHash(
-        user.id + taskId,
-        provider
-      );
-    }
-    requestBodyParsed.body.safety_identifier = userId;
-    requestBodyParsed.body.user = userId; // deprecated, but this is what OpenRouter uses
-  }
+  applyTrackingIds(requestBodyParsed, provider, user.id, taskId ?? null);
 
   if (requestBodyParsed.kind === 'chat_completions') {
     if (ENABLE_TOOL_REPAIR) {
@@ -576,7 +555,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     if (requestBodyParsed.kind === 'responses') {
       return rewriteFreeModelResponse_Responses(response, originalModelIdLowerCased);
     }
-    // messages kind: pass through as-is (free models don't currently use the Messages API)
+    // TODO messages API
   }
 
   return wrapInSafeNextResponse(response);
