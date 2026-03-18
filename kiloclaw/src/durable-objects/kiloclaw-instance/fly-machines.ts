@@ -12,7 +12,7 @@ import { parseRegions, shuffleRegions, deprioritizeRegion } from '../regions';
 import { guestFromSize, volumeNameFromSandboxId } from '../machine-config';
 import type { InstanceMutableState } from './types';
 import { storageUpdate } from './state';
-import { reconcileLog } from './log';
+import { reconcileLog, doError, doWarn, toLoggable } from './log';
 
 /**
  * Ensure a Fly Volume exists. Creates one if flyVolumeId is null.
@@ -45,6 +45,7 @@ export async function ensureVolume(
   await ctx.storage.put(storageUpdate({ flyVolumeId: volume.id, flyRegion: volume.region }));
 
   reconcileLog(reason, 'create_volume', {
+    fly_app_name: flyConfig.appName,
     volume_id: volume.id,
     region: volume.region,
   });
@@ -74,13 +75,18 @@ export async function replaceStrandedVolume(
     let machineGone = false;
     try {
       await fly.destroyMachine(flyConfig, state.flyMachineId);
-      reconcileLog(reason, 'destroy_stranded_machine', { machine_id: state.flyMachineId });
+      reconcileLog(reason, 'destroy_stranded_machine', {
+        fly_app_name: flyConfig.appName,
+        machine_id: state.flyMachineId,
+      });
       machineGone = true;
     } catch (err) {
       if (fly.isFlyNotFound(err)) {
         machineGone = true;
       } else {
-        console.warn('[DO] Failed to destroy stranded machine:', err);
+        doWarn(state, 'Failed to destroy stranded machine', {
+          error: toLoggable(err),
+        });
       }
     }
     if (machineGone) {
@@ -102,6 +108,7 @@ export async function replaceStrandedVolume(
     state.flyVolumeId = forkedVolume.id;
     state.flyRegion = forkedVolume.region;
     reconcileLog(reason, 'fork_stranded_volume', {
+      fly_app_name: flyConfig.appName,
       old_volume_id: oldVolumeId,
       old_region: oldRegion,
       new_volume_id: forkedVolume.id,
@@ -124,6 +131,7 @@ export async function replaceStrandedVolume(
     state.flyVolumeId = freshVolume.id;
     state.flyRegion = freshVolume.region;
     reconcileLog(reason, 'create_replacement_volume', {
+      fly_app_name: flyConfig.appName,
       old_volume_id: oldVolumeId,
       old_region: oldRegion,
       new_volume_id: freshVolume.id,
@@ -138,10 +146,16 @@ export async function replaceStrandedVolume(
   // Delete old volume (best-effort cleanup)
   try {
     await fly.deleteVolume(flyConfig, oldVolumeId);
-    reconcileLog(reason, 'delete_stranded_volume', { volume_id: oldVolumeId });
+    reconcileLog(reason, 'delete_stranded_volume', {
+      fly_app_name: flyConfig.appName,
+      volume_id: oldVolumeId,
+    });
   } catch (err) {
     if (!fly.isFlyNotFound(err)) {
-      console.warn('[DO] Failed to delete stranded volume (will leak):', oldVolumeId, err);
+      doWarn(state, 'Failed to delete stranded volume (will leak)', {
+        volumeId: oldVolumeId,
+        error: toLoggable(err),
+      });
     }
   }
 }
@@ -196,7 +210,9 @@ export async function startExistingMachine(
         envFlyRegion
       );
     } else {
-      console.error('[DO] Transient error starting existing machine:', err);
+      doError(state, 'Transient error starting existing machine', {
+        error: toLoggable(err),
+      });
       throw err;
     }
   }

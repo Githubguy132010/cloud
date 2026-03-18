@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { usePostHog } from 'posthog-js/react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -10,24 +10,35 @@ import type { useKiloClawMutations } from '@/hooks/useKiloClaw';
 import { useKiloClawLatestVersion, useKiloClawMyPin } from '@/hooks/useKiloClaw';
 import { useOpenRouterModels } from '@/app/api/openrouter/hooks';
 import { useTRPC } from '@/lib/trpc/utils';
-import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
+import type { ModelOption } from '@/components/shared/ModelCombobox';
+import { useUser } from '@/hooks/useUser';
+import { KILO_AUTO_FRONTIER_MODEL, KILO_AUTO_FREE_MODEL } from '@/lib/kilo-auto-model';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { ChannelTokenInput } from './ChannelTokenInput';
 import { getIcon } from './secret-ui-adapter';
 import { getCreateModelOptions } from './modelSupport';
+import { AutoModelPicker } from './AutoModelPicker';
 
 type ClawMutations = ReturnType<typeof useKiloClawMutations>;
 
-export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) {
+export function CreateInstanceCard({
+  mutations,
+  onProvisionStart,
+}: {
+  mutations: ClawMutations;
+  onProvisionStart?: () => void;
+}) {
   const posthog = usePostHog();
   const trpc = useTRPC();
   const { data: billingStatus } = useQuery(trpc.kiloclaw.getBillingStatus.queryOptions());
+  const { data: user, isLoading: isLoadingUser } = useUser();
   const { data: modelsData, isLoading: isLoadingModels } = useOpenRouterModels();
   const { data: myPin, isLoading: isLoadingPin, isError: isPinLookupError } = useKiloClawMyPin();
   const { data: latestVersion, isLoading: isLoadingLatestVersion } = useKiloClawLatestVersion();
   const [selectedModel, setSelectedModel] = useState('');
+  const hasAppliedDefault = useRef(false);
   const [addedChannels, setAddedChannels] = useState<Set<string>>(new Set());
   const [tokens, setTokens] = useState<Record<string, string>>({});
   const latestOpenClawVersion = latestVersion?.openclawVersion;
@@ -49,9 +60,6 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
   );
 
   const canStartTrial = Boolean(billingStatus?.trialEligible);
-  const provisionButtonLabel = canStartTrial
-    ? 'Start Free Trial & Provision'
-    : 'Provision New Instance';
   const provisionSubtitle = canStartTrial
     ? '30-day free trial, no credit card required'
     : undefined;
@@ -77,6 +85,18 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
       myPin,
     ]
   );
+
+  const hasCredits = (user?.total_microdollars_acquired ?? 0) > 0;
+
+  useEffect(() => {
+    if (hasAppliedDefault.current || selectedModel !== '' || modelOptions.length === 0) return;
+    if (isLoadingUser) return;
+    const defaultId = hasCredits ? KILO_AUTO_FRONTIER_MODEL.id : KILO_AUTO_FREE_MODEL.id;
+    if (modelOptions.some(m => m.id === defaultId)) {
+      setSelectedModel(defaultId);
+      hasAppliedDefault.current = true;
+    }
+  }, [modelOptions, hasCredits, selectedModel, isLoadingUser]);
 
   function addChannel(channelId: string) {
     setAddedChannels(prev => new Set([...prev, channelId]));
@@ -161,8 +181,12 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
         channels: buildChannelsPayload(),
       },
       {
-        onSuccess: () => toast.success('Instance created and starting'),
-        onError: err => toast.error(`Failed to create: ${err.message}`),
+        onSuccess: () => {
+          onProvisionStart?.();
+        },
+        onError: err => {
+          toast.error(`Failed to create: ${err.message}`);
+        },
       }
     );
   }
@@ -172,7 +196,7 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create Instance</CardTitle>
+        <CardTitle className="text-xl">Get Started with KiloClaw</CardTitle>
         <CardDescription>
           Choose a default model to provision your first KiloClaw instance.
           {provisionSubtitle && (
@@ -183,9 +207,8 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <ModelCombobox
-          label="Default Model"
+      <CardContent className="mt-4 space-y-6">
+        <AutoModelPicker
           models={modelOptions}
           value={selectedModel}
           onValueChange={setSelectedModel}
@@ -197,7 +220,6 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
             isLoadingProvisionTargetVersion ||
             hasProvisionTargetError
           }
-          required
         />
 
         <div className="space-y-3">
@@ -280,10 +302,13 @@ export function CreateInstanceCard({ mutations }: { mutations: ClawMutations }) 
           })}
         </div>
 
-        <div className="flex justify-end">
-          <Button onClick={handleCreate} disabled={mutations.provision.isPending || !selectedModel}>
-            <Plus className="mr-2 h-4 w-4" />
-            {mutations.provision.isPending ? 'Creating...' : provisionButtonLabel}
+        <div className="flex">
+          <Button
+            onClick={handleCreate}
+            disabled={mutations.provision.isPending || !selectedModel}
+            className="grow bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            {mutations.provision.isPending ? 'Setting up...' : 'Get Started'}
           </Button>
         </div>
       </CardContent>
