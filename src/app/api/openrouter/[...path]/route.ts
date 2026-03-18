@@ -42,6 +42,7 @@ import { ENABLE_TOOL_REPAIR, repairTools } from '@/lib/tool-calling';
 import { isFreePromptTrainingAllowed } from '@/lib/providers/openrouter/types';
 import {
   rewriteFreeModelResponse_ChatCompletions,
+  rewriteFreeModelResponse_Messages,
   rewriteFreeModelResponse_Responses,
 } from '@/lib/rewriteModelResponse';
 import {
@@ -561,7 +562,9 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     if (requestBodyParsed.kind === 'responses') {
       return rewriteFreeModelResponse_Responses(response, originalModelIdLowerCased);
     }
-    // TODO messages API
+    if (requestBodyParsed.kind === 'messages') {
+      return rewriteFreeModelResponse_Messages(response, originalModelIdLowerCased);
+    }
   }
 
   return wrapInSafeNextResponse(response);
