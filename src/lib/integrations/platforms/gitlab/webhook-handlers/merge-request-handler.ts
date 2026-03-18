@@ -188,7 +188,7 @@ export async function handleMergeRequestCodeReview(
 
           const mergeCommit = await isMergeCommit(
             accessToken,
-            project.id,
+            mr.source_project_id,
             headSha,
             checkInstanceUrl
           );
