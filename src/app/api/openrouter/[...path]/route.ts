@@ -440,11 +440,12 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       isRooCodeBasedClient(fraudHeaders)
     );
   } else {
+    Object.assign(requestBodyParsed.body, customLlm?.extra_body ?? {});
     response = await openRouterRequest({
       path,
       search: url.search,
       method: request.method,
-      body: { ...requestBodyParsed.body, ...customLlm?.extra_body },
+      body: requestBodyParsed.body,
       extraHeaders,
       provider,
       signal: request.signal,
