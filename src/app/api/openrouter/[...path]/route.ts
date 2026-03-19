@@ -319,13 +319,16 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     return temporarilyUnavailableResponse();
   }
 
-  if (isDeadFreeModel(originalModelIdLowerCased)) {
-    console.warn(`User requested discontinued free model ${originalModelIdLowerCased}; rejecting.`);
-    return alphaPeriodEndedResponse();
-  }
-
-  if (!autoModel && isForbiddenFreeModel(originalModelIdLowerCased)) {
-    return forbiddenFreeModelResponse();
+  if (
+    isDeadFreeModel(originalModelIdLowerCased) ||
+    (!autoModel && isForbiddenFreeModel(originalModelIdLowerCased))
+  ) {
+    console.warn(`User requested forbidden free model ${originalModelIdLowerCased}; rejecting.`);
+    if (isRooCodeBasedClient(fraudHeaders)) {
+      return alphaPeriodEndedResponse();
+    } else {
+      return forbiddenFreeModelResponse();
+    }
   }
 
   // Extract properties for usage context
