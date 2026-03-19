@@ -58,6 +58,21 @@ type SetupSectionProps = {
   onTokenChange: (value: string) => void;
 };
 
+function isChannelValid(channelId: ChannelId | null, tokens: Record<string, string>): boolean {
+  if (!channelId) return false;
+  switch (channelId) {
+    case 'telegram':
+      return (tokens.telegramBotToken ?? '').trim().length > 0;
+    case 'discord':
+      return (tokens.discordBotToken ?? '').trim().length > 0;
+    case 'slack':
+      return (
+        (tokens.slackBotToken ?? '').trim().startsWith('xoxb-') &&
+        (tokens.slackAppToken ?? '').trim().startsWith('xapp-')
+      );
+  }
+}
+
 export function ChannelSelectionStep({
   onSelect,
   onSkip,
@@ -162,7 +177,7 @@ export function ChannelSelectionStepView({
 
         <Button
           className="w-full bg-emerald-600 py-6 text-base text-white hover:bg-emerald-700"
-          disabled={selected === null}
+          disabled={!isChannelValid(selected, tokens)}
           onClick={() => selected && onSelect?.(selected)}
         >
           Continue
@@ -369,6 +384,9 @@ function SlackSetupSection({
   appToken: string;
   onAppTokenChange: (value: string) => void;
 }) {
+  const botTokenPrefixError = botToken.length > 0 && !botToken.startsWith('xoxb-');
+  const appTokenPrefixError = appToken.length > 0 && !appToken.startsWith('xapp-');
+
   return (
     <ChannelSetupSection
       heading="Get your tokens"
@@ -384,7 +402,11 @@ function SlackSetupSection({
               onChange={onBotTokenChange}
               maxLength={200}
             />
-            <span className="text-xs text-[#5a5b64]">From OAuth &amp; Permissions</span>
+            <span
+              className={cn('text-xs', botTokenPrefixError ? 'text-red-400' : 'text-[#5a5b64]')}
+            >
+              {botTokenPrefixError ? 'Must start with xoxb-' : 'From OAuth & Permissions'}
+            </span>
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-foreground text-sm font-semibold">App Token</span>
@@ -395,8 +417,12 @@ function SlackSetupSection({
               onChange={onAppTokenChange}
               maxLength={200}
             />
-            <span className="text-xs text-[#5a5b64]">
-              From Basic Information &rarr; App-Level Tokens
+            <span
+              className={cn('text-xs', appTokenPrefixError ? 'text-red-400' : 'text-[#5a5b64]')}
+            >
+              {appTokenPrefixError
+                ? 'Must start with xapp-'
+                : 'From Basic Information \u2192 App-Level Tokens'}
             </span>
           </div>
         </div>
