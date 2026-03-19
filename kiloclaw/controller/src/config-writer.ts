@@ -293,6 +293,66 @@ export function generateBaseConfig(
   return config;
 }
 
+const DEFAULT_MCPORTER_CONFIG_PATH = '/root/.openclaw/workspace/config/mcporter.json';
+
+/**
+ * Write mcporter.json with MCP server definitions derived from environment variables.
+ * MCPorter is the middleware layer that lets OpenClaw agents call MCP server tools
+ * via `mcporter call <server>.<tool>`. This bypasses openclaw.json's strict schema
+ * validation, which does not yet support `mcp.servers` (requires OpenClaw >= 2026.3.14).
+ *
+ * TODO: When the Dockerfile pins OpenClaw >= 2026.3.14, migrate MCP server config
+ * into generateBaseConfig() using `config.mcp.servers` in openclaw.json instead.
+ * The mcporter approach can then be removed. See PR #48611 in openclaw/openclaw.
+ */
+export function writeMcporterConfig(
+  env: EnvLike,
+  configPath = DEFAULT_MCPORTER_CONFIG_PATH,
+  deps: ConfigWriterDeps = defaultDeps
+): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const servers: Record<string, any> = {};
+
+  if (env.AGENTCARD_API_KEY) {
+    servers['agentcard'] = {
+      url: 'https://mcp.agentcard.sh/mcp',
+      headers: { Authorization: 'Bearer ' + env.AGENTCARD_API_KEY },
+    };
+    console.log('AgentCard MCP server configured (via mcporter)');
+  }
+
+  if (Object.keys(servers).length === 0) {
+    return; // No MCP servers to configure
+  }
+
+  // Read existing config to preserve user-added servers
+  let existing: Record<string, unknown> = {};
+  try {
+    const raw = deps.readFileSync(configPath, 'utf8');
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      existing = parsed as Record<string, unknown>;
+    }
+  } catch {
+    // No existing config or unreadable — start fresh
+  }
+
+  const existingServers =
+    typeof existing.mcpServers === 'object' && existing.mcpServers !== null
+      ? (existing.mcpServers as Record<string, unknown>)
+      : {};
+
+  existing.mcpServers = { ...existingServers, ...servers };
+
+  const dir = path.dirname(configPath);
+  if (!deps.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  deps.writeFileSync(configPath, JSON.stringify(existing, null, 2));
+  console.log(`mcporter config written to ${configPath}`);
+}
+
 /**
  * Back up the existing config file and prune old backups.
  */
