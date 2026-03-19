@@ -30,6 +30,9 @@ export function CustomerSourceSurvey({ redirectPath }: CustomerSourceSurveyProps
       onSuccess: () => {
         router.push(redirectPath);
       },
+      onError: () => {
+        setSkipped(false);
+      },
     })
   );
 
