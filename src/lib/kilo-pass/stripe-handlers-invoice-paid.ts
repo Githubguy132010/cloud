@@ -101,6 +101,10 @@ async function maybeIssueYearlyRemainingCredits(params: {
   // the effective date.
   let yearlyBillingCycleStartSeconds: number | null = null;
   for (const inv of recentInvoices.data) {
+    // Skip the invoice that triggered this handler — we want the *previous*
+    // yearly invoice that started the billing cycle, not the upgrade invoice.
+    if (inv.id === stripeInvoiceId) continue;
+
     const lineItem = inv.lines?.data?.[0];
     if (!lineItem) continue;
 
