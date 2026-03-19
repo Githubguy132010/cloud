@@ -822,6 +822,170 @@ describe('handleKiloPassInvoicePaid', () => {
     );
   });
 
+  test('yearly: upgrade invoice appearing in invoices.list does not match as the billing cycle invoice (regression #1274)', async () => {
+    // Stripe returns invoices newest-first from invoices.list. When a yearly
+    // upgrade invoice is paid, Stripe may return it in the list alongside the
+    // original yearly invoice. The upgrade invoice's period also contains the
+    // effective date, so without filtering it out, the code would incorrectly
+    // use the upgrade invoice's period to compute months elapsed — yielding 0
+    // months used and over-issuing remaining credits.
+    const { handleKiloPassInvoicePaid } =
+      await import('@/lib/kilo-pass/stripe-handlers-invoice-paid');
+
+    const user = await insertTestUser({ total_microdollars_acquired: 0, microdollars_used: 0 });
+
+    const stripeSubId = `sub_${Math.random()}`;
+    const stripeScheduleId = `sched_${Math.random()}`;
+    const scheduledChangeId = randomUUID();
+
+    const startedAt = '2024-01-01T00:00:00.000Z';
+    const effectiveAt = '2025-04-01T00:00:00.000Z';
+
+    const [sub] = await db
+      .insert(kilo_pass_subscriptions)
+      .values({
+        kilo_user_id: user.id,
+        stripe_subscription_id: stripeSubId,
+        tier: KiloPassTier.Tier19,
+        cadence: KiloPassCadence.Yearly,
+        status: 'active',
+        cancel_at_period_end: false,
+        started_at: startedAt,
+        ended_at: null,
+        current_streak_months: 0,
+        next_yearly_issue_at: '2025-04-01T00:00:00.000Z',
+      })
+      .returning({ id: kilo_pass_subscriptions.id });
+    if (!sub) throw new Error('Failed to insert subscription');
+
+    for (const month of ['2025-01-01', '2025-02-01', '2025-03-01']) {
+      await seedBaseIssuance({
+        subscriptionId: sub.id,
+        kiloUserId: user.id,
+        issueMonth: month,
+        amountUsd: 19,
+      });
+    }
+
+    await db.insert(kilo_pass_scheduled_changes).values({
+      id: scheduledChangeId,
+      kilo_user_id: user.id,
+      stripe_subscription_id: stripeSubId,
+      from_tier: KiloPassTier.Tier19,
+      from_cadence: KiloPassCadence.Yearly,
+      to_tier: KiloPassTier.Tier49,
+      to_cadence: KiloPassCadence.Yearly,
+      stripe_schedule_id: stripeScheduleId,
+      effective_at: effectiveAt,
+      status: KiloPassScheduledChangeStatus.NotStarted,
+    });
+
+    const meta = kiloPassMetadata({
+      kiloUserId: user.id,
+      tier: KiloPassTier.Tier49,
+      cadence: KiloPassCadence.Yearly,
+      kiloPassScheduledChangeId: scheduledChangeId,
+    });
+
+    const subscription = makeStripeSubscription({
+      id: stripeSubId,
+      start_date_seconds: 1_704_067_200, // 2024-01-01T00:00:00Z
+      metadata: meta,
+    });
+
+    const invoiceId = `inv_yearly_upgrade_regression_${Math.random()}`;
+
+    // Simulate real Stripe behavior: invoices.list returns the upgrade invoice
+    // (newest) BEFORE the original yearly invoice. Both periods contain the
+    // effective date.
+    const upgradeInvoicePeriodStart = 1_743_465_600; // 2025-04-01 (upgrade start)
+    const upgradeInvoicePeriodEnd = 1_775_001_600; // 2026-04-01
+    const originalYearlyPeriodStart = 1_735_689_600; // 2025-01-01
+    const originalYearlyPeriodEnd = 1_767_225_600; // 2026-01-01
+
+    const list = jest.fn(async () => ({
+      data: [
+        // Newest first — the upgrade invoice itself
+        {
+          id: invoiceId,
+          lines: {
+            data: [
+              {
+                period: {
+                  start: upgradeInvoicePeriodStart,
+                  end: upgradeInvoicePeriodEnd,
+                },
+              },
+            ],
+          },
+        },
+        // Original yearly invoice
+        {
+          id: `in_original_yearly_${Math.random()}`,
+          lines: {
+            data: [
+              {
+                period: {
+                  start: originalYearlyPeriodStart,
+                  end: originalYearlyPeriodEnd,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }));
+
+    const retrieve = jest.fn(async () => subscription);
+    const release = jest.fn(async (_scheduleId: string) => ({}));
+    const stripe = {
+      subscriptions: { retrieve },
+      subscriptionSchedules: { release },
+      invoices: { list },
+    };
+
+    const priceId = await getKiloPassPriceId({
+      tier: KiloPassTier.Tier49,
+      cadence: KiloPassCadence.Yearly,
+    });
+
+    const invoice = makeStripeInvoice({
+      id: invoiceId,
+      amount_paid_cents: 49_00 * 12,
+      period_start_seconds: upgradeInvoicePeriodStart,
+      created_seconds: upgradeInvoicePeriodStart,
+      paid_seconds: upgradeInvoicePeriodStart + 3600,
+      priceId,
+      subscriptionIdOrExpanded: stripeSubId,
+      metadata: meta,
+    });
+
+    await handleKiloPassInvoicePaid({
+      eventId: 'evt_test_yearly_upgrade_regression_1274',
+      invoice,
+      stripe: stripe as unknown as Stripe,
+    });
+
+    const syntheticInvoiceId = `kilo-pass-yearly-remaining:${scheduledChangeId}`;
+    const remainingTx = await db.query.credit_transactions.findFirst({
+      where: eq(credit_transactions.stripe_payment_id, syntheticInvoiceId),
+    });
+    expect(remainingTx).toBeTruthy();
+    // 3 months used (Jan, Feb, Mar). 9 remaining × $19 = $171.
+    // Without the fix, the upgrade invoice would match first, yielding 0 months
+    // elapsed and 12 remaining × $19 = $228 (wrong).
+    expect(remainingTx?.amount_microdollars).toBe(171_000_000);
+
+    const remainingAuditLog = await db.query.kilo_pass_audit_log.findFirst({
+      where: eq(kilo_pass_audit_log.stripe_invoice_id, syntheticInvoiceId),
+    });
+    expect(remainingAuditLog?.payload_json).toEqual(
+      expect.objectContaining({
+        remainingMonths: 9,
+      })
+    );
+  });
+
   test('yearly: remaining credits use invoice billing period, not started_at, after a prior cadence change', async () => {
     // Scenario: subscription started monthly on Mar 1, switched to yearly on Apr 1
     // (billing_cycle_anchor: phase_start reset the billing cycle). Then user uptiers
