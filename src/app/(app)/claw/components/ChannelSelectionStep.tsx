@@ -53,6 +53,11 @@ const CHANNEL_OPTIONS: ChannelOption[] = [
   },
 ];
 
+type SetupSectionProps = {
+  token: string;
+  onTokenChange: (value: string) => void;
+};
+
 export function ChannelSelectionStep({
   onSelect,
   onSkip,
@@ -67,11 +72,13 @@ export function ChannelSelectionStep({
 export function ChannelSelectionStepView({
   onSelect,
   onSkip,
+  defaultSelected = null,
 }: {
   onSelect?: (channelId: ChannelId) => void;
   onSkip?: () => void;
+  defaultSelected?: ChannelId | null;
 }) {
-  const [selected, setSelected] = useState<ChannelId | null>(null);
+  const [selected, setSelected] = useState<ChannelId | null>(defaultSelected);
   const [tokens, setTokens] = useState<Record<string, string>>({});
 
   const telegram = CHANNEL_OPTIONS[0];
@@ -80,6 +87,21 @@ export function ChannelSelectionStepView({
   function setToken(key: string, value: string) {
     setTokens(prev => ({ ...prev, [key]: value }));
   }
+
+  const expandedSections: Partial<Record<ChannelId, React.ReactNode>> = {
+    telegram: (
+      <TelegramSetupSection
+        token={tokens.telegramBotToken ?? ''}
+        onTokenChange={v => setToken('telegramBotToken', v)}
+      />
+    ),
+    discord: (
+      <DiscordSetupSection
+        token={tokens.discordBotToken ?? ''}
+        onTokenChange={v => setToken('discordBotToken', v)}
+      />
+    ),
+  };
 
   return (
     <Card className="mt-6">
@@ -108,12 +130,7 @@ export function ChannelSelectionStepView({
             option={telegram}
             isSelected={selected === telegram.id}
             onSelect={() => setSelected(telegram.id)}
-            expandedContent={
-              <TelegramSetupSection
-                token={tokens.telegramBotToken ?? ''}
-                onTokenChange={v => setToken('telegramBotToken', v)}
-              />
-            }
+            expandedContent={expandedSections[telegram.id]}
           />
         )}
 
@@ -131,6 +148,7 @@ export function ChannelSelectionStepView({
             option={option}
             isSelected={selected === option.id}
             onSelect={() => setSelected(option.id)}
+            expandedContent={expandedSections[option.id]}
           />
         ))}
 
@@ -207,63 +225,44 @@ function ChannelCard({
   );
 }
 
-function TelegramSetupSection({
+function ChannelSetupSection({
+  heading,
+  children,
+  videoGuideUrl,
+  tokenId,
+  tokenPlaceholder,
   token,
   onTokenChange,
 }: {
+  heading: string;
+  children: React.ReactNode;
+  videoGuideUrl?: string;
+  tokenId: string;
+  tokenPlaceholder: string;
   token: string;
   onTokenChange: (value: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="border-border border-t" />
-
       <h3 className="text-muted-foreground text-sm font-bold tracking-wider uppercase">
-        Create your bot token
+        {heading}
       </h3>
-
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <StepNumber n={1} />
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Open Telegram and start a chat with{' '}
-            <a
-              href="https://t.me/BotFather"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300"
-            >
-              @BotFather
-              <ExternalLink className="mb-0.5 ml-0.5 inline h-3 w-3" />
-            </a>{' '}
-            &mdash; make sure the handle is exactly{' '}
-            <strong className="text-foreground">@BotFather</strong>.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <StepNumber n={2} />
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Run{' '}
-            <code className="rounded bg-purple-900/40 px-1.5 py-0.5 text-purple-300">/newbot</code>,
-            follow the prompts, and copy the token it gives you.
-          </p>
-        </div>
-      </div>
-
-      <a
-        href="https://youtu.be/t2iTYbDsSds"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hover:text-muted-foreground flex items-center gap-2 text-xs text-[#5a5b64] transition-colors"
-      >
-        <PlayCircle className="h-5 w-5 shrink-0 text-blue-400" />
-        Prefer a walkthrough? Watch a short video guide
-      </a>
-
+      <div className="flex flex-col gap-4">{children}</div>
+      {videoGuideUrl && (
+        <a
+          href={videoGuideUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-muted-foreground flex items-center gap-2 text-xs text-[#5a5b64] transition-colors"
+        >
+          <PlayCircle className="h-5 w-5 shrink-0 text-blue-400" />
+          Prefer a walkthrough? Watch a short video guide
+        </a>
+      )}
       <ChannelTokenInput
-        id="onboarding-telegram-token"
-        placeholder="Paste your bot token here"
+        id={tokenId}
+        placeholder={tokenPlaceholder}
         value={token}
         onChange={onTokenChange}
         maxLength={100}
@@ -272,11 +271,84 @@ function TelegramSetupSection({
   );
 }
 
-function StepNumber({ n }: { n: number }) {
+function NumberedStep({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <span className="bg-muted text-muted-foreground flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
-      {n}
-    </span>
+    <div className="flex items-start gap-3">
+      <span className="bg-muted text-muted-foreground mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+        {n}
+      </span>
+      <p className="text-muted-foreground text-sm leading-relaxed">{children}</p>
+    </div>
+  );
+}
+
+function TelegramSetupSection({ token, onTokenChange }: SetupSectionProps) {
+  return (
+    <ChannelSetupSection
+      heading="Create your bot token"
+      videoGuideUrl="https://youtu.be/t2iTYbDsSds"
+      tokenId="onboarding-telegram-token"
+      tokenPlaceholder="Paste your bot token here"
+      token={token}
+      onTokenChange={onTokenChange}
+    >
+      <NumberedStep n={1}>
+        Open Telegram and start a chat with{' '}
+        <a
+          href="https://t.me/BotFather"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300"
+        >
+          @BotFather
+          <ExternalLink className="mb-0.5 ml-0.5 inline h-3 w-3" />
+        </a>{' '}
+        &mdash; make sure the handle is exactly{' '}
+        <strong className="text-foreground">@BotFather</strong>.
+      </NumberedStep>
+      <NumberedStep n={2}>
+        Run <code className="rounded bg-purple-900/40 px-1.5 py-0.5 text-purple-300">/newbot</code>,
+        follow the prompts, and copy the token it gives you.
+      </NumberedStep>
+    </ChannelSetupSection>
+  );
+}
+
+function DiscordSetupSection({ token, onTokenChange }: SetupSectionProps) {
+  return (
+    <ChannelSetupSection
+      heading="Get your bot token"
+      videoGuideUrl="https://youtu.be/t2iTYbDsSds"
+      tokenId="onboarding-discord-token"
+      tokenPlaceholder="Paste your Discord bot token..."
+      token={token}
+      onTokenChange={onTokenChange}
+    >
+      <NumberedStep n={1}>
+        Go to the{' '}
+        <a
+          href="https://discord.com/developers/applications"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 hover:text-blue-300"
+        >
+          Discord Developer Portal
+          <ExternalLink className="mb-0.5 ml-0.5 inline h-3 w-3" />
+        </a>
+        , create a New Application, then click <strong className="text-foreground">Bot</strong> in
+        the sidebar and add a bot.
+      </NumberedStep>
+      <NumberedStep n={2}>
+        On the Bot page, scroll to{' '}
+        <strong className="text-foreground">Privileged Gateway Intents</strong> and enable{' '}
+        <strong className="text-foreground">Message Content Intent</strong>.
+      </NumberedStep>
+      <NumberedStep n={3}>
+        Click{' '}
+        <code className="rounded bg-purple-900/40 px-1.5 py-0.5 text-purple-300">Reset Token</code>{' '}
+        on the Bot page and copy the token that appears.
+      </NumberedStep>
+    </ChannelSetupSection>
   );
 }
 
