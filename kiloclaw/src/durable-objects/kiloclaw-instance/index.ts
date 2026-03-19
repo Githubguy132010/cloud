@@ -809,6 +809,9 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     if (this.s.status === 'destroying') {
       throw new Error('Cannot start: instance is being destroyed');
     }
+    if (this.s.status === 'restarting') {
+      throw new Error('Cannot start: instance is restarting');
+    }
 
     // Mark as starting so the UI can show a polling state immediately.
     // Record startingAt so reconcileStarting() can time out after STARTING_TIMEOUT_MS.
@@ -867,6 +870,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       this.s.status === 'stopped' ||
       this.s.status === 'provisioned' ||
       this.s.status === 'starting' ||
+      this.s.status === 'restarting' ||
       this.s.status === 'destroying'
     ) {
       console.log('[DO] Instance not running (status:', this.s.status, '), no-op');
