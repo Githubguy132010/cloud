@@ -40,6 +40,7 @@ export async function loadState(ctx: DurableObjectState, s: InstanceMutableState
     s.provisionedAt = d.provisionedAt;
     s.startingAt = d.startingAt;
     s.restartingAt = d.restartingAt;
+    s.restartUpdateSent = d.restartUpdateSent;
     s.lastStartedAt = d.lastStartedAt;
     s.lastStoppedAt = d.lastStoppedAt;
     s.flyAppName = d.flyAppName;
@@ -99,6 +100,7 @@ export function resetMutableState(s: InstanceMutableState): void {
   s.provisionedAt = null;
   s.startingAt = null;
   s.restartingAt = null;
+  s.restartUpdateSent = false;
   s.lastStartedAt = null;
   s.lastStoppedAt = null;
   s.flyAppName = null;
@@ -152,6 +154,7 @@ export function createMutableState(): InstanceMutableState {
     provisionedAt: null,
     startingAt: null,
     restartingAt: null,
+    restartUpdateSent: false,
     lastStartedAt: null,
     lastStoppedAt: null,
     flyAppName: null,

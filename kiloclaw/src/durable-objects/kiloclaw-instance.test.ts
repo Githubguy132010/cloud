@@ -5102,10 +5102,28 @@ describe('restartMachine restartingAt guard', () => {
     expect(storage._store.get('lastRestartErrorMessage')).toBe('prior restart error');
   });
 
-  it('does not falsely mark restart successful when background failed but machine is still started', async () => {
+  it('does not falsely mark restart successful when update never ran but machine is still started', async () => {
     const { instance, storage } = createInstance();
+    // restartUpdateSent defaults to false — updateMachine() never ran
+    await seedRestarting(storage);
+
+    (flyClient.getMachine as Mock).mockResolvedValue({
+      id: 'machine-1',
+      state: 'started',
+      config: { guest: { cpus: 1, memory_mb: 256, cpu_kind: 'shared' } },
+    });
+
+    await instance.alarm();
+
+    expect(storage._store.get('status')).toBe('restarting');
+  });
+
+  it('marks success when updateMachine was sent but waitForState timed out and Fly eventually started', async () => {
+    const { instance, storage } = createInstance();
+    // updateMachine ran successfully, but waitForState timed out in background
     await seedRestarting(storage, {
-      lastRestartErrorMessage: 'stopMachineAndWait failed: 500',
+      restartUpdateSent: true,
+      lastRestartErrorMessage: 'waitForState timed out',
       lastRestartErrorAt: Date.now() - 30_000,
     });
 
@@ -5117,13 +5135,15 @@ describe('restartMachine restartingAt guard', () => {
 
     await instance.alarm();
 
-    expect(storage._store.get('status')).toBe('restarting');
-    expect(storage._store.get('lastRestartErrorMessage')).toBe('stopMachineAndWait failed: 500');
+    expect(storage._store.get('status')).toBe('running');
+    expect(storage._store.get('restartingAt')).toBeNull();
+    expect(storage._store.get('restartUpdateSent')).toBe(false);
+    expect(storage._store.get('lastRestartErrorMessage')).toBeNull();
   });
 
   it('handles restart reconciliation after a fresh DO instance loads persisted state', async () => {
     const storage = createFakeStorage();
-    await seedRestarting(storage);
+    await seedRestarting(storage, { restartUpdateSent: true });
 
     const { instance } = createInstance(storage);
 
@@ -5137,6 +5157,7 @@ describe('restartMachine restartingAt guard', () => {
     const { instance, storage } = createInstance();
     const existingLastStartedAt = Date.now() - 60_000;
     await seedRestarting(storage, {
+      restartUpdateSent: true,
       lastStartedAt: existingLastStartedAt,
     });
 

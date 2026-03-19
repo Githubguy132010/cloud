@@ -137,6 +137,7 @@ export const PersistedStateSchema = z.object({
   provisionedAt: z.number().nullable().default(null),
   startingAt: z.number().nullable().default(null),
   restartingAt: z.number().nullable().default(null),
+  restartUpdateSent: z.boolean().default(false),
   lastStartedAt: z.number().nullable().default(null),
   lastStoppedAt: z.number().nullable().default(null),
   // Fly.io app/machine/volume identifiers

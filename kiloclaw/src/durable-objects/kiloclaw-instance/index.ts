@@ -1309,12 +1309,14 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
       this.s.status = 'restarting';
       this.s.restartingAt = Date.now();
+      this.s.restartUpdateSent = false;
       this.s.lastRestartErrorMessage = null;
       this.s.lastRestartErrorAt = null;
       await this.ctx.storage.put(
         storageUpdate({
           status: 'restarting',
           restartingAt: this.s.restartingAt,
+          restartUpdateSent: false,
           lastRestartErrorMessage: null,
           lastRestartErrorAt: null,
         })
@@ -1373,6 +1375,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       await fly.updateMachine(flyConfig, this.s.flyMachineId, machineConfig, {
         minSecretsVersion,
       });
+      this.s.restartUpdateSent = true;
+      await this.ctx.storage.put(storageUpdate({ restartUpdateSent: true }));
       await fly.waitForState(flyConfig, this.s.flyMachineId, 'started', STARTUP_TIMEOUT_SECONDS);
       await gateway.waitForHealthy(this.s, this.env, flyConfig.appName, this.s.flyMachineId);
       await markRestartSuccessful(this.ctx, this.s);

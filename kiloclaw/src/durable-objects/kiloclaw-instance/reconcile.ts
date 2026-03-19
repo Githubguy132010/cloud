@@ -383,15 +383,35 @@ async function reconcileRestarting(
   try {
     const machine = await fly.getMachine(flyConfig, state.flyMachineId);
     if (machine.state === 'started') {
-      if (!state.lastRestartErrorMessage) {
+      if (state.restartUpdateSent) {
+        // updateMachine() was sent — started means the new config is live.
         await markRestartSuccessful(ctx, state);
         await reconcileVolume(flyConfig, ctx, state, env, reason);
         return;
       }
-      // Machine is started but background reported an error — the update
-      // may never have run, so started likely means old config. Don't let
-      // syncStatusWithFly() overwrite restarting → running. Let the
-      // timeout path surface the error to the user.
+      // Machine is started but updateMachine() never ran (e.g. stop failed
+      // before we got to the update). Don't let syncStatusWithFly() overwrite
+      // restarting → running. If timed out, fall back to running so the user
+      // can retry — the machine is genuinely serving traffic, just with old config.
+      if (isTimedOut) {
+        reconcileLog(reason, 'restarting_no_update_timeout_fallback', {
+          machine_id: state.flyMachineId,
+          last_restart_error: state.lastRestartErrorMessage,
+          elapsed_ms: restartingAt !== null ? Date.now() - restartingAt : undefined,
+        });
+        state.status = 'running';
+        state.restartingAt = null;
+        state.restartUpdateSent = false;
+        state.healthCheckFailCount = 0;
+        await ctx.storage.put(
+          storageUpdate({
+            status: 'running',
+            restartingAt: null,
+            restartUpdateSent: false,
+            healthCheckFailCount: 0,
+          })
+        );
+      }
       await reconcileVolume(flyConfig, ctx, state, env, reason);
       return;
     }
@@ -420,7 +440,7 @@ async function reconcileRestarting(
     });
     await setRestartError(ctx, state, timeoutMessage);
 
-    if (TERMINAL_STOPPED_STATES.has(machine.state) || machine.state === 'failed') {
+    if (TERMINAL_STOPPED_STATES.has(machine.state)) {
       state.status = 'stopped';
       state.restartingAt = null;
       state.lastStoppedAt = Date.now();
@@ -718,6 +738,7 @@ export async function markRestartSuccessful(
   state.status = 'running';
   state.startingAt = null;
   state.restartingAt = null;
+  state.restartUpdateSent = false;
   if (state.lastStartedAt === null) {
     state.lastStartedAt = Date.now();
   }
@@ -729,6 +750,7 @@ export async function markRestartSuccessful(
       status: 'running',
       startingAt: null,
       restartingAt: null,
+      restartUpdateSent: false,
       lastStartedAt: state.lastStartedAt,
       healthCheckFailCount: 0,
       lastRestartErrorMessage: null,

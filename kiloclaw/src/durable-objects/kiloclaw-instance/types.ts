@@ -52,6 +52,7 @@ export type InstanceMutableState = {
   provisionedAt: number | null;
   startingAt: number | null;
   restartingAt: number | null;
+  restartUpdateSent: boolean;
   lastStartedAt: number | null;
   lastStoppedAt: number | null;
   flyAppName: string | null;
