@@ -149,10 +149,12 @@ function GoogleAccountCard({
   connected,
   gmailNotificationsEnabled,
   mutations,
+  onRedeploy,
 }: {
   connected: boolean;
   gmailNotificationsEnabled: boolean;
   mutations: ClawMutations;
+  onRedeploy?: () => void;
 }) {
   const trpc = useTRPC();
   const { data: setupData } = useQuery(
@@ -327,7 +329,12 @@ function GoogleAccountCard({
         onConfirm={() => {
           mutations.disconnectGoogle.mutate(undefined, {
             onSuccess: () => {
-              toast.success('Google account disconnected. Redeploy to apply.');
+              toast.success('Google account disconnected. Redeploy to apply.', {
+                duration: 8000,
+                ...(onRedeploy && {
+                  action: { label: 'Redeploy', onClick: onRedeploy },
+                }),
+              });
               setConfirmDisconnect(false);
             },
             onError: err => toast.error(`Failed to disconnect: ${err.message}`),
@@ -347,11 +354,13 @@ export function SettingsTab({
   mutations,
   onSecretsChanged,
   dirtySecrets,
+  onRedeploy,
 }: {
   status: KiloClawDashboardStatus;
   mutations: ClawMutations;
   onSecretsChanged?: (entryId: string) => void;
   dirtySecrets: Set<string>;
+  onRedeploy?: () => void;
 }) {
   const posthog = usePostHog();
   const { data: config } = useKiloClawConfig();
@@ -617,6 +626,7 @@ export function SettingsTab({
               mutations={mutations}
               onSecretsChanged={onSecretsChanged}
               isDirty={dirtySecrets.has(entry.id)}
+              onRedeploy={onRedeploy}
             />
           ))}
         </div>
@@ -637,6 +647,7 @@ export function SettingsTab({
                   mutations={mutations}
                   onSecretsChanged={onSecretsChanged}
                   isDirty={dirtySecrets.has(entry.id)}
+                  onRedeploy={onRedeploy}
                   actionRowExtra={
                     <span className="text-muted-foreground flex items-center gap-1 text-xs">
                       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
@@ -682,6 +693,7 @@ export function SettingsTab({
                   mutations={mutations}
                   onSecretsChanged={onSecretsChanged}
                   isDirty={dirtySecrets.has(entry.id)}
+                  onRedeploy={onRedeploy}
                   actionRowExtra={<AgentCardSetupGuide />}
                 />
               ))}
@@ -697,6 +709,7 @@ export function SettingsTab({
             connected={status.googleConnected}
             gmailNotificationsEnabled={status.gmailNotificationsEnabled}
             mutations={mutations}
+            onRedeploy={onRedeploy}
           />
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { toast } from 'sonner';
 import { Check, Sparkles, TriangleAlert, X, Zap } from 'lucide-react';
 import type { KiloClawDashboardStatus } from '@/lib/kiloclaw/types';
 import {
@@ -78,6 +79,18 @@ export function ClawDashboard({
   const onRedeploySuccess = useCallback(() => {
     setDirtySecrets(new Set());
   }, []);
+
+  const onRedeploy = useCallback(() => {
+    mutations.restartMachine.mutate(undefined, {
+      onSuccess: () => {
+        toast.success('Redeploying');
+        onRedeploySuccess();
+      },
+      onError: (err: Error) => {
+        toast.error(err.message, { duration: 10000 });
+      },
+    });
+  }, [mutations.restartMachine, onRedeploySuccess]);
 
   // Billing gating (welcome page for new users, loading spinner) is handled
   // by page.tsx before this component mounts. ClawDashboard always renders
@@ -278,6 +291,7 @@ export function ClawDashboard({
                     mutations={mutations}
                     onSecretsChanged={onSecretsChanged}
                     dirtySecrets={dirtySecrets}
+                    onRedeploy={onRedeploy}
                   />
                 </TabsContent>
                 <TabsContent value="changelog" className="mt-0">

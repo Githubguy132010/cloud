@@ -28,6 +28,7 @@ export function SecretEntrySection({
   isDirty,
   actionRowExtra,
   defaultOpen,
+  onRedeploy,
 }: {
   entry: SecretCatalogEntry;
   configured: boolean;
@@ -36,6 +37,7 @@ export function SecretEntrySection({
   isDirty: boolean;
   actionRowExtra?: React.ReactNode;
   defaultOpen?: boolean;
+  onRedeploy?: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [tokens, setTokens] = useState<Record<string, string>>({});
@@ -83,7 +85,13 @@ export function SecretEntrySection({
       {
         onSuccess: () => {
           toast.success(
-            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} saved. Hit Redeploy to apply.`
+            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} saved. Redeploy to apply.`,
+            {
+              duration: 8000,
+              ...(onRedeploy && {
+                action: { label: 'Redeploy', onClick: onRedeploy },
+              }),
+            }
           );
           setTokens({});
           onSecretsChanged?.(entry.id);
@@ -104,7 +112,13 @@ export function SecretEntrySection({
       {
         onSuccess: () => {
           toast.success(
-            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} removed. Hit Redeploy to apply.`
+            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} removed. Redeploy to apply.`,
+            {
+              duration: 8000,
+              ...(onRedeploy && {
+                action: { label: 'Redeploy', onClick: onRedeploy },
+              }),
+            }
           );
           setTokens({});
           onSecretsChanged?.(entry.id);
