@@ -103,12 +103,14 @@ async function maybeIssueYearlyRemainingCredits(params: {
   for (const inv of recentInvoices.data) {
     const lineItem = inv.lines?.data?.[0];
     if (!lineItem) continue;
-    const plan = lineItem.plan ?? lineItem.price?.recurring;
-    if (!plan || plan.interval !== 'year') continue;
 
     const periodStart = lineItem.period?.start;
     const periodEnd = lineItem.period?.end;
     if (typeof periodStart !== 'number' || typeof periodEnd !== 'number') continue;
+
+    // Skip non-yearly invoices (yearly periods span ~365 days)
+    const periodDays = (periodEnd - periodStart) / 86400;
+    if (periodDays < 340) continue;
 
     // The yearly invoice whose period contains the effective date
     if (effectiveAtUtc.unix() >= periodStart && effectiveAtUtc.unix() <= periodEnd) {

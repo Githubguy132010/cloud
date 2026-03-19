@@ -214,7 +214,6 @@ function makeInvoicesListMock(params: {
         lines: {
           data: [
             {
-              plan: { interval: 'year' },
               period: {
                 start: params.yearlyPeriodStartSeconds,
                 end: params.yearlyPeriodEndSeconds,
