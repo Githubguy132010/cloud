@@ -73,7 +73,6 @@ function isChannelValid(channelId: ChannelId | null, tokens: Record<string, stri
   }
 }
 
-/** Pure visual shell — extracted so Storybook can render it without wiring up mutations. */
 export function ChannelSelectionStepView({
   onSelect,
   onSkip,
