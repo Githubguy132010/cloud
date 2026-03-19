@@ -1420,9 +1420,20 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       await markRestartSuccessful(this.ctx, this.s);
       await this.scheduleAlarm();
     } catch (err) {
-      doError(this.s, 'restartMachine: background restart failed', {
-        error: toLoggable(err),
-      });
+      // A waitForState 408 after updateMachine was sent is expected — the
+      // machine may take minutes to start. Reconciliation will pick it up.
+      const isExpectedTimeout =
+        this.s.restartUpdateSent && err instanceof fly.FlyApiError && err.status === 408;
+
+      if (isExpectedTimeout) {
+        doWarn(this.s, 'restartMachine: waitForState timed out after update, reconciliation will handle', {
+          error: toLoggable(err),
+        });
+      } else {
+        doError(this.s, 'restartMachine: background restart failed', {
+          error: toLoggable(err),
+        });
+      }
       // Only persist error if we're still in 'restarting'. If destroy()
       // ran concurrently, storage may have been wiped — writing here would
       // recreate partial state on a destroyed instance.
