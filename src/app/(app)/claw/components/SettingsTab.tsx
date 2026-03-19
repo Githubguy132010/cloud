@@ -355,12 +355,15 @@ export function SettingsTab({
   onSecretsChanged,
   dirtySecrets,
   onRedeploy,
+  onUpgrade,
 }: {
   status: KiloClawDashboardStatus;
   mutations: ClawMutations;
   onSecretsChanged?: (entryId: string) => void;
   dirtySecrets: Set<string>;
   onRedeploy?: () => void;
+  /** Callback that triggers an image upgrade (pull latest) instead of a plain restart. */
+  onUpgrade?: () => void;
 }) {
   const posthog = usePostHog();
   const { data: config } = useKiloClawConfig();
@@ -693,7 +696,8 @@ export function SettingsTab({
                   mutations={mutations}
                   onSecretsChanged={onSecretsChanged}
                   isDirty={dirtySecrets.has(entry.id)}
-                  onRedeploy={onRedeploy}
+                  onRedeploy={onUpgrade ?? onRedeploy}
+                  redeployLabel="Upgrade"
                   actionRowExtra={<AgentCardSetupGuide />}
                 />
               ))}

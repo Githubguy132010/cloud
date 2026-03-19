@@ -92,6 +92,21 @@ export function ClawDashboard({
     });
   }, [mutations.restartMachine, onRedeploySuccess]);
 
+  const onUpgrade = useCallback(() => {
+    mutations.restartMachine.mutate(
+      { imageTag: 'latest' },
+      {
+        onSuccess: () => {
+          toast.success('Upgrading to latest image');
+          onRedeploySuccess();
+        },
+        onError: (err: Error) => {
+          toast.error(err.message, { duration: 10000 });
+        },
+      }
+    );
+  }, [mutations.restartMachine, onRedeploySuccess]);
+
   // Billing gating (welcome page for new users, loading spinner) is handled
   // by page.tsx before this component mounts. ClawDashboard always renders
   // the full dashboard with BillingWrapper handling lock dialogs and banners.
@@ -292,6 +307,7 @@ export function ClawDashboard({
                     onSecretsChanged={onSecretsChanged}
                     dirtySecrets={dirtySecrets}
                     onRedeploy={onRedeploy}
+                    onUpgrade={onUpgrade}
                   />
                 </TabsContent>
                 <TabsContent value="changelog" className="mt-0">

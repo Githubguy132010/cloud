@@ -29,6 +29,7 @@ export function SecretEntrySection({
   actionRowExtra,
   defaultOpen,
   onRedeploy,
+  redeployLabel = 'Redeploy',
 }: {
   entry: SecretCatalogEntry;
   configured: boolean;
@@ -38,6 +39,8 @@ export function SecretEntrySection({
   actionRowExtra?: React.ReactNode;
   defaultOpen?: boolean;
   onRedeploy?: () => void;
+  /** Label for the toast action button. Defaults to "Redeploy". */
+  redeployLabel?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [tokens, setTokens] = useState<Record<string, string>>({});
@@ -85,11 +88,11 @@ export function SecretEntrySection({
       {
         onSuccess: () => {
           toast.success(
-            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} saved. Redeploy to apply.`,
+            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} saved. ${redeployLabel} to apply.`,
             {
               duration: 8000,
               ...(onRedeploy && {
-                action: { label: 'Redeploy', onClick: onRedeploy },
+                action: { label: redeployLabel, onClick: onRedeploy },
               }),
             }
           );
@@ -112,11 +115,11 @@ export function SecretEntrySection({
       {
         onSuccess: () => {
           toast.success(
-            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} removed. Redeploy to apply.`,
+            `${entry.label} token${entry.fields.length > 1 ? 's' : ''} removed. ${redeployLabel} to apply.`,
             {
               duration: 8000,
               ...(onRedeploy && {
-                action: { label: 'Redeploy', onClick: onRedeploy },
+                action: { label: redeployLabel, onClick: onRedeploy },
               }),
             }
           );
