@@ -105,10 +105,10 @@ function AgentCardSetupGuide() {
           </div>
 
           <div>
-            <p className="mb-2 font-medium">3. Copy your credentials</p>
+            <p className="mb-2 font-medium">3. Copy your API key</p>
             <p className="text-muted-foreground text-xs">
               Open <code className="bg-muted rounded px-1">~/.agent-cards/config.json</code> and
-              copy the <strong>email</strong> and <strong>jwt</strong> values into the fields above.
+              copy the <strong>jwt</strong> value into the field above.
             </p>
           </div>
 

@@ -139,18 +139,7 @@ const SECRET_CATALOG_RAW = [
     category: 'tool',
     icon: 'credit-card',
     order: 2,
-    allFieldsRequired: true,
     fields: [
-      {
-        key: 'agentcardEmail',
-        label: 'Email',
-        placeholder: 'you@example.com',
-        placeholderConfigured: 'Enter new email to replace',
-        envVar: 'AGENTCARD_EMAIL',
-        validationPattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
-        validationMessage: 'Enter a valid email address.',
-        maxLength: 254,
-      },
       {
         key: 'agentcardApiKey',
         label: 'API Key (JWT)',

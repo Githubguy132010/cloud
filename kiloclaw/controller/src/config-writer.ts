@@ -310,21 +310,6 @@ export function writeMcporterConfig(
   configPath = DEFAULT_MCPORTER_CONFIG_PATH,
   deps: ConfigWriterDeps = defaultDeps
 ): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const servers: Record<string, any> = {};
-
-  if (env.AGENTCARD_API_KEY) {
-    servers['agentcard'] = {
-      url: 'https://mcp.agentcard.sh/mcp',
-      headers: { Authorization: 'Bearer ' + env.AGENTCARD_API_KEY },
-    };
-    console.log('AgentCard MCP server configured (via mcporter)');
-  }
-
-  if (Object.keys(servers).length === 0) {
-    return; // No MCP servers to configure
-  }
-
   // Read existing config to preserve user-added servers
   let existing: Record<string, unknown> = {};
   try {
@@ -339,10 +324,31 @@ export function writeMcporterConfig(
 
   const existingServers =
     typeof existing.mcpServers === 'object' && existing.mcpServers !== null
-      ? (existing.mcpServers as Record<string, unknown>)
+      ? { ...(existing.mcpServers as Record<string, unknown>) }
       : {};
 
-  existing.mcpServers = { ...existingServers, ...servers };
+  // Managed server keys — add when env var is set, remove when absent.
+  // This ensures credential removal on the dashboard actually revokes access
+  // even though mcporter.json persists on the volume across restarts.
+  if (env.AGENTCARD_API_KEY) {
+    existingServers['agentcard'] = {
+      url: 'https://mcp.agentcard.sh/mcp',
+      headers: { Authorization: 'Bearer ' + env.AGENTCARD_API_KEY },
+    };
+    console.log('AgentCard MCP server configured (via mcporter)');
+  } else {
+    if ('agentcard' in existingServers) {
+      delete existingServers['agentcard'];
+      console.log('AgentCard MCP server removed from mcporter config');
+    }
+  }
+
+  // Only write if there are servers to configure or we need to clean up
+  if (Object.keys(existingServers).length === 0 && !deps.existsSync(configPath)) {
+    return;
+  }
+
+  existing.mcpServers = existingServers;
 
   const dir = path.dirname(configPath);
   if (!deps.existsSync(dir)) {

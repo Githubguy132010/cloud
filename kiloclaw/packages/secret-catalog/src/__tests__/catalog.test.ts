@@ -219,9 +219,8 @@ describe('Secret Catalog', () => {
       expect(keys).toContain('githubToken');
       expect(keys).toContain('githubUsername');
       expect(keys).toContain('githubEmail');
-      expect(keys).toContain('agentcardEmail');
       expect(keys).toContain('agentcardApiKey');
-      expect(keys.size).toBe(5);
+      expect(keys.size).toBe(4);
     });
 
     it('returns empty set for categories with no entries', () => {
