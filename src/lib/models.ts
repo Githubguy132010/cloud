@@ -42,6 +42,7 @@ export const preferredModels = [
   'moonshotai/kimi-k2.5',
   'z-ai/glm-5',
   'x-ai/grok-code-fast-1',
+  mimo_v2_pro_free_model.public_id,
 ].filter(m => m !== null);
 
 export function getMonitoredModels() {
