@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "aws4fetch": "catalog:",
-    "hono": "^4.12.8",
+    "hono": "catalog:",
     "jose": "catalog:",
     "zod": "catalog:"
   },

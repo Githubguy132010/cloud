@@ -14,7 +14,7 @@
   "dependencies": {
     "@kilocode/plugin": "7.0.37",
     "@kilocode/sdk": "7.0.37",
-    "hono": "^4.12.8",
+    "hono": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

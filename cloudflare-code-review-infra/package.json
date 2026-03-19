@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "@kilocode/worker-utils": "workspace:*",
-    "hono": "^4.12.8"
+    "hono": "catalog:"
   }
 }

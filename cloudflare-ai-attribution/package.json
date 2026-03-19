@@ -31,7 +31,7 @@
   "dependencies": {
     "@kilocode/worker-utils": "workspace:*",
     "drizzle-orm": "catalog:",
-    "hono": "^4.12.8",
+    "hono": "catalog:",
     "workers-tagged-logger": "catalog:",
     "zod": "catalog:"
   }

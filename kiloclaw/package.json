@@ -24,7 +24,7 @@
     "@kilocode/kiloclaw-secret-catalog": "workspace:*",
     "@kilocode/worker-utils": "workspace:*",
     "drizzle-orm": "catalog:",
-    "hono": "^4.12.8",
+    "hono": "catalog:",
     "jose": "^6.2.1",
     "zod": "catalog:"
   },

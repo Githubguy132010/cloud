@@ -30,7 +30,7 @@
     "@sentry/cloudflare": "^9.47.1",
     "@trpc/server": "^11.13.0",
     "drizzle-orm": "catalog:",
-    "hono": "^4.12.8",
+    "hono": "catalog:",
     "itty-time": "^1.0.6",
     "jose": "catalog:",
     "jsonwebtoken": "catalog:",
