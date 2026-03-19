@@ -31,10 +31,10 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.8",
+    "@cloudflare/vitest-pool-workers": "^0.12.21",
     "@kilocode/eslint-config": "workspace:*",
-    "@types/node": "^22",
-    "@typescript/native-preview": "7.0.0-dev.20251019.1",
+    "@types/node": "^22.19.15",
+    "@typescript/native-preview": "catalog:",
     "@vitest/ui": "^3.2.4",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
