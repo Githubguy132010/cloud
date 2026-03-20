@@ -11,6 +11,19 @@ export type ChangelogEntry = {
 // Newest entries first. Developers add new entries to the top of this array.
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
+    date: '2026-03-19',
+    description:
+      'Added AgentCard integration. Connect your AgentCard.sh credentials in Settings to give your bot the ability to create and spend virtual debit cards via mcporter.',
+    category: 'feature',
+    deployHint: 'redeploy_required',
+  },
+  {
+    date: '2026-03-17',
+    description: 'Updated 1Password CLI to 2.33.0.',
+    category: 'feature',
+    deployHint: 'redeploy_suggested',
+  },
+  {
     date: '2026-03-17',
     description:
       'New workspace file editor — browse and edit all files in /root/.openclaw/ from the dashboard, including credentials and backups. Replaces the old single-file config editor.',

@@ -31,6 +31,8 @@ const sdkInstances = new Map<string, SDKInstance>();
 const eventAbortControllers = new Map<string, AbortController>();
 // Event sinks for WebSocket forwarding
 const eventSinks = new Set<(agentId: string, event: string, data: unknown) => void>();
+// Per-agent idle timers — fires exit when no nudges arrive
+const idleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 let nextPort = 4096;
 const startTime = Date.now();
@@ -60,7 +62,12 @@ export function unregisterEventSink(
 // ── Event buffer for HTTP polling ─────────────────────────────────────
 // The TownContainerDO polls GET /agents/:id/events?after=N to get events
 // because containerFetch doesn't support WebSocket upgrades.
-type BufferedEvent = { id: number; event: string; data: unknown; timestamp: string };
+type BufferedEvent = {
+  id: number;
+  event: string;
+  data: unknown;
+  timestamp: string;
+};
 const MAX_BUFFERED_EVENTS = 2000;
 const agentEventBuffers = new Map<string, BufferedEvent[]>();
 let nextEventId = 1;
@@ -71,7 +78,12 @@ function bufferAgentEvent(agentId: string, event: string, data: unknown): void {
     buf = [];
     agentEventBuffers.set(agentId, buf);
   }
-  buf.push({ id: nextEventId++, event, data, timestamp: new Date().toISOString() });
+  buf.push({
+    id: nextEventId++,
+    event,
+    data,
+    timestamp: new Date().toISOString(),
+  });
   if (buf.length > MAX_BUFFERED_EVENTS) {
     buf.splice(0, buf.length - MAX_BUFFERED_EVENTS);
   }
@@ -216,6 +228,172 @@ async function ensureSDKServer(
 }
 
 /**
+ * Zod schema for a single pending nudge returned by the gastown worker.
+ */
+const PendingNudge = z.object({
+  nudge_id: z.string(),
+  message: z.string(),
+  mode: z.string(),
+  priority: z.string(),
+  source: z.string(),
+});
+
+const PendingNudgesResponse = z.object({
+  success: z.boolean(),
+  data: z.array(PendingNudge),
+});
+
+/**
+ * Fetch pending nudges for an agent from the gastown worker.
+ * Returns the array (may be empty), or null on error.
+ */
+async function fetchPendingNudges(
+  agent: ManagedAgent
+): Promise<z.infer<typeof PendingNudge>[] | null> {
+  const authToken =
+    process.env.GASTOWN_CONTAINER_TOKEN ?? agent.gastownContainerToken ?? agent.gastownSessionToken;
+  if (!agent.gastownApiUrl || !authToken || !agent.townId || !agent.rigId) return null;
+
+  try {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${authToken}`,
+      'X-Gastown-Agent-Id': agent.agentId,
+      'X-Gastown-Rig-Id': agent.rigId,
+    };
+    const resp = await fetch(
+      `${agent.gastownApiUrl}/api/towns/${agent.townId}/rigs/${agent.rigId}/agents/${agent.agentId}/pending-nudges`,
+      { headers }
+    );
+    if (!resp.ok) {
+      console.warn(
+        `${MANAGER_LOG} fetchPendingNudges: non-ok status ${resp.status} for agent ${agent.agentId}`
+      );
+      return null;
+    }
+    const raw: unknown = await resp.json();
+    const parsed = PendingNudgesResponse.safeParse(raw);
+    if (!parsed.success) {
+      console.warn(
+        `${MANAGER_LOG} fetchPendingNudges: unexpected response shape`,
+        parsed.error.issues
+      );
+      return null;
+    }
+    return parsed.data.data;
+  } catch (err) {
+    console.warn(`${MANAGER_LOG} fetchPendingNudges: error for agent ${agent.agentId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Mark a nudge as delivered via the gastown worker.
+ */
+async function markNudgeDelivered(agent: ManagedAgent, nudgeId: string): Promise<void> {
+  const authToken =
+    process.env.GASTOWN_CONTAINER_TOKEN ?? agent.gastownContainerToken ?? agent.gastownSessionToken;
+  if (!agent.gastownApiUrl || !authToken || !agent.townId || !agent.rigId) return;
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authToken}`,
+      'X-Gastown-Agent-Id': agent.agentId,
+      'X-Gastown-Rig-Id': agent.rigId,
+    };
+    await fetch(
+      `${agent.gastownApiUrl}/api/towns/${agent.townId}/rigs/${agent.rigId}/agents/${agent.agentId}/nudge-delivered`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ nudge_id: nudgeId }),
+      }
+    );
+  } catch (err) {
+    console.warn(`${MANAGER_LOG} markNudgeDelivered: error for nudge ${nudgeId}:`, err);
+  }
+}
+
+/**
+ * Clear the idle timer for an agent (if any).
+ */
+function clearIdleTimer(agentId: string): void {
+  const timer = idleTimers.get(agentId);
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    idleTimers.delete(agentId);
+  }
+}
+
+/**
+ * Handle a session.idle event for a non-mayor agent.
+ *
+ * - Checks for pending nudges and injects the highest-priority one if found.
+ * - If no nudges are pending, starts (or restarts) an idle timeout that will
+ *   exit the agent after AGENT_IDLE_TIMEOUT_MS (default 2 min).
+ *
+ * Returns true if the agent should continue (nudge injected or timer started),
+ * false if the agent should exit immediately (injection failed unrecoverably).
+ */
+async function handleIdleEvent(agent: ManagedAgent, onExit: () => void): Promise<void> {
+  const agentId = agent.agentId;
+  console.log(`${MANAGER_LOG} handleIdleEvent: checking nudges for agent ${agentId}`);
+
+  const nudges = await fetchPendingNudges(agent);
+
+  if (nudges === null) {
+    // Error fetching — treat as no nudges, start idle timer
+    console.warn(
+      `${MANAGER_LOG} handleIdleEvent: could not fetch nudges for ${agentId}, starting idle timer`
+    );
+  } else if (nudges.length > 0 && agent.status === 'running') {
+    // There is at least one pending nudge — inject the first (highest priority)
+    const nudge = nudges[0];
+    console.log(
+      `${MANAGER_LOG} handleIdleEvent: injecting nudge ${nudge.nudge_id} (priority=${nudge.priority}) for agent ${agentId}`
+    );
+    // Cancel any existing idle timer since the agent will keep working
+    clearIdleTimer(agentId);
+    try {
+      await sendMessage(agentId, nudge.message);
+      // Mark delivered (fire-and-forget is fine — best effort)
+      void markNudgeDelivered(agent, nudge.nudge_id);
+    } catch (err) {
+      console.warn(
+        `${MANAGER_LOG} handleIdleEvent: sendMessage failed for agent ${agentId} (status=${agent.status}), exiting:`,
+        err
+      );
+      onExit();
+    }
+    return;
+  }
+
+  // No nudges (or fetch error) — (re)start the idle timeout
+  clearIdleTimer(agentId);
+  const timeoutMs =
+    process.env.AGENT_IDLE_TIMEOUT_MS !== undefined
+      ? Number(process.env.AGENT_IDLE_TIMEOUT_MS)
+      : 120_000;
+
+  console.log(
+    `${MANAGER_LOG} handleIdleEvent: no nudges for ${agentId}, idle timeout in ${timeoutMs}ms`
+  );
+
+  idleTimers.set(
+    agentId,
+    setTimeout(() => {
+      idleTimers.delete(agentId);
+      if (agent.status === 'running') {
+        console.log(
+          `${MANAGER_LOG} handleIdleEvent: idle timeout fired for agent ${agentId}, exiting`
+        );
+        onExit();
+      }
+    }, timeoutMs)
+  );
+}
+
+/**
  * Subscribe to SDK events for an agent's session and forward them.
  */
 async function subscribeToEvents(
@@ -225,6 +403,32 @@ async function subscribeToEvents(
 ): Promise<void> {
   const controller = new AbortController();
   eventAbortControllers.set(agent.agentId, controller);
+
+  // Called when the agent should exit cleanly after idle timeout or nudge failure.
+  const exitAgent = () => {
+    if (agent.status !== 'running') return;
+    log.info('agent.exit', {
+      agentId: agent.agentId,
+      name: agent.name,
+      reason: 'completed',
+      exitReason: 'completed',
+    });
+    agent.status = 'exited';
+    agent.exitReason = 'completed';
+    broadcastEvent(agent.agentId, 'agent.exited', { reason: 'completed' });
+    void reportAgentCompleted(agent, 'completed');
+
+    // Release SDK session so the server can shut down when idle
+    const inst = sdkInstances.get(agent.workdir);
+    if (inst) {
+      inst.sessionCount--;
+      if (inst.sessionCount <= 0) {
+        inst.server.close();
+        sdkInstances.delete(agent.workdir);
+      }
+    }
+    controller.abort();
+  };
 
   try {
     console.log(`${MANAGER_LOG} Subscribing to events for agent ${agent.agentId}...`);
@@ -255,6 +459,8 @@ async function subscribeToEvents(
       if (sessionID && sessionID !== agent.sessionId) continue;
 
       agent.lastActivityAt = new Date().toISOString();
+      agent.lastEventType = event.type ?? 'unknown';
+      agent.lastEventAt = new Date().toISOString();
 
       // Track active tool calls
       if (event.properties && 'activeTools' in event.properties) {
@@ -267,34 +473,21 @@ async function subscribeToEvents(
       // Broadcast to WebSocket sinks
       broadcastEvent(agent.agentId, event.type ?? 'unknown', event.properties ?? {});
 
-      // Detect completion. session.idle means "done processing this turn."
-      // Mayor agents are persistent — session.idle for them means "turn done,"
-      // not "task finished." Only non-mayor agents exit on idle.
-      const isTerminal = event.type === 'session.idle' && request.role !== 'mayor';
-
-      if (isTerminal) {
-        log.info('agent.exit', {
-          agentId: agent.agentId,
-          name: agent.name,
-          reason: 'completed',
-          exitReason: 'completed',
-        });
-        agent.status = 'exited';
-        agent.exitReason = 'completed';
-        broadcastEvent(agent.agentId, 'agent.exited', { reason: 'completed' });
-        void reportAgentCompleted(agent, 'completed');
-
-        // Release SDK session so the server can shut down when idle
-        const inst = sdkInstances.get(agent.workdir);
-        if (inst) {
-          inst.sessionCount--;
-          if (inst.sessionCount <= 0) {
-            inst.server.close();
-            sdkInstances.delete(agent.workdir);
-          }
+      if (event.type === 'session.idle') {
+        if (request.role === 'mayor') {
+          // Mayor agents are persistent — session.idle means "turn done", not exit.
+          continue;
         }
-        break;
+        // Non-mayor: check for pending nudges before deciding to exit.
+        // handleIdleEvent is async; we run it in the background so the event
+        // loop continues. The exitAgent callback will abort the stream if needed.
+        void handleIdleEvent(agent, exitAgent);
+      } else {
+        // Non-idle event means the agent resumed work — cancel any pending idle timer.
+        clearIdleTimer(agent.agentId);
       }
+
+      if (controller.signal.aborted) break;
     }
   } catch (err) {
     if (!controller.signal.aborted) {
@@ -303,9 +496,12 @@ async function subscribeToEvents(
         error: err instanceof Error ? err.message : String(err),
       });
       if (agent.status === 'running') {
+        clearIdleTimer(agent.agentId);
         agent.status = 'failed';
         agent.exitReason = 'Event stream error';
-        broadcastEvent(agent.agentId, 'agent.exited', { reason: 'stream error' });
+        broadcastEvent(agent.agentId, 'agent.exited', {
+          reason: 'stream error',
+        });
         void reportAgentCompleted(agent, 'failed', 'Event stream error');
 
         // Release SDK session on stream error (same cleanup as normal completion)
@@ -320,6 +516,7 @@ async function subscribeToEvents(
       }
     }
   } finally {
+    clearIdleTimer(agent.agentId);
     eventAbortControllers.delete(agent.agentId);
   }
 }
@@ -335,7 +532,17 @@ export async function startAgent(
 ): Promise<ManagedAgent> {
   const existing = agents.get(request.agentId);
   if (existing && (existing.status === 'running' || existing.status === 'starting')) {
-    throw new Error(`Agent ${request.agentId} is already running`);
+    // Agent has a live session (probably idle after gt_done, waiting for
+    // the idle timer). Stop it so the new dispatch can proceed.
+    console.log(
+      `${MANAGER_LOG} startAgent: stopping existing session for ${request.agentId} (status=${existing.status})`
+    );
+    await stopAgent(request.agentId).catch(err => {
+      console.warn(
+        `${MANAGER_LOG} startAgent: failed to stop existing session for ${request.agentId}`,
+        err
+      );
+    });
   }
 
   const now = new Date().toISOString();
@@ -351,6 +558,8 @@ export async function startAgent(
     workdir,
     startedAt: now,
     lastActivityAt: now,
+    lastEventType: null,
+    lastEventAt: null,
     activeTools: [],
     messageCount: 0,
     exitReason: null,
@@ -447,6 +656,9 @@ export async function stopAgent(agentId: string): Promise<void> {
 
   agent.status = 'stopping';
 
+  // Cancel any pending idle timer
+  clearIdleTimer(agentId);
+
   // Abort event subscription
   const controller = eventAbortControllers.get(agentId);
   if (controller) controller.abort();
@@ -537,6 +749,12 @@ export function activeServerCount(): number {
 }
 
 export async function stopAll(): Promise<void> {
+  // Cancel all idle timers
+  for (const [, timer] of idleTimers) {
+    clearTimeout(timer);
+  }
+  idleTimers.clear();
+
   // Abort all event subscriptions
   for (const [, controller] of eventAbortControllers) {
     controller.abort();
@@ -549,7 +767,9 @@ export async function stopAll(): Promise<void> {
       try {
         const instance = sdkInstances.get(agent.workdir);
         if (instance) {
-          await instance.client.session.abort({ path: { id: agent.sessionId } });
+          await instance.client.session.abort({
+            path: { id: agent.sessionId },
+          });
         }
       } catch {
         // Best-effort

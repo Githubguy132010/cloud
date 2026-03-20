@@ -119,7 +119,7 @@ export type MachineSize = {
 export type PlatformStatusResponse = {
   userId: string | null;
   sandboxId: string | null;
-  status: 'provisioned' | 'starting' | 'running' | 'stopped' | 'destroying' | null;
+  status: 'provisioned' | 'starting' | 'restarting' | 'running' | 'stopped' | 'destroying' | null;
   provisionedAt: number | null;
   lastStartedAt: number | null;
   lastStoppedAt: number | null;
@@ -151,6 +151,8 @@ export type PlatformDebugStatusResponse = PlatformStatusResponse & {
   lastDestroyErrorStatus: number | null;
   lastDestroyErrorMessage: string | null;
   lastDestroyErrorAt: number | null;
+  lastRestartErrorMessage: string | null;
+  lastRestartErrorAt: number | null;
 };
 
 /** A Fly volume snapshot. */
@@ -247,6 +249,31 @@ export type GoogleCredentialsResponse = {
 /** Response from POST/DELETE /api/platform/gmail-notifications */
 export type GmailNotificationsResponse = {
   gmailNotificationsEnabled: boolean;
+};
+
+/** A candidate volume for admin volume reassociation. */
+export type CandidateVolume = {
+  id: string;
+  name: string;
+  state: 'created' | 'attached' | 'detached';
+  size_gb: number;
+  region: string;
+  attached_machine_id: string | null;
+  created_at: string;
+  isCurrent: boolean;
+};
+
+/** Response from GET /api/platform/candidate-volumes */
+export type CandidateVolumesResponse = {
+  currentVolumeId: string | null;
+  volumes: CandidateVolume[];
+};
+
+/** Response from POST /api/platform/reassociate-volume */
+export type ReassociateVolumeResponse = {
+  previousVolumeId: string | null;
+  newVolumeId: string;
+  newRegion: string;
 };
 
 /** Combined status returned by tRPC getStatus */

@@ -1,5 +1,5 @@
 {
-  "id": "26aab94f-138e-4e82-982f-ba6276ea7053",
+  "id": "0aac3b28-6d4a-4e06-8498-598994aca366",
   "prevId": "e224c983-7ffd-44ad-a3c4-0ea790a845ba",
   "version": "7",
   "dialect": "postgresql",
@@ -8057,18 +8057,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "discord_server_member": {
-          "name": "discord_server_member",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "discord_server_member_at": {
-          "name": "discord_server_member_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "openrouter_upstream_safety_identifier": {
           "name": "openrouter_upstream_safety_identifier",
           "type": "text",
@@ -13199,54 +13187,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.temp_phase": {
-      "name": "temp_phase",
-      "schema": "",
-      "columns": {
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "IDX_temp_phase_created_at": {
-          "name": "IDX_temp_phase_created_at",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
