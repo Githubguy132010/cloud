@@ -23,7 +23,6 @@ type PerformanceLevel = 1 | 2 | 3;
 type AutoModelCard = {
   id: string;
   label: string;
-  badge?: string;
   description: string;
   icon: typeof Zap;
   iconBg: string;
@@ -59,7 +58,6 @@ const autoModelCards: AutoModelCard[] = [
   {
     id: KILO_AUTO_FREE_MODEL.id,
     label: 'Free',
-    badge: 'FREE',
     description: KILO_AUTO_FREE_MODEL.description,
     icon: Gift,
     iconBg: 'bg-emerald-500/20',
@@ -183,11 +181,6 @@ export function AutoModelPicker({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{card.label}</span>
-                      {card.badge && (
-                        <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold leading-none text-emerald-400">
-                          {card.badge}
-                        </span>
-                      )}
                     </div>
                     <p className="text-muted-foreground text-xs leading-relaxed">
                       {card.description}
