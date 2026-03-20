@@ -155,7 +155,7 @@ const BILLING_NOTICE_MARKER = '<!-- kilo-billing-notice -->';
 const BILLING_NOTICE_BODY = `${BILLING_NOTICE_MARKER}
 **Kilo Code Review could not run — your account is out of credits.**
 
-Add credits at [app.kilo.ai](http://app.kilo.ai/) to enable reviews on this PR.`;
+Add credits at [app.kilo.ai](https://app.kilo.ai/) to enable reviews on this PR.`;
 
 /**
  * Read a review's usage data.

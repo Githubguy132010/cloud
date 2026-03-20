@@ -506,7 +506,7 @@ describe('POST /api/internal/code-review-status/[reviewId]', () => {
         'owner',
         'repo',
         1,
-        expect.stringContaining('http://app.kilo.ai/')
+        expect.stringContaining('https://app.kilo.ai/')
       );
     });
   });
