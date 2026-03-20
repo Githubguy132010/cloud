@@ -173,12 +173,15 @@ describe('admin.users.updateKiloClawTrialEndAt', () => {
         actor_email: adminUser.google_user_email,
         actor_name: adminUser.google_user_name,
         target_user_id: targetUser.id,
-        metadata: {
-          previousTrialEndsAt,
-          newTrialEndsAt,
-        },
       })
     );
+    expect(auditLog.message).toContain('KiloClaw trial end updated from');
+    expect(auditLog.message).toContain(newTrialEndsAt);
+    expectSameInstant(
+      auditLog.metadata?.previousTrialEndsAt as string | undefined,
+      previousTrialEndsAt
+    );
+    expect(auditLog.metadata?.newTrialEndsAt).toBe(newTrialEndsAt);
   });
 
   it('rejects unknown users', async () => {
