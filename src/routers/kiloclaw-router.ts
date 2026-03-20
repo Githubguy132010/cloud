@@ -47,6 +47,7 @@ import {
   KILOCLAW_TRIAL_DURATION_DAYS,
 } from '@/lib/kiloclaw/constants';
 import type { ClawBillingStatus } from '@/app/(app)/claw/components/billing/billing-types';
+import PostHogClient from '@/lib/posthog';
 
 /**
  * Error codes whose messages may contain raw internal details (e.g. filesystem
@@ -306,7 +307,7 @@ async function fetchKiloClawServiceDegraded(): Promise<boolean> {
  * Earlybird is checked first so earlybird purchasers never get an accidental
  * trial row, and expired earlybird users cannot regain access by provisioning.
  */
-async function ensureProvisionAccess(userId: string): Promise<void> {
+async function ensureProvisionAccess(userId: string, userEmail: string): Promise<void> {
   // Check earlybird before anything else — active earlybird grants access,
   // expired earlybird must not fall through to the trial bootstrap.
   const [earlybird] = await db
@@ -346,6 +347,16 @@ async function ensureProvisionAccess(userId: string): Promise<void> {
         trial_ends_at: trialEndsAt.toISOString(),
       })
       .onConflictDoNothing({ target: kiloclaw_subscriptions.user_id });
+
+    PostHogClient().capture({
+      distinctId: userEmail,
+      event: 'claw_trial_started',
+      properties: {
+        user_id: userId,
+        plan: 'trial',
+        trial_ends_at: trialEndsAt.toISOString(),
+      },
+    });
     return;
   }
 
@@ -435,7 +446,7 @@ export const kiloclawRouter = createTRPCRouter({
 
   // Explicit lifecycle APIs
   provision: baseProcedure.input(updateConfigSchema).mutation(async ({ ctx, input }) => {
-    await ensureProvisionAccess(ctx.user.id);
+    await ensureProvisionAccess(ctx.user.id, ctx.user.google_user_email);
     return provisionInstance(ctx.user, input);
   }),
 
@@ -448,7 +459,7 @@ export const kiloclawRouter = createTRPCRouter({
   // Backward-compatible alias — uses the same trial-bootstrap flow as provision
   // so first-time callers can create a trial row (clawAccessProcedure would reject them).
   updateConfig: baseProcedure.input(updateConfigSchema).mutation(async ({ ctx, input }) => {
-    await ensureProvisionAccess(ctx.user.id);
+    await ensureProvisionAccess(ctx.user.id, ctx.user.google_user_email);
     return provisionInstance(ctx.user, input);
   }),
 

@@ -9,11 +9,15 @@ import {
   kiloclaw_subscriptions,
   kiloclaw_instances,
   kiloclaw_email_log,
+  kilocode_users,
 } from '@kilocode/db/schema';
 import type { KiloClawSubscriptionStatus } from '@kilocode/db/schema-types';
 import { getClawPlanForStripePriceId } from '@/lib/kiloclaw/stripe-price-ids.server';
 import { sentryLogger } from '@/lib/utils.server';
 import { KiloClawInternalClient } from '@/lib/kiloclaw/kiloclaw-internal-client';
+import PostHogClient from '@/lib/posthog';
+import { after } from 'next/server';
+import { IS_IN_AUTOMATED_TEST } from '@/lib/config.server';
 
 const logInfo = sentryLogger('kiloclaw-stripe', 'info');
 const logWarning = sentryLogger('kiloclaw-stripe', 'warning');
@@ -483,5 +487,60 @@ export async function handleKiloClawScheduleEvent(params: {
     schedule_id: scheduleId,
     schedule_status: scheduleStatus,
     user_id: row.user_id,
+  });
+}
+
+/**
+ * Handle invoice.paid for KiloClaw subscriptions.
+ * Fires a claw_transaction PostHog event for revenue tracking.
+ */
+export function handleKiloClawInvoicePaid(params: {
+  eventId: string;
+  invoice: Stripe.Invoice;
+}): void {
+  const { eventId, invoice } = params;
+  const subDetails = invoice.parent?.subscription_details;
+  const kiloUserId = subDetails?.metadata?.kiloUserId ?? null;
+  const plan = subDetails?.metadata?.plan ?? null;
+  const stripeSubscriptionId =
+    typeof subDetails?.subscription === 'string' ? subDetails.subscription : null;
+
+  if (!kiloUserId) {
+    logWarning('KiloClaw invoice.paid missing kiloUserId in subscription metadata', {
+      stripe_event_id: eventId,
+      stripe_invoice_id: invoice.id,
+    });
+    return;
+  }
+
+  if (IS_IN_AUTOMATED_TEST) return;
+
+  after(async () => {
+    const [user] = await db
+      .select({ email: kilocode_users.google_user_email })
+      .from(kilocode_users)
+      .where(eq(kilocode_users.id, kiloUserId))
+      .limit(1);
+
+    if (!user) {
+      logWarning('KiloClaw invoice.paid user not found', {
+        stripe_event_id: eventId,
+        kilo_user_id: kiloUserId,
+      });
+      return;
+    }
+
+    PostHogClient().capture({
+      distinctId: user.email,
+      event: 'claw_transaction',
+      properties: {
+        user_id: kiloUserId,
+        plan: plan ?? 'unknown',
+        amount_cents: invoice.amount_paid,
+        currency: invoice.currency,
+        stripe_invoice_id: invoice.id,
+        stripe_subscription_id: stripeSubscriptionId,
+      },
+    });
   });
 }
