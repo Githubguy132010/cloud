@@ -1133,6 +1133,7 @@ export async function createMRNote(
 
 /**
  * Checks whether a note containing the given marker already exists on a GitLab MR.
+ * Paginates through all notes (consistent with findKiloReviewNote).
  */
 export async function hasMRNoteWithMarker(
   accessToken: string,
@@ -1144,22 +1145,35 @@ export async function hasMRNoteWithMarker(
   const encodedProjectId =
     typeof projectId === 'string' ? encodeURIComponent(projectId) : projectId;
 
-  const response = await fetch(
-    `${instanceUrl}/api/v4/projects/${encodedProjectId}/merge_requests/${mrIid}/notes?per_page=100`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
+  let page = 1;
+  const perPage = 100;
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`GitLab MR notes fetch failed: ${response.status} ${error}`);
+  while (true) {
+    const response = await fetch(
+      `${instanceUrl}/api/v4/projects/${encodedProjectId}/merge_requests/${mrIid}/notes?per_page=${perPage}&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`GitLab MR notes fetch failed: ${response.status} ${error}`);
+    }
+
+    const notes = (await response.json()) as Array<{ body: string }>;
+    if (notes.some(n => n.body?.includes(marker))) {
+      return true;
+    }
+
+    const totalPages = parseInt(response.headers.get('x-total-pages') || '1', 10);
+    if (page >= totalPages) break;
+    page++;
   }
 
-  const notes = (await response.json()) as Array<{ body: string }>;
-  return notes.some(n => n.body?.includes(marker));
+  return false;
 }
 
 /**
