@@ -367,7 +367,6 @@ export const userRouter = createTRPCRouter({
 
     return successResult({
       linked: !!discordProvider,
-      discord_provider_account_id: discordProvider?.provider_account_id ?? null,
       discord_avatar_url: discordProvider?.avatar_url ?? null,
       discord_server_member: user?.discord_server_member ?? null,
       discord_server_member_at: user?.discord_server_member_at ?? null,
@@ -389,7 +388,16 @@ export const userRouter = createTRPCRouter({
       });
     }
 
-    const isMember = await checkDiscordGuildMembership(discordProvider.provider_account_id);
+    let isMember: boolean;
+    try {
+      isMember = await checkDiscordGuildMembership(discordProvider.provider_account_id);
+    } catch (error) {
+      console.error('Discord guild membership check failed:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to verify Discord guild membership. Please try again later.',
+      });
+    }
 
     await db
       .update(kilocode_users)
