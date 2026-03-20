@@ -337,7 +337,7 @@ async function ensureProvisionAccess(userId: string, userEmail: string): Promise
     // don't fail on the unique user_id constraint.
     const now = new Date();
     const trialEndsAt = new Date(now.getTime() + KILOCLAW_TRIAL_DURATION_DAYS * 86_400_000);
-    await db
+    const [inserted] = await db
       .insert(kiloclaw_subscriptions)
       .values({
         user_id: userId,
@@ -346,17 +346,20 @@ async function ensureProvisionAccess(userId: string, userEmail: string): Promise
         trial_started_at: now.toISOString(),
         trial_ends_at: trialEndsAt.toISOString(),
       })
-      .onConflictDoNothing({ target: kiloclaw_subscriptions.user_id });
+      .onConflictDoNothing({ target: kiloclaw_subscriptions.user_id })
+      .returning({ id: kiloclaw_subscriptions.id });
 
-    PostHogClient().capture({
-      distinctId: userEmail,
-      event: 'claw_trial_started',
-      properties: {
-        user_id: userId,
-        plan: 'trial',
-        trial_ends_at: trialEndsAt.toISOString(),
-      },
-    });
+    if (inserted) {
+      PostHogClient().capture({
+        distinctId: userEmail,
+        event: 'claw_trial_started',
+        properties: {
+          user_id: userId,
+          plan: 'trial',
+          trial_ends_at: trialEndsAt.toISOString(),
+        },
+      });
+    }
     return;
   }
 
