@@ -32,7 +32,7 @@ export function useProcessedMetrics(
           input_tokens: [],
           output_tokens: [],
           active_users: [],
-        } as ProcessedMetricsData,
+        } satisfies ProcessedMetricsData,
         metricsTotals: {
           cost: 0,
           requests: 0,
@@ -41,7 +41,7 @@ export function useProcessedMetrics(
           input_tokens: 0,
           output_tokens: 0,
           active_users: 0,
-        } as MetricsTotals,
+        } satisfies MetricsTotals,
         metricsLoading: timeseriesLoading
           ? [
               'cost',
@@ -56,14 +56,12 @@ export function useProcessedMetrics(
       };
     }
 
-    const timeseries = filteredTimeseriesData;
-
     // Group data by datetime for aggregation
     // WHY: We group by datetime first to handle multiple data points at the same timestamp
     // (e.g., different users/models at the same time). This enables proper aggregation.
     const timeGroups = new Map<string, TimeseriesDataPoint[]>();
 
-    timeseries.forEach(point => {
+    filteredTimeseriesData.forEach(point => {
       const timeKey = point.datetime;
       if (!timeGroups.has(timeKey)) {
         timeGroups.set(timeKey, []);
@@ -117,8 +115,9 @@ export function useProcessedMetrics(
     // WHY: active_users total is the count of ALL unique users who made at least 1 request
     // across time periods, not the sum of per-period counts (which would double-count users
     // active in multiple periods)
-    const allUniqueUsers = new Set(timeseries.filter(p => p.requestCount > 0).map(p => p.email))
-      .size;
+    const allUniqueUsers = new Set(
+      filteredTimeseriesData.filter(p => p.requestCount > 0).map(p => p.email)
+    ).size;
 
     const totals: MetricsTotals = {
       cost: processedData.cost.reduce((sum, p) => sum + p.value, 0),

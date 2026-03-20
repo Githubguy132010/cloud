@@ -32,6 +32,7 @@ import {
 
 // Import our extracted modules
 import type { ChartSplitBy } from './types';
+import type { OrganizationUsageMetric } from './FormattedValue';
 import { useUsageFilters } from './hooks/useUsageFilters';
 import { useDateRangeFromPeriod } from './hooks/useDateRangeFromPeriod';
 import { useProcessedMetrics } from './hooks/useProcessedMetrics';
@@ -47,6 +48,17 @@ import { OrganizationAdminContextProvider } from '@/components/organizations/Org
 
 // Chart color constant
 const CHART_COLOR = '#3b82f6';
+
+// Maps internal camelCase metric keys to the snake_case keys used by FiltersSection
+const METRIC_KEY_TO_FILTER_METRIC: Record<string, OrganizationUsageMetric> = {
+  cost: 'cost',
+  requests: 'requests',
+  avgCost: 'avg_cost_per_req',
+  tokens: 'tokens',
+  inputTokens: 'input_tokens',
+  outputTokens: 'output_tokens',
+  users: 'active_users',
+};
 
 export function OrganizationUsageDetailsPage({ organizationId }: { organizationId: string }) {
   return (
@@ -330,23 +342,12 @@ export function OrganizationUsageDetails({ organizationId }: { organizationId: s
           {(timeseriesResponse?.timeseries?.length ?? 0) > 0 && (
             <div className="mt-8">
               <FiltersSection
-                selectedMetric={
-                  selectedMetric === 'avgCost'
-                    ? 'avg_cost_per_req'
-                    : selectedMetric === 'users'
-                      ? 'active_users'
-                      : selectedMetric === 'inputTokens'
-                        ? 'input_tokens'
-                        : selectedMetric === 'outputTokens'
-                          ? 'output_tokens'
-                          : (selectedMetric as 'cost' | 'requests' | 'tokens')
-                }
+                selectedMetric={METRIC_KEY_TO_FILTER_METRIC[selectedMetric] ?? 'cost'}
                 timeseriesData={timeseriesResponse?.timeseries || []}
                 filteredTimeseriesData={filteredTimeseriesData}
                 activeFilters={activeFilters}
                 onFilter={handleFilter}
                 onExclude={handleExclude}
-                className=""
               />
             </div>
           )}
