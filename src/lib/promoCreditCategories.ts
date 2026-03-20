@@ -676,12 +676,12 @@ const encryptedSelfServicePromos: readonly EncryptedSelfServicePromoCreditCatego
     total_redemptions_allowed: 2000,
   },
   {
-    encrypted_credit_category: '6m18b1qOdZ+z9HTSGgXVUQ==:EC1O0x7QLvzFotqv8wqQmw==:Bt/ca0LEWAzBAImq',
+    encrypted_credit_category: 'RFk4Mcj/NAJbHZoMe9zs2Q==:80p2tRoXKZS91Rd4DFeLVg==:aVXBzgFw/2Ppmg==',
     is_user_selfservicable: true,
     is_idempotent: true,
     amount_usd: 100,
     expiry_hours: 30 * 24,
-    description: 'Creator promo - CREATOR_CLAW',
+    description: 'Creator promo',
     total_redemptions_allowed: 30,
   },
 ];
