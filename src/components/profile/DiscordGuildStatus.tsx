@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Shield, Loader2 } from 'lucide-react';
 import { useTRPC } from '@/lib/trpc/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 
 type DiscordGuildStatusProps = {
@@ -14,6 +15,7 @@ type DiscordGuildStatusProps = {
 export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const autoVerifiedRef = useRef(false);
 
   const guildStatus = useQuery({
     ...trpc.user.getDiscordGuildStatus.queryOptions(),
@@ -33,6 +35,14 @@ export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps
   const isMember = data?.discord_server_member === true;
   const isNotMember = data?.discord_server_member === false;
   const hasVerified = data?.discord_server_member != null;
+
+  // Auto-verify guild membership when Discord is linked but never verified
+  useEffect(() => {
+    if (hasDiscordLinked && data?.linked && !hasVerified && !autoVerifiedRef.current) {
+      autoVerifiedRef.current = true;
+      verifyMutation.mutate();
+    }
+  }, [hasDiscordLinked, data?.linked, hasVerified, verifyMutation]);
 
   return (
     <Card className="w-full rounded-xl shadow-sm">
