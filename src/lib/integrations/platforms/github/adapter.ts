@@ -304,7 +304,7 @@ export async function hasPRCommentWithMarker(
   const tokenData = await generateGitHubInstallationToken(installationId, appType);
   const octokit = new Octokit({ auth: tokenData.token });
 
-  const { data: comments } = await octokit.issues.listComments({
+  const comments = await octokit.paginate(octokit.issues.listComments, {
     owner,
     repo,
     issue_number: prNumber,

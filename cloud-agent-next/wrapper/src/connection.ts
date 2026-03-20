@@ -370,7 +370,9 @@ export function createConnectionManager(
             const errorText =
               typeof properties.error === 'string'
                 ? properties.error
-                : `Insufficient credits: ${eventType}`;
+                : properties.error
+                  ? JSON.stringify(properties.error)
+                  : `Insufficient credits: ${eventType}`;
             callbacks.onTerminalError(errorText);
             return;
           }
