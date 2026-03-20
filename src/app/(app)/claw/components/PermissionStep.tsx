@@ -19,11 +19,12 @@ export function PermissionStep({
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Step 2 of 3
+              Step 2 of 4
             </span>
             <div className="flex gap-1">
               <span className="h-1.5 w-6 rounded-full bg-blue-500" />
               <span className="h-1.5 w-6 rounded-full bg-blue-500" />
+              <span className="bg-muted h-1.5 w-6 rounded-full" />
               <span className="bg-muted h-1.5 w-6 rounded-full" />
             </div>
           </div>
@@ -40,7 +41,7 @@ export function PermissionStep({
             icon={<ShieldAlert className="h-5 w-5 text-amber-400" />}
             iconBg="bg-amber-900/50"
             title="Allow everything"
-            description="The bot acts immediately without asking. Best for autonomous workflows, but review what it can access first."
+            description="The bot acts immediately without asking — a.k.a. YOLO mode. Best for autonomous workflows, but review what it can access first."
             caution="Use with caution"
           />
           <PresetCard
