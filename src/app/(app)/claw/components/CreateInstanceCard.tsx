@@ -77,6 +77,8 @@ export function CreateInstanceCard({
   );
 
   const hasCredits = (user?.total_microdollars_acquired ?? 0) > 0;
+  const isPaymentReturn = searchParams.get('payment') === 'success';
+  const hasAutoProvisioned = useRef(false);
 
   useEffect(() => {
     if (hasAppliedDefault.current || selectedModel !== '' || modelOptions.length === 0) return;
@@ -96,6 +98,39 @@ export function CreateInstanceCard({
       hasAppliedDefault.current = true;
     }
   }, [modelOptions, hasCredits, selectedModel, isLoadingUser, searchParams]);
+
+  // After returning from a successful credit purchase, show a toast and
+  // auto-start provisioning so the user doesn't have to click again.
+  useEffect(() => {
+    if (!isPaymentReturn || hasAutoProvisioned.current) return;
+    if (!selectedModel || isLoadingModels || isLoadingProvisionTargetVersion) return;
+    if (hasProvisionTargetError) return;
+
+    hasAutoProvisioned.current = true;
+    toast.success('Payment processed — setting up your instance!');
+
+    posthog?.capture('claw_create_instance_clicked', {
+      selected_model: selectedModel,
+      auto_provision_after_payment: true,
+    });
+
+    mutations.provision.mutate(
+      { kilocodeDefaultModel: `kilocode/${selectedModel}` },
+      {
+        onSuccess: () => onProvisionStart?.(),
+        onError: err => toast.error(`Failed to create: ${err.message}`),
+      }
+    );
+  }, [
+    isPaymentReturn,
+    selectedModel,
+    isLoadingModels,
+    isLoadingProvisionTargetVersion,
+    hasProvisionTargetError,
+    mutations.provision,
+    posthog,
+    onProvisionStart,
+  ]);
 
   function handleCreate() {
     if (hasProvisionTargetError) {
