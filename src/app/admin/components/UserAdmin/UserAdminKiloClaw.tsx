@@ -144,7 +144,7 @@ export function UserAdminKiloClaw({ userId }: { userId: string }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <CardTitle>KiloClaw</CardTitle>
-              <CardDescription>No KiloClaw subscription</CardDescription>
+              <CardDescription>n/a</CardDescription>
             </div>
             {data?.activeInstanceId && (
               <Button variant="outline" size="sm" asChild>
