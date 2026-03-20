@@ -12,6 +12,7 @@ import { useTRPC } from '@/lib/trpc/utils';
 import type { ModelOption } from '@/components/shared/ModelCombobox';
 import { useUser } from '@/hooks/useUser';
 import { KILO_AUTO_FRONTIER_MODEL, KILO_AUTO_FREE_MODEL } from '@/lib/kilo-auto-model';
+import { isFreeModel } from '@/lib/models';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCreateModelOptions } from './modelSupport';
@@ -79,6 +80,7 @@ export function CreateInstanceCard({
   const hasCredits = (user?.total_microdollars_acquired ?? 0) > 0;
   const isPaymentReturn = searchParams.get('payment') === 'success';
   const hasAutoProvisioned = useRef(false);
+
 
   useEffect(() => {
     if (hasAppliedDefault.current || selectedModel !== '' || modelOptions.length === 0) return;
@@ -176,8 +178,7 @@ export function CreateInstanceCard({
     );
   }
 
-  const needsCredits =
-    !hasCredits && selectedModel !== '' && selectedModel !== KILO_AUTO_FREE_MODEL.id;
+  const needsCredits = !hasCredits && selectedModel !== '' && !isFreeModel(selectedModel);
 
   return (
     <Card>
