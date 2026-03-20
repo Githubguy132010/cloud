@@ -31,6 +31,8 @@ export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps
     },
   });
 
+  const { mutate: verifyMutate } = verifyMutation;
+
   const data = guildStatus.data;
   const isMember = data?.discord_server_member === true;
   const isNotMember = data?.discord_server_member === false;
@@ -40,9 +42,9 @@ export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps
   useEffect(() => {
     if (hasDiscordLinked && data?.linked && !hasVerified && !autoVerifiedRef.current) {
       autoVerifiedRef.current = true;
-      verifyMutation.mutate();
+      verifyMutate();
     }
-  }, [hasDiscordLinked, data?.linked, hasVerified, verifyMutation]);
+  }, [hasDiscordLinked, data?.linked, hasVerified, verifyMutate]);
 
   return (
     <Card className="w-full rounded-xl shadow-sm">
