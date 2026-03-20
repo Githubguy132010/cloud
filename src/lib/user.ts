@@ -503,6 +503,8 @@ export async function softDeleteUser(userId: string) {
         hosted_domain: null,
         linkedin_url: null,
         github_url: null,
+        discord_server_member: null,
+        discord_server_member_at: null,
         api_token_pepper: null,
         default_model: null,
         blocked_reason: `soft-deleted at ${new Date().toISOString()}`,

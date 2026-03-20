@@ -264,6 +264,7 @@ export type AuthProviderId =
   | 'github'
   | 'gitlab'
   | 'linkedin'
+  | 'discord'
   | 'fake-login'
   | 'workos';
 

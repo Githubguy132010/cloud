@@ -32,6 +32,8 @@ export function defineTestUser(userData: Partial<User> = {}): User {
     completed_welcome_form: false,
     linkedin_url: null,
     github_url: null,
+    discord_server_member: null,
+    discord_server_member_at: null,
     openrouter_upstream_safety_identifier: null,
     customer_source: null,
     ...userData,

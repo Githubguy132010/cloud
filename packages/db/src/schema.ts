@@ -205,6 +205,8 @@ export const kilocode_users = pgTable(
     completed_welcome_form: boolean().default(false).notNull(),
     linkedin_url: text(),
     github_url: text(),
+    discord_server_member: boolean(),
+    discord_server_member_at: timestamp({ withTimezone: true, mode: 'string' }),
     openrouter_upstream_safety_identifier: text(),
     customer_source: text(),
   },
