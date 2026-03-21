@@ -172,6 +172,19 @@ async function validateOrRepairAutoIntroSchedule(
   stripeSubscriptionId: string,
   userId: string
 ): Promise<boolean> {
+  // If the user has repurposed this schedule via switchPlan (scheduled_by = 'user'),
+  // do not overwrite their pending plan switch. switchPlan reuses the auto-intro
+  // schedule but doesn't change metadata.origin, so it still reads as 'auto-intro'.
+  const [dbRow] = await db
+    .select({ scheduled_by: kiloclaw_subscriptions.scheduled_by })
+    .from(kiloclaw_subscriptions)
+    .where(eq(kiloclaw_subscriptions.user_id, userId))
+    .limit(1);
+
+  if (dbRow?.scheduled_by === 'user') {
+    return true;
+  }
+
   const regularPriceId = getStripePriceIdForClawPlan('standard');
   const phase2Price = schedule.phases[1] ? resolvePhasePrice(schedule.phases[1]) : null;
 
@@ -266,20 +279,31 @@ export async function ensureAutoIntroSchedule(
       metadata: { origin: 'auto-intro' },
     });
   } catch (error) {
-    // Race guard: a schedule was attached concurrently
+    // Race guard: if a schedule was attached concurrently, the create fails
+    // because Stripe only allows one schedule per subscription. Re-fetch to
+    // check whether a concurrent caller won the race.
+    const refetched = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const refetchedScheduleId = resolveScheduleId(refetched.schedule);
+    if (!refetchedScheduleId) {
+      // No concurrent schedule — this was a transient Stripe/API error, not a
+      // race. Re-throw so callers can observe the failure and retry.
+      logError('Failed to create auto-intro schedule (non-race error)', {
+        stripe_subscription_id: stripeSubscriptionId,
+        user_id: userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+
     logWarning('Race creating auto-intro schedule, re-checking subscription', {
       stripe_subscription_id: stripeSubscriptionId,
       user_id: userId,
       error: error instanceof Error ? error.message : String(error),
     });
 
-    const refetched = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-    const refetchedScheduleId = resolveScheduleId(refetched.schedule);
-    if (refetchedScheduleId) {
-      const existingSchedule = await stripe.subscriptionSchedules.retrieve(refetchedScheduleId);
-      if (existingSchedule.metadata?.origin === 'auto-intro') {
-        await validateOrRepairAutoIntroSchedule(existingSchedule, stripeSubscriptionId, userId);
-      }
+    const existingSchedule = await stripe.subscriptionSchedules.retrieve(refetchedScheduleId);
+    if (existingSchedule.metadata?.origin === 'auto-intro') {
+      await validateOrRepairAutoIntroSchedule(existingSchedule, stripeSubscriptionId, userId);
     }
     return;
   }
