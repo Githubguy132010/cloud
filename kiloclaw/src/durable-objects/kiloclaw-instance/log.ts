@@ -55,15 +55,20 @@ export function createReconcileContext(
       reconcileLog(reason, action, details);
 
       const rawErr = details.error;
-      const errorStr =
-        rawErr === undefined
-          ? undefined
-          : (rawErr instanceof Error
+      let errorStr: string | undefined;
+      if (rawErr !== undefined) {
+        try {
+          errorStr = (
+            rawErr instanceof Error
               ? rawErr.message
               : typeof rawErr === 'string'
                 ? rawErr
                 : JSON.stringify(rawErr)
-            ).slice(0, 200);
+          ).slice(0, 200);
+        } catch {
+          errorStr = '[unserializable error]';
+        }
+      }
 
       writeEvent(env, {
         event: `reconcile.${action}`,
