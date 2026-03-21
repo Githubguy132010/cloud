@@ -19,6 +19,7 @@ export async function checkDiscordGuildMembership(discordUserId: string): Promis
       headers: {
         Authorization: `Bot ${DISCORD_OAUTH_BOT_TOKEN}`,
       },
+      signal: AbortSignal.timeout(5_000),
     }
   );
 

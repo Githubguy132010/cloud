@@ -71,7 +71,13 @@ export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps
                 </div>
               )}
 
-              {hasDiscordLinked && !isMember && !guildStatus.isLoading && (
+              {hasDiscordLinked && guildStatus.isError && (
+                <p className="text-muted-foreground text-sm">
+                  Unable to load Discord membership status. Please try again later.
+                </p>
+              )}
+
+              {hasDiscordLinked && !isMember && !guildStatus.isLoading && data && (
                 <div className="flex items-center gap-2">
                   <XCircle className="text-muted-foreground h-4 w-4 shrink-0" />
                   <span className="text-muted-foreground text-sm">
@@ -90,7 +96,7 @@ export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps
             </div>
           </div>
 
-          {hasDiscordLinked && !isMember && !guildStatus.isLoading && (
+          {hasDiscordLinked && !isMember && !guildStatus.isLoading && data && (
             <Button
               variant="outline"
               size="sm"
