@@ -65,7 +65,8 @@ export function DiscordGuildStatus({ hasDiscordLinked }: DiscordGuildStatusProps
                     Kilo Discord Member
                   </span>
                   <span className="text-muted-foreground text-xs">
-                    · Verified {format(new Date(data.discord_server_membership_verified_at), 'MMM d, yyyy')}
+                    · Verified{' '}
+                    {format(new Date(data.discord_server_membership_verified_at), 'MMM d, yyyy')}
                   </span>
                 </div>
               )}

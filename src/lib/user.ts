@@ -388,7 +388,11 @@ export async function linkAccountToExistingUser(
     return linkResult;
   }
 
-  await tryVerifyDiscordGuildMembership(authProviderData.provider, authProviderData.provider_account_id, existingKiloUserId);
+  await tryVerifyDiscordGuildMembership(
+    authProviderData.provider,
+    authProviderData.provider_account_id,
+    existingKiloUserId
+  );
 
   // Log the account linking event
   posthogClient.capture({
