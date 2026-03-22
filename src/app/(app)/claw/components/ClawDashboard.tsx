@@ -19,8 +19,7 @@ import { InstanceControls } from './InstanceControls';
 import { InstanceTab } from './InstanceTab';
 import { OpenClawButton } from './OpenClawButton';
 import { SettingsTab } from './SettingsTab';
-import { ChangelogCard } from './ChangelogCard';
-import { PairingCard } from './PairingCard';
+import { ChangelogTab } from './ChangelogTab';
 import { ChannelSelectionStepView } from './ChannelSelectionStep';
 import { PermissionStep } from './PermissionStep';
 import { ProvisioningStep } from './ProvisioningStep';
@@ -98,21 +97,18 @@ export function ClawDashboard({
       {isServiceDegraded && (
         <Alert variant="warning">
           <TriangleAlert className="size-4" />
-          <AlertDescription className="flex flex-col">
+          <AlertDescription>
             <span>
-              KiloClaw ended up being really popular! We&apos;re working on getting additional
-              capacity. If you have trouble starting a machine, please try again in a few minutes.
-            </span>
-            <span className="mt-2 flex flex-row gap-1">
-              <span>You can also</span>
+              KiloClaw is really popular today. If you run into issues,{' '}
               <a
                 href="https://status.kilo.ai/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:opacity-80"
               >
-                check our status page for live updates
-              </a>
+                check our status page
+              </a>{' '}
+              for live updates.
             </span>
           </AlertDescription>
         </Alert>
@@ -159,6 +155,7 @@ export function ClawDashboard({
           />
         ) : isNewSetup && onboardingStep === 'channels' ? (
           <ChannelSelectionStepView
+            instanceRunning={isRunning && gatewayStatus?.state === 'running'}
             onSelect={(_channelId, tokens) => {
               setChannelTokens(tokens);
               setOnboardingStep('provisioning');
@@ -256,6 +253,12 @@ export function ClawDashboard({
                   >
                     Settings
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="changelog"
+                    className="text-muted-foreground hover:text-foreground data-[state=active]:border-foreground data-[state=active]:text-foreground rounded-none border-b-2 border-transparent px-0 py-3 text-sm font-medium transition-colors data-[state=active]:border-0 data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  >
+                    What&apos;s New <Sparkles className="ml-1 inline h-3 w-3 text-amber-400" />
+                  </TabsTrigger>
                 </TabsList>
               </div>
               <CardContent className="p-5">
@@ -275,17 +278,14 @@ export function ClawDashboard({
                     dirtySecrets={dirtySecrets}
                   />
                 </TabsContent>
+                <TabsContent value="changelog" className="mt-0">
+                  <ChangelogTab />
+                </TabsContent>
               </CardContent>
             </Tabs>
           </Card>
         )}
-
-        {instanceStatus?.status === 'running' && !isNewSetup && (
-          <PairingCard mutations={mutations} />
-        )}
       </BillingWrapper>
-
-      {instanceStatus && !isNewSetup && <ChangelogCard />}
     </div>
   );
 }
