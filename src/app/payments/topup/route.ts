@@ -66,7 +66,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<unknown>>
 
   let stripeCustomerId: string | null | undefined;
   if (organizationId) {
-    const orgContext = await getAuthorizedOrgContext(organizationId);
+    const orgContext = await getAuthorizedOrgContext(organizationId, ['owner', 'billing_manager']);
     if (!orgContext.success) {
       return orgContext.nextResponse;
     }
