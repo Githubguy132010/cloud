@@ -7,6 +7,7 @@ import type { SupervisorStats } from './supervisor';
 
 const CHECKIN_INTERVAL_MS = 5 * 60 * 1000;
 const INITIAL_DELAY_MS = 2 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 10 * 1000;
 
 export type NetStats = { bytesIn: number; bytesOut: number };
 
@@ -82,12 +83,18 @@ export function startCheckin(deps: CheckinDeps): () => void {
 
   let previousRestarts = deps.getSupervisorStats().restarts;
   let previousNetStats: NetStats = { bytesIn: 0, bytesOut: 0 };
+  let checkinInFlight = false;
 
   void readNetStats().then(stats => {
     previousNetStats = stats;
   });
 
   const doCheckin = async (): Promise<void> => {
+    if (checkinInFlight) {
+      return;
+    }
+    checkinInFlight = true;
+
     try {
       const apiKey = deps.getApiKey();
       const gatewayToken = deps.getGatewayToken();
@@ -101,11 +108,8 @@ export function startCheckin(deps: CheckinDeps): () => void {
       const currentNetStats = await readNetStats();
 
       const restartsSinceLastCheckin = Math.max(0, stats.restarts - previousRestarts);
-      previousRestarts = stats.restarts;
-
       const bandwidthBytesIn = Math.max(0, currentNetStats.bytesIn - previousNetStats.bytesIn);
       const bandwidthBytesOut = Math.max(0, currentNetStats.bytesOut - previousNetStats.bytesOut);
-      previousNetStats = currentNetStats;
 
       const lastExitReason = stats.lastExit
         ? stats.lastExit.signal
@@ -115,37 +119,55 @@ export function startCheckin(deps: CheckinDeps): () => void {
             : ''
         : '';
 
-      const response = await fetch(checkinUrl, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${apiKey}`,
-          'x-kiloclaw-gateway-token': gatewayToken,
-        },
-        body: JSON.stringify({
-          sandboxId,
-          machineId: deps.getMachineId?.() ?? process.env.FLY_MACHINE_ID ?? '',
-          controllerVersion: CONTROLLER_VERSION,
-          controllerCommit: CONTROLLER_COMMIT,
-          openclawVersion: openclawVersion.version,
-          openclawCommit: openclawVersion.commit,
-          supervisorState: stats.state,
-          totalRestarts: stats.restarts,
-          restartsSinceLastCheckin,
-          uptimeSeconds: stats.uptime,
-          loadAvg5m: loadavg()[1] ?? 0,
-          bandwidthBytesIn,
-          bandwidthBytesOut,
-          lastExitReason,
-        }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, REQUEST_TIMEOUT_MS);
+
+      let response: Response;
+      try {
+        response = await fetch(checkinUrl, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${apiKey}`,
+            'x-kiloclaw-gateway-token': gatewayToken,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            sandboxId,
+            machineId: deps.getMachineId?.() ?? process.env.FLY_MACHINE_ID ?? '',
+            controllerVersion: CONTROLLER_VERSION,
+            controllerCommit: CONTROLLER_COMMIT,
+            openclawVersion: openclawVersion.version,
+            openclawCommit: openclawVersion.commit,
+            supervisorState: stats.state,
+            totalRestarts: stats.restarts,
+            restartsSinceLastCheckin,
+            uptimeSeconds: stats.uptime,
+            loadAvg5m: loadavg()[1] ?? 0,
+            bandwidthBytesIn,
+            bandwidthBytesOut,
+            lastExitReason,
+          }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
         console.error(`[checkin] HTTP ${response.status}: ${errorText}`);
+        return;
       }
+
+      // Only advance baselines after a successful checkin.
+      previousRestarts = stats.restarts;
+      previousNetStats = currentNetStats;
     } catch (err) {
       console.error('[checkin] failed:', err);
+    } finally {
+      checkinInFlight = false;
     }
   };
 
