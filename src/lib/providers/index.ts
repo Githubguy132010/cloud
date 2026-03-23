@@ -22,7 +22,6 @@ import {
   isAnthropicModel,
   isHaikuModel,
 } from '@/lib/providers/anthropic';
-import { applyGigaPotatoProviderSettings } from '@/lib/providers/gigapotato';
 import {
   getBYOKforOrganization,
   getBYOKforUser,
@@ -327,10 +326,6 @@ export function applyProviderSpecificLogic(
 
   if (provider.id === 'alibaba') {
     applyAlibabaProviderSettings(requestToMutate);
-  }
-
-  if (provider.id === 'gigapotato') {
-    applyGigaPotatoProviderSettings(requestedModel, requestToMutate);
   }
 
   if (provider.id === 'corethink') {
