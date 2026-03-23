@@ -188,7 +188,7 @@ const SECRET_CATALOG_RAW = [
         label: 'API Key',
         placeholder: 'BSA...',
         placeholderConfigured: 'Enter new key to replace',
-        envVar: 'BRAVE_SEARCH_API_KEY',
+        envVar: 'BRAVE_API_KEY',
         validationPattern: '^BSA[A-Za-z0-9_-]{20,}$',
         validationMessage: 'Brave Search keys start with BSA followed by 20 or more characters.',
         maxLength: 200,

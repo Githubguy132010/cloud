@@ -120,7 +120,7 @@ describe('Secret Catalog', () => {
         'GITHUB_TOKEN',
         'GITHUB_USERNAME',
         'GITHUB_EMAIL',
-        'BRAVE_SEARCH_API_KEY',
+        'BRAVE_API_KEY',
       ]);
 
       const catalogEnvVars = new Set(FIELD_KEY_TO_ENV_VAR.values());
@@ -138,7 +138,7 @@ describe('Secret Catalog', () => {
       expect(FIELD_KEY_TO_ENV_VAR.get('githubToken')).toBe('GITHUB_TOKEN');
       expect(FIELD_KEY_TO_ENV_VAR.get('githubUsername')).toBe('GITHUB_USERNAME');
       expect(FIELD_KEY_TO_ENV_VAR.get('githubEmail')).toBe('GITHUB_EMAIL');
-      expect(FIELD_KEY_TO_ENV_VAR.get('braveSearchApiKey')).toBe('BRAVE_SEARCH_API_KEY');
+      expect(FIELD_KEY_TO_ENV_VAR.get('braveSearchApiKey')).toBe('BRAVE_API_KEY');
     });
 
     it('ENV_VAR_TO_FIELD_KEY is the exact reverse of FIELD_KEY_TO_ENV_VAR', () => {
@@ -156,7 +156,7 @@ describe('Secret Catalog', () => {
       expect(ENV_VAR_TO_FIELD_KEY.get('GITHUB_TOKEN')).toBe('githubToken');
       expect(ENV_VAR_TO_FIELD_KEY.get('GITHUB_USERNAME')).toBe('githubUsername');
       expect(ENV_VAR_TO_FIELD_KEY.get('GITHUB_EMAIL')).toBe('githubEmail');
-      expect(ENV_VAR_TO_FIELD_KEY.get('BRAVE_SEARCH_API_KEY')).toBe('braveSearchApiKey');
+      expect(ENV_VAR_TO_FIELD_KEY.get('BRAVE_API_KEY')).toBe('braveSearchApiKey');
     });
   });
 
