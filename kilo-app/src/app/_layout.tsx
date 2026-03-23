@@ -3,6 +3,7 @@ import '../global.css';
 import { PortalHost } from '@rn-primitives/portal';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth/auth-context';
@@ -38,10 +39,12 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-      <Toaster />
-      <PortalHost />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <RootLayoutNav />
+        <Toaster />
+        <PortalHost />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

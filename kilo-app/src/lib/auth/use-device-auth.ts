@@ -94,7 +94,7 @@ export function useDeviceAuth(): DeviceAuthResult {
           }
           // 202 = still pending, continue polling
         } catch (error: unknown) {
-          if (error instanceof DOMException && error.name === 'AbortError') return;
+          if (error instanceof Error && error.name === 'AbortError') return;
           cleanup();
           setState((previous) => ({
             status: 'error',
@@ -124,12 +124,16 @@ export function useDeviceAuth(): DeviceAuthResult {
     });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/device-auth/codes`, {
+      const url = `${API_BASE_URL}/api/device-auth/codes`;
+      console.log('[device-auth] POST', url);
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
+        const body = await response.text();
+        console.log('[device-auth] error response:', response.status, body);
         setState({
           status: 'error',
           code: undefined,
@@ -158,7 +162,8 @@ export function useDeviceAuth(): DeviceAuthResult {
       poll(data.code, abort);
 
       await WebBrowser.openAuthSessionAsync(data.verificationUrl);
-    } catch {
+    } catch (error) {
+      console.log('[device-auth] caught error:', error);
       setState({
         status: 'error',
         code: undefined,
