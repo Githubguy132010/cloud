@@ -10,6 +10,7 @@ Kilo App is an Expo (React Native) mobile application using Expo Router for file
 - **Routing**: Expo Router (file-based, `src/app/`)
 - **Language**: TypeScript (strict mode, `tsgo`)
 - **Styling**: NativeWind v5 (Tailwind CSS v4 + react-native-css)
+- **UI Components**: [React Native Reusables](https://reactnativereusables.com/) (shadcn/ui for React Native) in `src/components/ui/`
 - **Linting**: ESLint 9 flat config with strict type-checked rules, unicorn, sonarjs, import-x, promise, react-native
 - **Formatting**: oxfmt
 
@@ -43,6 +44,10 @@ npx expo install --dev <package-name>   # devDependencies
 - Prefer `type` over `interface`.
 - Import `View`, `Text`, `ScrollView`, `Pressable`, `TextInput`, `Link` from `@/tw` — these are CSS-enabled wrappers that support `className`. Do not import them from `react-native` directly.
 - Import `Image` from `@/tw/image`.
+- For UI components (Button, Text with variants, Card, etc.), import from `@/components/ui/<component>`. These are from react-native-reusables (shadcn/ui for RN).
+- Add new UI components with `pnpm dlx @react-native-reusables/cli@latest add <component> --styling-library nativewind -y`. Then fix import ordering and any lint issues in the generated file.
+- The `cn()` helper for merging Tailwind classes is in `@/lib/utils`.
+- Design tokens (colors, radii) are CSS variables in `src/global.css` with `@theme inline` for Tailwind v4. The theme uses shadcn/ui neutral palette with light/dark via `prefers-color-scheme`.
 - Style components with Tailwind utility classes via `className`. No inline styles or `StyleSheet.create`.
 - All lint rules are set to `error`, not `warn`. Fix violations, don't suppress them.
 

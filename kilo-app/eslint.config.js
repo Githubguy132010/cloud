@@ -64,6 +64,12 @@ module.exports = defineConfig([
 
   // Unicorn — all recommended rules as errors
   unicornPlugin.configs['flat/all'],
+  {
+    rules: {
+      'unicorn/prevent-abbreviations': 'off',
+      'unicorn/no-keyword-prefix': ['error', { disallowedPrefixes: ['new', 'for'] }],
+    },
+  },
 
   // Promise
   promisePlugin.configs['flat/recommended'],
@@ -118,14 +124,6 @@ module.exports = defineConfig([
     },
   },
 
-  // CSS wrapper components use `className` (standard React convention) and `Props` suffix
-  {
-    files: ['src/tw/**/*.tsx'],
-    rules: {
-      'unicorn/no-keyword-prefix': 'off',
-      'unicorn/prevent-abbreviations': 'off',
-    },
-  },
 
   {
     ignores: ['dist/*'],

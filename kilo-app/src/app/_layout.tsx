@@ -1,5 +1,6 @@
 import '../global.css';
 
+import { PortalHost } from '@rn-primitives/portal';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 
@@ -40,6 +41,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <RootLayoutNav />
+      <PortalHost />
     </AuthProvider>
   );
 }
