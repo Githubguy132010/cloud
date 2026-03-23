@@ -66,34 +66,32 @@ controller.post('/checkin', async (c: Context<AppEnv>) => {
     return c.json({ error: 'Forbidden' }, 403);
   }
 
-  if (c.env.KILOCLAW_CONTROLLER_AE) {
-    try {
-      const flyRegion = c.req.header('fly-region') ?? '';
-      c.env.KILOCLAW_CONTROLLER_AE.writeDataPoint({
-        blobs: [
-          data.sandboxId,
-          data.controllerVersion,
-          data.controllerCommit,
-          data.openclawVersion ?? '',
-          data.openclawCommit ?? '',
-          data.supervisorState,
-          flyRegion,
-          data.machineId ?? '',
-          data.lastExitReason ?? '',
-        ],
-        doubles: [
-          data.restartsSinceLastCheckin,
-          data.totalRestarts,
-          data.uptimeSeconds,
-          data.loadAvg5m,
-          data.bandwidthBytesIn,
-          data.bandwidthBytesOut,
-        ],
-        indexes: [data.sandboxId],
-      });
-    } catch {
-      // Best-effort: never fail checkin on AE write errors
-    }
+  try {
+    const flyRegion = c.req.header('fly-region') ?? '';
+    c.env.KILOCLAW_CONTROLLER_AE.writeDataPoint({
+      blobs: [
+        data.sandboxId,
+        data.controllerVersion,
+        data.controllerCommit,
+        data.openclawVersion ?? '',
+        data.openclawCommit ?? '',
+        data.supervisorState,
+        flyRegion,
+        data.machineId ?? '',
+        data.lastExitReason ?? '',
+      ],
+      doubles: [
+        data.restartsSinceLastCheckin,
+        data.totalRestarts,
+        data.uptimeSeconds,
+        data.loadAvg5m,
+        data.bandwidthBytesIn,
+        data.bandwidthBytesOut,
+      ],
+      indexes: [data.sandboxId],
+    });
+  } catch {
+    // Best-effort: never fail checkin on AE write errors
   }
 
   return c.body(null, 204);

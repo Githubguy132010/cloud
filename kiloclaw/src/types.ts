@@ -8,7 +8,7 @@ export type KiloClawEnv = {
   KILOCLAW_INSTANCE: DurableObjectNamespace<KiloClawInstance>;
   KILOCLAW_APP: DurableObjectNamespace<KiloClawApp>;
   KILOCLAW_AE?: AnalyticsEngineDataset;
-  KILOCLAW_CONTROLLER_AE?: AnalyticsEngineDataset;
+  KILOCLAW_CONTROLLER_AE: AnalyticsEngineDataset;
   HYPERDRIVE?: Hyperdrive;
   KV_CLAW_CACHE: KVNamespace;
 
