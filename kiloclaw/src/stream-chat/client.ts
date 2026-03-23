@@ -33,9 +33,7 @@ export type StreamChatSetup = {
  */
 export async function createServerToken(apiSecret: string): Promise<string> {
   const secretBytes = new TextEncoder().encode(apiSecret);
-  return new SignJWT({ server: true })
-    .setProtectedHeader({ alg: 'HS256' })
-    .sign(secretBytes);
+  return new SignJWT({ server: true }).setProtectedHeader({ alg: 'HS256' }).sign(secretBytes);
 }
 
 /**
@@ -45,9 +43,7 @@ export async function createServerToken(apiSecret: string): Promise<string> {
  */
 export async function createUserToken(apiSecret: string, userId: string): Promise<string> {
   const secretBytes = new TextEncoder().encode(apiSecret);
-  return new SignJWT({ user_id: userId })
-    .setProtectedHeader({ alg: 'HS256' })
-    .sign(secretBytes);
+  return new SignJWT({ user_id: userId }).setProtectedHeader({ alg: 'HS256' }).sign(secretBytes);
 }
 
 /**

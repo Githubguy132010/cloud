@@ -10,7 +10,7 @@ import {
 // Decode a JWT payload without verifying signature (for test assertions only).
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const [, payload] = token.split('.');
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
 }
 
 describe('createServerToken', () => {
@@ -63,7 +63,10 @@ describe('upsertStreamChatUsers', () => {
     ]);
 
     expect(mockFetch).toHaveBeenCalledOnce();
-    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    const [url, opts] = mockFetch.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
     expect(url).toBe('https://chat.stream-io-api.com/users?api_key=my-api-key');
     expect(opts.method).toBe('POST');
     expect(opts.headers['Stream-Auth-Type']).toBe('jwt');
@@ -80,9 +83,9 @@ describe('upsertStreamChatUsers', () => {
       text: async () => 'Unauthorized',
     });
 
-    await expect(
-      upsertStreamChatUsers('key', 'jwt', [{ id: 'x', name: 'X' }])
-    ).rejects.toThrow('403');
+    await expect(upsertStreamChatUsers('key', 'jwt', [{ id: 'x', name: 'X' }])).rejects.toThrow(
+      '403'
+    );
   });
 });
 
@@ -108,7 +111,10 @@ describe('getOrCreateStreamChatChannel', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledOnce();
-    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    const [url, opts] = mockFetch.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
     expect(url).toBe(
       'https://chat.stream-io-api.com/channels/messaging/chan-123/query?api_key=my-key'
     );
@@ -188,9 +194,9 @@ describe('setupDefaultStreamChatChannel', () => {
       text: async () => 'Internal Server Error',
     });
 
-    await expect(
-      setupDefaultStreamChatChannel('key', 'secret', 'sandbox-fail')
-    ).rejects.toThrow('500');
+    await expect(setupDefaultStreamChatChannel('key', 'secret', 'sandbox-fail')).rejects.toThrow(
+      '500'
+    );
   });
 
   it('throws if getOrCreateChannel fails', async () => {
@@ -202,8 +208,8 @@ describe('setupDefaultStreamChatChannel', () => {
         text: async () => 'Service Unavailable',
       });
 
-    await expect(
-      setupDefaultStreamChatChannel('key', 'secret', 'sandbox-fail2')
-    ).rejects.toThrow('503');
+    await expect(setupDefaultStreamChatChannel('key', 'secret', 'sandbox-fail2')).rejects.toThrow(
+      '503'
+    );
   });
 });
