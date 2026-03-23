@@ -124,16 +124,12 @@ export function useDeviceAuth(): DeviceAuthResult {
     });
 
     try {
-      const url = `${API_BASE_URL}/api/device-auth/codes`;
-      console.log('[device-auth] POST', url);
-      const response = await fetch(url, {
+      const response = await fetch(`${API_BASE_URL}/api/device-auth/codes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
-        const body = await response.text();
-        console.log('[device-auth] error response:', response.status, body);
         setState({
           status: 'error',
           code: undefined,
@@ -162,8 +158,7 @@ export function useDeviceAuth(): DeviceAuthResult {
       poll(data.code, abort);
 
       await WebBrowser.openAuthSessionAsync(data.verificationUrl);
-    } catch (error) {
-      console.log('[device-auth] caught error:', error);
+    } catch {
       setState({
         status: 'error',
         code: undefined,
