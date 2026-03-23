@@ -31,7 +31,9 @@ const createdOnPlatformField = z.string().min(1).max(100);
 const ListSessionsInputSchema = z.object({
   cursor: z.iso.datetime().optional(),
   limit: z.number().min(1).max(50).optional().default(PAGE_SIZE),
-  createdOnPlatform: z.union([createdOnPlatformField, z.array(createdOnPlatformField)]).optional(),
+  createdOnPlatform: z
+    .union([createdOnPlatformField, z.array(createdOnPlatformField).min(1)])
+    .optional(),
   orderBy: z.enum(['created_at', 'updated_at']).optional().default('created_at'),
   organizationId: z.uuid().nullable().optional(),
   includeSubSessions: z.boolean().optional().default(false),
@@ -41,7 +43,9 @@ const SearchInputSchema = z.object({
   search_string: z.string().min(1),
   limit: z.number().min(1).max(50).optional().default(PAGE_SIZE),
   offset: z.number().min(0).optional().default(0),
-  createdOnPlatform: z.union([createdOnPlatformField, z.array(createdOnPlatformField)]).optional(),
+  createdOnPlatform: z
+    .union([createdOnPlatformField, z.array(createdOnPlatformField).min(1)])
+    .optional(),
   organizationId: z.uuid().nullable().optional(),
   includeSubSessions: z.boolean().optional().default(false),
 });
