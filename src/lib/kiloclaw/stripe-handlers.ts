@@ -249,11 +249,15 @@ export async function ensureAutoIntroSchedule(
 
     const isAutoIntro = schedule.metadata?.origin === 'auto-intro';
 
-    // A schedule created via from_subscription without metadata is likely a
-    // half-created auto-intro schedule (create succeeded but the subsequent
-    // update that sets metadata + phases hasn't run yet, or the worker died
-    // before it could). Claim it by tagging it before attempting repair.
-    const isUntagged = !schedule.metadata?.origin;
+    // A schedule created via from_subscription without metadata AND with only
+    // 1 phase is likely a half-created auto-intro schedule (create succeeded
+    // but the subsequent update that sets metadata + phases hasn't run yet, or
+    // the worker died before it could). We require exactly 1 phase because
+    // createAutoIntroSchedule sets metadata and phases in the same update call
+    // — so a fully-updated schedule always has both. User-initiated plan
+    // switches and kilo-pass changes also create untagged schedules but their
+    // update writes 2+ phases, so the phase-count guard avoids claiming them.
+    const isUntagged = !schedule.metadata?.origin && schedule.phases.length === 1;
     if (isUntagged) {
       await stripe.subscriptionSchedules.update(schedule.id, {
         metadata: { origin: 'auto-intro' },
@@ -388,10 +392,12 @@ async function handleAutoIntroCreateRace(
   const existingSchedule = await stripe.subscriptionSchedules.retrieve(refetchedScheduleId);
 
   // The race winner may not have tagged the schedule yet (metadata is set in
-  // a separate update call). Treat untagged schedules as auto-intro since
-  // only auto-intro setup creates schedules via from_subscription.
+  // a separate update call). Only claim untagged schedules that still have a
+  // single phase — the from_subscription default. Schedules with 2+ phases
+  // were already fully configured by another code path (user plan switch,
+  // kilo-pass) and must not be claimed.
   const isAutoIntro = existingSchedule.metadata?.origin === 'auto-intro';
-  const isUntagged = !existingSchedule.metadata?.origin;
+  const isUntagged = !existingSchedule.metadata?.origin && existingSchedule.phases.length === 1;
   if (isUntagged) {
     await stripe.subscriptionSchedules.update(existingSchedule.id, {
       metadata: { origin: 'auto-intro' },
