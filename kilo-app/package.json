@@ -43,7 +43,13 @@
     "@types/react": "~19.2.2",
     "@typescript/native-preview": "catalog:",
     "eslint-config-expo": "~55.0.0",
-    "typescript": "catalog:"
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-promise": "^7.2.1",
+    "eslint-plugin-react-native": "^5.0.0",
+    "eslint-plugin-sonarjs": "^4.0.2",
+    "eslint-plugin-unicorn": "^63.0.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
   },
   "private": true
 }
