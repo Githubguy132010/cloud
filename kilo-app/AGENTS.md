@@ -9,6 +9,7 @@ Kilo App is an Expo (React Native) mobile application using Expo Router for file
 - **Framework**: Expo SDK 55, React Native, React 19
 - **Routing**: Expo Router (file-based, `src/app/`)
 - **Language**: TypeScript (strict mode, `tsgo`)
+- **Styling**: NativeWind v5 (Tailwind CSS v4 + react-native-css)
 - **Linting**: ESLint 9 flat config with strict type-checked rules, unicorn, sonarjs, import-x, promise, react-native
 - **Formatting**: oxfmt
 
@@ -40,7 +41,9 @@ npx expo install --dev <package-name>   # devDependencies
 
 - Expo Router requires default exports in `src/app/` — this is the only place default exports are allowed.
 - Prefer `type` over `interface`.
-- No inline styles or color literals in components — use the theme system in `src/constants/theme.ts`.
+- Import `View`, `Text`, `ScrollView`, `Pressable`, `TextInput`, `Link` from `@/tw` — these are CSS-enabled wrappers that support `className`. Do not import them from `react-native` directly.
+- Import `Image` from `@/tw/image`.
+- Style components with Tailwind utility classes via `className`. No inline styles or `StyleSheet.create`.
 - All lint rules are set to `error`, not `warn`. Fix violations, don't suppress them.
 
 ## Fixing Lint Errors
