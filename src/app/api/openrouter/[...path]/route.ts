@@ -37,6 +37,7 @@ import {
   usageLimitExceededResponse,
   wrapInSafeNextResponse,
   forbiddenFreeModelResponse,
+  previousResponseIdIsNotSupported,
 } from '@/lib/llm-proxy-helpers';
 import { getBalanceAndOrgSettings } from '@/lib/organizations/organization-usage';
 import { ENABLE_TOOL_REPAIR, repairTools } from '@/lib/tool-calling';
@@ -278,6 +279,10 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       },
       { status: 403 }
     );
+  }
+
+  if (requestBodyParsed.kind === 'responses' && requestBodyParsed.body.previous_response_id) {
+    return previousResponseIdIsNotSupported();
   }
 
   // Log to free_model_usage for rate limiting (at request start, before processing)
