@@ -10,6 +10,7 @@ import { encryptKiloClawSecret } from '@/lib/kiloclaw/encryption';
 import {
   ALL_SECRET_FIELD_KEYS,
   FIELD_KEY_TO_ENTRY,
+  MAX_SECRET_FIELD_LENGTH,
   validateFieldValue,
   type SecretFieldKey,
 } from '@kilocode/kiloclaw-secret-catalog';
@@ -514,7 +515,7 @@ export const kiloclawRouter = createTRPCRouter({
     .input(
       z.object({
         secrets: z
-          .record(z.string(), z.string().max(500).nullable())
+          .record(z.string(), z.string().max(MAX_SECRET_FIELD_LENGTH).nullable())
           .refine(obj => Object.keys(obj).every(k => ALL_SECRET_FIELD_KEYS.has(k)), {
             message: 'Unknown secret field key',
           }),
