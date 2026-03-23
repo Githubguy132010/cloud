@@ -26,10 +26,8 @@ function RootLayoutNav() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white dark:bg-neutral-950">
-        <Text className="text-4xl font-bold tracking-tight text-neutral-900 dark:text-white">
-          Kilo
-        </Text>
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-4xl font-bold tracking-tight text-foreground">Kilo</Text>
       </View>
     );
   }
