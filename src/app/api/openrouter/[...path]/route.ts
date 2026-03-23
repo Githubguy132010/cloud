@@ -294,7 +294,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   const taskId = extractHeaderAndLimitLength(request, 'x-kilocode-taskid') ?? undefined;
   const { provider, userByok, customLlm } = await getProvider(
     originalModelIdLowerCased,
-    requestBodyParsed.body,
+    requestBodyParsed,
     user,
     organizationId,
     taskId
