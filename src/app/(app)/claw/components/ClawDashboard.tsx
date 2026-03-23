@@ -312,6 +312,7 @@ export function ClawDashboard({
                     dirtySecrets={dirtySecrets}
                     onRedeploy={onRedeploy}
                     onUpgrade={onUpgrade}
+                    onRequestUpgrade={onRequestUpgrade}
                   />
                 </TabsContent>
                 <TabsContent value="changelog" className="mt-0">
