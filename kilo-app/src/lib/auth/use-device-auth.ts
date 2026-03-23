@@ -59,7 +59,7 @@ export function useDeviceAuth(): DeviceAuthResult {
             case 200: {
               const data = (await response.json()) as { token: string };
               cleanup();
-              setState((previous) => ({
+              setState(previous => ({
                 status: 'approved',
                 code,
                 token: data.token,
@@ -70,7 +70,7 @@ export function useDeviceAuth(): DeviceAuthResult {
             }
             case 403: {
               cleanup();
-              setState((previous) => ({
+              setState(previous => ({
                 status: 'denied',
                 code,
                 token: undefined,
@@ -81,7 +81,7 @@ export function useDeviceAuth(): DeviceAuthResult {
             }
             case 410: {
               cleanup();
-              setState((previous) => ({
+              setState(previous => ({
                 status: 'expired',
                 code,
                 token: undefined,
@@ -96,7 +96,7 @@ export function useDeviceAuth(): DeviceAuthResult {
         } catch (error: unknown) {
           if (error instanceof Error && error.name === 'AbortError') return;
           cleanup();
-          setState((previous) => ({
+          setState(previous => ({
             status: 'error',
             code,
             token: undefined,
