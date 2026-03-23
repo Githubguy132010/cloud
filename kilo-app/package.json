@@ -30,6 +30,7 @@
     "expo-linking": "~55.0.8",
     "expo-router": "~55.0.7",
     "expo-secure-store": "~55.0.9",
+    "expo-splash-screen": "~55.0.12",
     "expo-web-browser": "~55.0.10",
     "nativewind": "5.0.0-preview.3",
     "react": "19.2.0",

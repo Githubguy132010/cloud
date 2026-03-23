@@ -2,14 +2,14 @@ import '../global.css';
 
 import { PortalHost } from '@rn-primitives/portal';
 import { Slot, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Toaster } from 'sonner-native';
 
-import logo from '@/../assets/images/logo.png';
 import { AuthProvider, useAuth } from '@/lib/auth/auth-context';
-import { View } from '@/tw';
-import { Image } from '@/tw/image';
+
+SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
   const { token, isLoading } = useAuth();
@@ -26,14 +26,12 @@ function RootLayoutNav() {
     } else if (token && inAuthGroup) {
       router.replace('/(app)');
     }
+
+    SplashScreen.hideAsync();
   }, [token, isLoading, segments, router]);
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <Image source={logo} className="h-16 w-16" />
-      </View>
-    );
+    return null;
   }
 
   return <Slot />;
