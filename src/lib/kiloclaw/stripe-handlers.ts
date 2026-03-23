@@ -297,7 +297,6 @@ async function createAutoIntroSchedule(
   try {
     newSchedule = await stripe.subscriptionSchedules.create({
       from_subscription: stripeSubscriptionId,
-      metadata: { origin: 'auto-intro' },
     });
   } catch (error) {
     await handleAutoIntroCreateRace(error, stripeSubscriptionId, userId);
@@ -317,19 +316,31 @@ async function createAutoIntroSchedule(
     return;
   }
 
-  await stripe.subscriptionSchedules.update(newSchedule.id, {
-    phases: [
-      {
-        items: [{ price: phase1Price }],
-        start_date: currentPhase.start_date,
-        end_date: currentPhase.end_date,
-      },
-      {
-        items: [{ price: getStripePriceIdForClawPlan('standard') }],
-      },
-    ],
-    end_behavior: 'release',
-  });
+  try {
+    await stripe.subscriptionSchedules.update(newSchedule.id, {
+      metadata: { origin: 'auto-intro' },
+      phases: [
+        {
+          items: [{ price: phase1Price }],
+          start_date: currentPhase.start_date,
+          end_date: currentPhase.end_date,
+        },
+        {
+          items: [{ price: getStripePriceIdForClawPlan('standard') }],
+        },
+      ],
+      end_behavior: 'release',
+    });
+  } catch (error) {
+    // Release the half-created schedule so retry can start fresh — without
+    // metadata, recovery paths cannot identify it as auto-intro.
+    try {
+      await stripe.subscriptionSchedules.release(newSchedule.id);
+    } catch {
+      // best-effort cleanup
+    }
+    throw error;
+  }
 
   await persistAutoIntroSchedule(newSchedule.id, userId);
 }
