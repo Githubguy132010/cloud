@@ -1,0 +1,77 @@
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { Server, ArrowRight, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useTRPC } from '@/lib/trpc/utils';
+import { Button } from '@/components/ui/button';
+
+export function ProfileKiloClawBanner() {
+  const trpc = useTRPC();
+  const billingQuery = useQuery(trpc.kiloclaw.getBillingStatus.queryOptions());
+
+  if (billingQuery.isLoading) {
+    return (
+      <div className="flex w-full items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/5 p-6">
+        <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  const billing = billingQuery.data;
+  if (billingQuery.isError || !billing) {
+    return null;
+  }
+
+  const hasInstance = billing.instance !== null && billing.instance.exists;
+
+  if (hasInstance) {
+    return (
+      <div className="flex w-full items-center gap-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20">
+          <Server className="h-5 w-5 text-emerald-400" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-emerald-100">KiloClaw is running</p>
+          <p className="text-sm text-emerald-300/80">
+            Manage your instance, configure integrations, and monitor your Claw.
+          </p>
+        </div>
+        <Button
+          asChild
+          variant="outline"
+          className="shrink-0 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-100"
+        >
+          <Link href="/claw">
+            Open Dashboard
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full items-center gap-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-5">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/20">
+        <Server className="h-5 w-5 text-blue-400" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-blue-100">Get started with KiloClaw</p>
+        <p className="text-sm text-blue-300/80">
+          Your own cloud computer, always online and ready to work for you. Set up in minutes.
+        </p>
+      </div>
+      <Button
+        asChild
+        variant="outline"
+        className="shrink-0 border-blue-500/40 text-blue-200 hover:bg-blue-500/20 hover:text-blue-100"
+      >
+        <Link href="/claw">
+          Get Started
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </Button>
+    </div>
+  );
+}

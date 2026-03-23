@@ -23,6 +23,7 @@ import { ProfileKiloPassSection } from '@/components/profile/ProfileKiloPassSect
 import { CreateKilocodeOrgButton } from '@/components/dev/CreateKilocodeOrgButton';
 import { isFeatureFlagEnabled } from '@/lib/posthog-feature-flags';
 import { UserProfileCard } from '@/components/profile/UserProfileCard';
+import { ProfileKiloClawBanner } from '@/components/profile/ProfileKiloClawBanner';
 
 export default async function ProfilePage({ searchParams }: AppPageProps) {
   const user = await getUserFromAuthOrRedirect('/users/sign_in');
@@ -67,6 +68,8 @@ export default async function ProfilePage({ searchParams }: AppPageProps) {
       </div>
 
       {isKiloPassUiEnabled && <ProfileKiloPassSection />}
+
+      <ProfileKiloClawBanner />
 
       <ProfileOrganizationsSection orgs={orgs} />
 
