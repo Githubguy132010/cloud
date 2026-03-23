@@ -181,6 +181,9 @@ export async function rewriteFreeModelResponse_Messages(response: Response, mode
 
       const parser = createParser({
         onEvent(event: EventSourceMessage) {
+          if (event.data === '[DONE]') {
+            return;
+          }
           const json = JSON.parse(event.data) as
             | MessagesApiMessageStart
             | MessagesApiMessageDelta
@@ -215,6 +218,7 @@ export async function rewriteFreeModelResponse_Messages(response: Response, mode
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
+          controller.enqueue('data: [DONE]\n\n');
           controller.close();
           break;
         }
@@ -288,6 +292,7 @@ export async function rewriteFreeModelResponse_Responses(response: Response, mod
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
+          controller.enqueue('data: [DONE]\n\n');
           controller.close();
           break;
         }
