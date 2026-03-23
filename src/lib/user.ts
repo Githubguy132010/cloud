@@ -64,6 +64,7 @@ import type { OptionalError, Result } from '@/lib/maybe-result';
 import { failureResult, successResult, trpcFailure } from '@/lib/maybe-result';
 import type { TRPCError } from '@trpc/server';
 import type { UUID } from 'node:crypto';
+import { checkDiscordGuildMembership } from '@/lib/integrations/discord-guild-membership';
 import type { AuthProviderId } from '@/lib/auth/provider-metadata';
 import { generateOpenRouterUpstreamSafetyIdentifier } from '@/lib/providerHash';
 
@@ -126,7 +127,7 @@ export type CreateOrUpdateUserArgs = {
   hosted_domain: string | null;
   provider: AuthProviderId;
   provider_account_id: string;
-  display_name: string | null;
+  display_name?: string | null;
 };
 
 export async function findAndSyncExistingUser(args: CreateOrUpdateUserArgs) {
@@ -326,6 +327,7 @@ export async function createOrUpdateUser(
       provider_account_id: args.provider_account_id,
       avatar_url: args.google_user_image_url,
       email: args.google_user_email,
+      display_name: args.display_name ?? null,
       hosted_domain: args.hosted_domain,
       display_name: args.display_name,
     });
@@ -361,6 +363,8 @@ export async function createOrUpdateUser(
   // Set up user identification via user ID
   posthogClient.alias({ distinctId: savedUser.google_user_email, alias: savedUser.id });
 
+  await tryVerifyDiscordGuildMembership(args.provider, args.provider_account_id, savedUser.id);
+
   return successResult({ user: savedUser, isNew: true });
 }
 
@@ -379,6 +383,7 @@ export async function linkAccountToExistingUser(
     provider_account_id: authProviderData.provider_account_id,
     email: authProviderData.google_user_email,
     avatar_url: authProviderData.google_user_image_url,
+    display_name: authProviderData.display_name ?? null,
     hosted_domain: authProviderData.hosted_domain,
     display_name: authProviderData.display_name,
   });
@@ -399,6 +404,12 @@ export async function linkAccountToExistingUser(
 
     return linkResult;
   }
+
+  await tryVerifyDiscordGuildMembership(
+    authProviderData.provider,
+    authProviderData.provider_account_id,
+    existingKiloUserId
+  );
 
   // Log the account linking event
   posthogClient.capture({
@@ -523,6 +534,7 @@ export async function softDeleteUser(userId: string) {
         hosted_domain: null,
         linkedin_url: null,
         github_url: null,
+        discord_server_membership_verified_at: null,
         api_token_pepper: null,
         default_model: null,
         blocked_reason: `soft-deleted at ${new Date().toISOString()}`,
@@ -849,6 +861,28 @@ export async function linkAuthProviderToUser(
   return successResult();
 }
 
+async function tryVerifyDiscordGuildMembership(
+  provider: AuthProviderId,
+  providerAccountId: string,
+  kiloUserId: string
+) {
+  if (provider !== 'discord') return;
+  try {
+    const isMember = await checkDiscordGuildMembership(providerAccountId);
+    if (isMember) {
+      await db
+        .update(kilocode_users)
+        .set({ discord_server_membership_verified_at: new Date().toISOString() })
+        .where(eq(kilocode_users.id, kiloUserId));
+    }
+  } catch (error) {
+    captureException(error, {
+      tags: { operation: 'discord_server_membership_verification' },
+      extra: { kiloUserId },
+    });
+  }
+}
+
 export async function unlinkAuthProviderFromUser(
   kiloUserId: string,
   provider: AuthProviderId
@@ -878,6 +912,14 @@ export async function unlinkAuthProviderFromUser(
         eq(user_auth_provider.provider, provider)
       )
     );
+
+  // Clear Discord guild membership verification when unlinking Discord
+  if (provider === 'discord') {
+    await db
+      .update(kilocode_users)
+      .set({ discord_server_membership_verified_at: null })
+      .where(eq(kilocode_users.id, kiloUserId));
+  }
 
   return successResult();
 }
