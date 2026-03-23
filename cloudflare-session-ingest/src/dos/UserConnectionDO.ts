@@ -484,6 +484,10 @@ export class UserConnectionDO extends DurableObject<Env> {
       return att?.role === 'cli' && att.connectionId === connectionId;
     });
 
+    // Fail pending commands that targeted this connection — even on reconnect,
+    // because the replacement socket never saw those correlation IDs.
+    this.failPendingCommandsForConnection(connectionId);
+
     if (replaced) {
       console.log('Stale CLI socket closed (already replaced)', { connectionId });
       return;
@@ -500,17 +504,6 @@ export class UserConnectionDO extends DurableObject<Env> {
     }
     this.connectionSessions.delete(connectionId);
     this.lastHeartbeatAt.delete(connectionId);
-
-    for (const [id, entry] of this.pendingCommands) {
-      if (entry.targetConnectionId === connectionId) {
-        this.sendToWeb(entry.ws, {
-          type: 'response',
-          id: entry.originalId,
-          error: 'CLI disconnected',
-        });
-        this.pendingCommands.delete(id);
-      }
-    }
 
     console.log('CLI socket disconnected', {
       connectionId,
@@ -632,6 +625,19 @@ export class UserConnectionDO extends DurableObject<Env> {
       }
     }
     return undefined;
+  }
+
+  private failPendingCommandsForConnection(connectionId: string): void {
+    for (const [id, entry] of this.pendingCommands) {
+      if (entry.targetConnectionId === connectionId) {
+        this.sendToWeb(entry.ws, {
+          type: 'response',
+          id: entry.originalId,
+          error: 'CLI disconnected',
+        });
+        this.pendingCommands.delete(id);
+      }
+    }
   }
 
   private scheduleStaleCheck(): void {

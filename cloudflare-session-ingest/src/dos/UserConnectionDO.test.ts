@@ -563,6 +563,37 @@ describe('UserConnectionDO', () => {
       expect(cli2.send).toHaveBeenCalled();
       expect(parseSent(cli2)).toEqual({ type: 'subscribe', sessionId: 's1' });
     });
+
+    it('reconnecting CLI — pending commands from old socket get error responses', () => {
+      const { doInstance, mockCtx } = setup();
+      const cli1 = addCliSocket(mockCtx, 'cli-1');
+      const webWs = addWebSocket(mockCtx, 'web-1');
+
+      sendHeartbeat(doInstance, cli1, [makeSession('s1')]);
+
+      // Web sends a command that gets forwarded to cli1
+      sendCommand(doInstance, webWs, { id: 'cmd-1', command: 'test', sessionId: 's1' });
+      webWs.send.mockClear();
+
+      // CLI2 connects with the same connectionId (reconnect)
+      const cli2 = addCliSocket(mockCtx, 'cli-1');
+      sendHeartbeat(doInstance, cli2, [makeSession('s1')]);
+
+      // cli1's close event fires — cmd-1 was sent on cli1's wire, cli2 never saw it
+      mockCtx.removeSocket(cli1);
+      disconnectCli(doInstance, cli1);
+
+      // Web should receive an error for the stranded command
+      const msgs = allSent(webWs);
+      const errorResp = msgs.find(
+        (m: Record<string, unknown>) => m.type === 'response' && m.id === 'cmd-1'
+      );
+      expect(errorResp).toMatchObject({
+        type: 'response',
+        id: 'cmd-1',
+        error: 'CLI disconnected',
+      });
+    });
   });
 
   // -------------------------------------------------------------------------
