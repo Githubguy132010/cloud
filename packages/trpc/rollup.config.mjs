@@ -10,6 +10,7 @@ export default {
   output: {
     file: './dist/index.d.ts',
     format: 'es',
+    banner: '// Auto-generated — do not edit. Rebuild with: pnpm --filter @kilocode/trpc run build',
   },
   plugins: [
     {

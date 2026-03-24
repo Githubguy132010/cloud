@@ -1,3 +1,4 @@
+// Auto-generated — do not edit. Rebuild with: pnpm --filter @kilocode/trpc run build
 import * as drizzle_orm from 'drizzle-orm';
 import * as drizzle_orm_pg_core from 'drizzle-orm/pg-core';
 import * as _trpc_server from '@trpc/server';
