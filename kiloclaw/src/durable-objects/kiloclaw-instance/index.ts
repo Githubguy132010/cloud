@@ -134,6 +134,47 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     });
   }
 
+  private emitProvisioningFailed(label: string, error?: string): void {
+    this.emitEvent({
+      event: 'instance.provisioning_failed',
+      status: 'stopped',
+      label,
+      error,
+    });
+  }
+
+  private emitStartCapacityRecovery(error: string, label: string): void {
+    this.emitEvent({
+      event: 'instance.start_capacity_recovery',
+      status: this.s.status ?? undefined,
+      label,
+      error,
+    });
+  }
+
+  private capacityRecoveryLabel(err: unknown): string {
+    if (!(err instanceof fly.FlyApiError)) {
+      return 'fly_capacity_recovery';
+    }
+
+    const searchText = `${err.message}\n${err.body}`.toLowerCase();
+
+    if (searchText.includes('insufficient memory')) {
+      return `fly_${err.status}_insufficient_memory`;
+    }
+    if (searchText.includes('no capacity')) {
+      return `fly_${err.status}_no_capacity`;
+    }
+    if (searchText.includes('over the allowed quota')) {
+      return `fly_${err.status}_quota_exceeded`;
+    }
+    if (searchText.includes('insufficient resources')) {
+      return `fly_${err.status}_insufficient_resources`;
+    }
+
+    return `fly_${err.status}_capacity_recovery`;
+  }
+
   // ========================================================================
   // Lifecycle methods (called by platform API routes via RPC)
   // ========================================================================
@@ -653,24 +694,24 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
   // ── Lifecycle ───────────────────────────────────────────────────────
 
-  async start(userId?: string): Promise<void> {
+  async start(userId?: string): Promise<{ started: boolean }> {
     // Guard against concurrent start() calls — two overlapping invocations
     // (e.g. startAsync via waitUntil + a direct RPC start) can both see
     // flyMachineId as null and each create a Fly machine, orphaning one.
     if (this.startInProgress) {
       doWarn(this.s, 'start: already in progress, skipping duplicate call');
-      return;
+      return { started: false };
     }
     this.startInProgress = true;
 
     try {
-      await this._startInner(userId);
+      return await this._startInner(userId);
     } finally {
       this.startInProgress = false;
     }
   }
 
-  private async _startInner(userId?: string): Promise<void> {
+  private async _startInner(userId?: string): Promise<{ started: boolean }> {
     await this.loadState();
 
     if (this.s.status === 'destroying') {
@@ -690,7 +731,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     }
 
     if (!this.s.userId || !this.s.sandboxId) {
-      throw new Error('Instance not provisioned');
+      throw Object.assign(new Error('Instance not provisioned'), { status: 404 });
     }
 
     const flyConfig = getFlyConfig(this.env, this.s);
@@ -750,7 +791,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
           );
           console.log('[DO] Machine already running, mount verified');
           await this.scheduleAlarm();
-          return;
+          return { started: false };
         }
         console.log('[DO] Status is running but machine state is:', machine.state, '-- restarting');
       } catch (err) {
@@ -808,6 +849,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       if (!fly.isFlyInsufficientResources(err)) throw err;
 
       const code = err instanceof fly.FlyApiError ? err.status : 0;
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.emitStartCapacityRecovery(errorMessage, this.capacityRecoveryLabel(err));
       doError(this.s, 'Insufficient resources, replacing stranded volume', {
         statusCode: code,
         region: this.s.flyRegion ?? 'unknown',
@@ -848,7 +891,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     const currentStatus = await this.ctx.storage.get('status');
     if (!currentStatus || currentStatus === 'destroying') {
       doWarn(this.s, 'start: instance was destroyed while starting, aborting');
-      return;
+      return { started: false };
     }
 
     const startingAt = this.s.startingAt;
@@ -875,6 +918,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     });
 
     await this.scheduleAlarm();
+    return { started: true };
   }
 
   /**
@@ -932,6 +976,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
             lastStartErrorMessage: errorMessage,
             lastStartErrorAt: now,
           });
+          this.emitProvisioningFailed('no_machine_created', errorMessage);
         }
         // If storedMachineId exists the machine was created — reconcileStarting
         // will pick up its Fly state via getMachine + syncStatusWithFly. Writing
@@ -944,7 +989,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     await this.loadState();
 
     if (!this.s.userId || !this.s.sandboxId) {
-      throw new Error('Instance not provisioned');
+      throw Object.assign(new Error('Instance not provisioned'), { status: 404 });
     }
     if (
       this.s.status === 'stopped' ||
@@ -990,8 +1035,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
   async destroy(): Promise<DestroyResult> {
     await this.loadState();
 
-    if (!this.s.userId) {
-      throw new Error('Instance not provisioned');
+    if (!this.s.userId || !this.s.sandboxId) {
+      throw Object.assign(new Error('Instance not provisioned'), { status: 404 });
     }
 
     const machineUptimeMs = this.s.lastStartedAt ? Date.now() - this.s.lastStartedAt : 0;
@@ -1430,6 +1475,12 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         })
       );
       await this.scheduleAlarm();
+
+      this.emitEvent({
+        event: 'instance.restarting',
+        status: 'restarting',
+        label: action,
+      });
 
       this.ctx.waitUntil(this.restartMachineInBackground());
       return { success: true };
