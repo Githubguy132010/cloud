@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useTRPC } from '@/lib/trpc';
-import { View } from '@/tw';
 
 export default function HomeScreen() {
   const { signOut } = useAuth();

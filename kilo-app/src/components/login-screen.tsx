@@ -1,14 +1,14 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import { toast } from 'sonner-native';
 
 import logo from '@/../assets/images/logo.png';
 import { Button } from '@/components/ui/button';
+import { Image } from '@/components/ui/image';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useDeviceAuth } from '@/lib/auth/use-device-auth';
-import { View } from '@/tw';
-import { Image } from '@/tw/image';
 
 export function LoginScreen() {
   const { signIn } = useAuth();

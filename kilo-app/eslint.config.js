@@ -90,6 +90,28 @@ module.exports = defineConfig([
   // SonarJS — all recommended rules
   sonarjsPlugin.configs.recommended,
 
+  // Restricted imports
+  {
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-native',
+              importNames: ['Image'],
+              message: 'Import Image from @/components/ui/image instead.',
+            },
+            {
+              name: 'expo-image',
+              message: 'Import Image from @/components/ui/image instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // Upgrade all warnings from Expo's config to errors
   {
     rules: {
@@ -113,6 +135,14 @@ module.exports = defineConfig([
           objectLiteralTypeAssertions: 'never',
         },
       ],
+    },
+  },
+
+  // Allow expo-image import in the wrapper component
+  {
+    files: ['src/components/ui/image.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 
