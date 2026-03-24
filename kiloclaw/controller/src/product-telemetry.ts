@@ -5,6 +5,9 @@
  * defaults so callers never see an exception.
  */
 import fs from 'node:fs';
+import { isRecord, detectChannels } from './pairing-cache';
+
+export { detectChannels };
 
 const CONFIG_PATH = '/root/.openclaw/openclaw.json';
 
@@ -17,23 +20,6 @@ export type ProductTelemetry = {
   execSecurity: string | null;
   browserEnabled: boolean;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function detectChannels(config: unknown): string[] {
-  if (!isRecord(config)) return [];
-  const ch = isRecord(config.channels) ? config.channels : {};
-  const tg = isRecord(ch.telegram) ? ch.telegram : {};
-  const dc = isRecord(ch.discord) ? ch.discord : {};
-  const sl = isRecord(ch.slack) ? ch.slack : {};
-  const channels: string[] = [];
-  if (tg.enabled && tg.botToken) channels.push('telegram');
-  if (dc.enabled && dc.token) channels.push('discord');
-  if (sl.enabled && (sl.botToken || sl.appToken)) channels.push('slack');
-  return channels;
-}
 
 function getString(obj: unknown, ...path: string[]): string | null {
   let current: unknown = obj;

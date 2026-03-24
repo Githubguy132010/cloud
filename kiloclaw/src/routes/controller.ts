@@ -73,28 +73,6 @@ controller.post('/checkin', async (c: Context<AppEnv>) => {
     return c.json({ error: 'Invalid sandboxId' }, 400);
   }
 
-  console.log(
-    JSON.stringify({
-      tag: 'controller_checkin',
-      sandboxId: data.sandboxId,
-      userId,
-      machineId: data.machineId ?? '',
-      controllerVersion: data.controllerVersion,
-      controllerCommit: data.controllerCommit,
-      openclawVersion: data.openclawVersion ?? '',
-      openclawCommit: data.openclawCommit ?? '',
-      supervisorState: data.supervisorState,
-      totalRestarts: data.totalRestarts,
-      restartsSinceLastCheckin: data.restartsSinceLastCheckin,
-      uptimeSeconds: data.uptimeSeconds,
-      loadAvg5m: data.loadAvg5m,
-      bandwidthBytesIn: data.bandwidthBytesIn,
-      bandwidthBytesOut: data.bandwidthBytesOut,
-      lastExitReason: data.lastExitReason ?? '',
-      flyRegion: c.req.header('fly-region') ?? '',
-    })
-  );
-
   const stub = c.env.KILOCLAW_INSTANCE.get(c.env.KILOCLAW_INSTANCE.idFromName(userId));
   const config = await stub.getConfig().catch(() => null);
   if (!config?.kilocodeApiKey || !timingSafeEqual(apiKey, config.kilocodeApiKey)) {

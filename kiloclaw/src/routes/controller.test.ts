@@ -7,9 +7,18 @@ vi.mock('../db', () => ({
   findEmailByUserId: vi.fn().mockResolvedValue('user@example.com'),
 }));
 
-const mockCapturePostHogEvent = vi.fn().mockResolvedValue(undefined);
+type CaptureEventArg = {
+  apiKey: string;
+  distinctId: string;
+  event: string;
+  properties?: Record<string, unknown>;
+};
+
+const mockCapturePostHogEvent = vi
+  .fn<(event: CaptureEventArg) => Promise<void>>()
+  .mockResolvedValue(undefined);
 vi.mock('../lib/posthog', () => ({
-  capturePostHogEvent: (...args: unknown[]) => mockCapturePostHogEvent(...args),
+  capturePostHogEvent: (event: CaptureEventArg) => mockCapturePostHogEvent(event),
 }));
 
 const sandboxId = 'dXNlci0x';
@@ -183,12 +192,12 @@ describe('POST /checkin', () => {
     expect(captured.apiKey).toBe('phc_test');
     expect(captured.distinctId).toBe('user@example.com');
     expect(captured.event).toBe('kc_instance_product_telemetry');
-    expect(captured.properties.defaultModel).toBe('kilocode/anthropic/claude-opus-4.6');
-    expect(captured.properties.channelCount).toBe(2);
-    expect(captured.properties.enabledChannels).toEqual(['telegram', 'discord']);
-    expect(captured.properties.sandboxId).toBe(sandboxId);
-    expect(captured.properties.flyRegion).toBe('dfw');
-    expect(captured.properties.userId).toBe('user-1');
+    expect(captured.properties?.defaultModel).toBe('kilocode/anthropic/claude-opus-4.6');
+    expect(captured.properties?.channelCount).toBe(2);
+    expect(captured.properties?.enabledChannels).toEqual(['telegram', 'discord']);
+    expect(captured.properties?.sandboxId).toBe(sandboxId);
+    expect(captured.properties?.flyRegion).toBe('dfw');
+    expect(captured.properties?.userId).toBe('user-1');
   });
 
   it('falls back to userId as distinctId when Hyperdrive is unavailable', async () => {
