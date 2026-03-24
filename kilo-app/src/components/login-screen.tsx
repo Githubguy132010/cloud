@@ -39,6 +39,10 @@ export function LoginScreen() {
     }
   }, [status, token, signIn]);
 
+  if (status === 'approved') {
+    return <View className="flex-1 bg-background" />;
+  }
+
   return (
     <View className="flex-1 items-center justify-center gap-6 bg-background px-6">
       <View className="items-center gap-2">
