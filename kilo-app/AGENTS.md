@@ -68,13 +68,15 @@ npx expo install --dev <package-name>   # devDependencies
 ### Loading States
 
 - Never show bare "Loading..." text. Use the `Skeleton` component (`src/components/ui/skeleton.tsx`) for shimmer placeholders.
+- **Match skeleton dimensions exactly** to the loaded content (e.g., if a button is `h-11 rounded-md`, the skeleton should be `h-11 rounded-md`). Mismatched heights cause layout shift.
 - Use `ActivityIndicator` from `react-native` for inline spinners (e.g., waiting for an API call to initiate).
 
-### Animations
+### Animations & Reducing Layout Shift
 
 - `react-native-reanimated` is available. Use `FadeIn`/`FadeOut` entering/exiting animations to smooth state transitions (e.g., login states, content loading).
 - Use `LinearTransition` (not the deprecated `Layout`) on container `Animated.View` to animate height changes when children appear/disappear (e.g., skeleton → loaded content).
 - Wrap each dynamically appearing item in `<Animated.View entering={FadeIn.duration(200)}>` to fade in instead of popping.
+- **Skeleton → content swap pattern**: Wrap skeletons in `<Animated.View exiting={FadeOut.duration(150)}>` and loaded items in `<Animated.View entering={FadeIn.duration(200)}>`, with `LinearTransition` on the parent container. This gives a smooth crossfade with no jump.
 
 ### Empty States
 
