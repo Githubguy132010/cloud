@@ -48,6 +48,7 @@ function RootLayoutNav() {
       void SplashScreen.hideAsync();
     } else {
       hasInitialized.current = true;
+      void SplashScreen.hideAsync();
       router.replace('/(app)/(tabs)/(kiloclaw)');
     }
   }, [token, context, isLoading, inAuthGroup, inContextGroup, router]);
