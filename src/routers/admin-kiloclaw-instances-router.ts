@@ -542,7 +542,7 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
     const fallbackMessage = 'Failed to start machine';
     try {
       const client = new KiloClawInternalClient();
-      return await client.start(input.userId);
+      return await client.start(input.userId, { skipCooldown: true });
     } catch (err) {
       console.error('Failed to start machine for user:', input.userId, err);
       throwKiloclawAdminError(err, fallbackMessage);

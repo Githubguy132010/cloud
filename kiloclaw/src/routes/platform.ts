@@ -912,15 +912,20 @@ platform.post('/doctor', async c => {
 });
 
 // POST /api/platform/start
+const StartRequestSchema = UserIdRequestSchema.extend({
+  skipCooldown: z.boolean().optional(),
+});
+
 platform.post('/start', async c => {
-  const result = await parseBody(c, UserIdRequestSchema);
+  const result = await parseBody(c, StartRequestSchema);
   if ('error' in result) return result.error;
   const startedAt = performance.now();
 
   try {
+    const options = result.data.skipCooldown ? { skipCooldown: true } : undefined;
     const { started } = await withDORetry(
       instanceStubFactory(c.env, result.data.userId),
-      stub => stub.start(result.data.userId),
+      stub => stub.start(result.data.userId, options),
       'start'
     );
     if (started) {

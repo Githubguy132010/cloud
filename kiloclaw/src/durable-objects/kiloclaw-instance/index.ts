@@ -720,7 +720,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     return { ok: true };
   }
 
-  async start(userId?: string): Promise<{ started: boolean }> {
+  async start(userId?: string, options?: { skipCooldown?: boolean }): Promise<{ started: boolean }> {
     // Guard against concurrent start() calls — two overlapping invocations
     // (e.g. startAsync via waitUntil + a direct RPC start) can both see
     // flyMachineId as null and each create a Fly machine, orphaning one.
@@ -731,13 +731,16 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     this.startInProgress = true;
 
     try {
-      return await this._startInner(userId);
+      return await this._startInner(userId, options);
     } finally {
       this.startInProgress = false;
     }
   }
 
-  private async _startInner(userId?: string): Promise<{ started: boolean }> {
+  private async _startInner(
+    userId?: string,
+    options?: { skipCooldown?: boolean }
+  ): Promise<{ started: boolean }> {
     await this.loadState();
 
     if (this.s.status === 'destroying') {
@@ -769,7 +772,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         flyConfig,
         this.ctx,
         this.s,
-        createReconcileContext(this.s, this.env, 'start_recovery')
+        createReconcileContext(this.s, this.env, 'start_recovery'),
+        options?.skipCooldown
       );
       if (!recovered && !this.s.flyMachineId) {
         throw new Error(
