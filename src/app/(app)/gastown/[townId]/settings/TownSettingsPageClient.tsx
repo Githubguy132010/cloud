@@ -31,6 +31,7 @@ import {
   Key,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { AdminViewingBanner } from '@/components/gastown/AdminViewingBanner';
 
 type Props = { townId: string; readOnly?: boolean; organizationId?: string };
 
@@ -116,8 +117,12 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
 
   const townQuery = useQuery(trpc.gastown.getTown.queryOptions({ townId }));
   const configQuery = useQuery(trpc.gastown.getTownConfig.queryOptions({ townId }));
+  const adminAccessQuery = useQuery(trpc.gastown.checkAdminAccess.queryOptions({ townId }));
 
-  const effectiveReadOnly = readOnly && currentUser?.id !== configQuery.data?.created_by_user_id;
+  // Admin viewing another user's town → force read-only
+  const isAdminViewing = adminAccessQuery.data?.isAdminViewing ?? false;
+  const effectiveReadOnly =
+    isAdminViewing || (readOnly && currentUser?.id !== configQuery.data?.created_by_user_id);
 
   // Track the server-side model so we can detect changes on save
   const savedModelRef = useRef<string>('');
@@ -273,6 +278,7 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
 
   return (
     <div>
+      <AdminViewingBanner townId={townId} />
       {/* Top bar */}
       <div
         id="settings-sticky-header"
