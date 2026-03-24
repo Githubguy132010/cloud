@@ -50,7 +50,7 @@ function describeRouting(modeToModel: Map<string, ResolvedAutoModel>): string {
     modelToModes.set(model, modes);
   }
   const parts = [...modelToModes.entries()].map(
-    ([model, modes]) => `${MODEL_DISPLAY_NAMES[model] ?? model} for ${modes.join(', ')}`,
+    ([model, modes]) => `${MODEL_DISPLAY_NAMES[model] ?? model} for ${modes.join(', ')}`
   );
   return `Uses ${parts.join('; ')}.`;
 }
