@@ -778,6 +778,7 @@ export async function syncStatusWithFly(
   // failed is definitively terminal — transition immediately without waiting for
   // SELF_HEAL_THRESHOLD consecutive checks like we do for stopped/created.
   if (flyState === 'failed' && state.status !== 'stopped') {
+    const wasStarting = state.status === 'starting';
     rctx.log('sync_status_failed', {
       old_state: state.status,
       new_state: 'stopped',
@@ -795,7 +796,9 @@ export async function syncStatusWithFly(
         healthCheckFailCount: 0,
       })
     );
-    emitStartFailedEvent(rctx.env, state, 'fly_failed_state', 'fly machine entered failed state');
+    if (wasStarting) {
+      emitStartFailedEvent(rctx.env, state, 'fly_failed_state', 'fly machine entered failed state');
+    }
     return;
   }
 

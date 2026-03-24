@@ -3997,6 +3997,21 @@ describe('start failure analytics events', () => {
     expect(failedEvents[0].blobs).toContain('fly_failed_state');
     expect(failedEvents[0].blobs).toContain('fly machine entered failed state');
   });
+
+  it('does not emit instance.start_failed for a running machine that later fails', async () => {
+    vi.useFakeTimers();
+    const env = createFakeEnv();
+    const { instance, storage } = createInstance(undefined, env);
+    await seedRunning(storage, {
+      flyMachineId: 'machine-1',
+    });
+    (flyClient.getMachine as Mock).mockResolvedValue({ state: 'failed' });
+
+    await instance.alarm();
+
+    const failedEvents = analyticsEventsByName(env, 'instance.start_failed');
+    expect(failedEvents).toHaveLength(0);
+  });
 });
 
 describe('provision: instance feature flags', () => {
