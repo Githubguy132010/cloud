@@ -715,7 +715,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
     this.s.lastMetadataRecoveryAt = null;
     await this.persist({ lastMetadataRecoveryAt: null });
-    await this.scheduleAlarm();
+    await this.ctx.storage.setAlarm(Date.now());
 
     return { ok: true };
   }
