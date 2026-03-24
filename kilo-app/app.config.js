@@ -1,6 +1,5 @@
-import { type ExpoConfig } from 'expo/config';
-
-const config: ExpoConfig = {
+/** @type {import('expo/config').ExpoConfig} */
+const config = {
   name: 'Kilo',
   owner: 'kilocode',
   slug: 'kilo-app',
@@ -57,5 +56,4 @@ const config: ExpoConfig = {
   },
 };
 
-// eslint-disable-next-line import-x/no-default-export
-export default config;
+module.exports = config;
