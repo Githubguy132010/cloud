@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftRight, Building2, KeyRound, LogOut, User } from 'lucide-react-native';
+import { ArrowLeftRight, Building2, DollarSign, KeyRound, LogOut, User } from 'lucide-react-native';
 import { Alert, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
@@ -13,6 +13,51 @@ import { useTRPC } from '@/lib/trpc';
 
 function providerIcon(_provider: string) {
   return KeyRound;
+}
+
+function CreditsCard({ hasOrgs }: Readonly<{ hasOrgs: boolean }>) {
+  const trpc = useTRPC();
+  const colors = useThemeColors();
+  const { data: balance, isLoading: balanceLoading } = useQuery(
+    trpc.user.getBalance.queryOptions()
+  );
+  const { data: creditData } = useQuery(trpc.user.getCreditBlocks.queryOptions({}));
+
+  const label = hasOrgs ? 'Remaining Personal Credits' : 'Remaining Credits';
+
+  const expiringBlocks = creditData?.creditBlocks.filter(b => b.expiry_date !== null) ?? [];
+  const expiringTotal = expiringBlocks.reduce((sum, b) => sum + b.balance_mUsd, 0) / 1_000_000;
+  const earliestExpiry = expiringBlocks
+    .map(b => b.expiry_date)
+    .filter((d): d is string => d !== null)
+    .toSorted((a, b) => a.localeCompare(b))[0];
+
+  return (
+    <View className="gap-3">
+      <Text variant="small" className="uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Text>
+      {balanceLoading ? (
+        <Skeleton className="h-12 w-32 rounded-lg" />
+      ) : (
+        <View className="rounded-lg bg-secondary p-3">
+          <View className="flex-row items-center gap-2">
+            <DollarSign size={18} color={colors.secondaryForeground} />
+            <Text className="text-2xl font-bold">${balance?.balance.toFixed(2) ?? '0.00'}</Text>
+          </View>
+          {expiringTotal > 0 && Boolean(earliestExpiry) && (
+            <Text className="mt-1 text-xs text-muted-foreground">
+              ${expiringTotal.toFixed(2)} in bonus credits expiring{' '}
+              {new Date(earliestExpiry).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
 }
 
 export function ProfileScreen() {
@@ -57,6 +102,11 @@ export function ProfileScreen() {
           )}
           <Text className="text-sm font-medium">{contextLabel}</Text>
         </View>
+      </View>
+
+      {/* Credits */}
+      <View className="mt-6">
+        <CreditsCard hasOrgs={(orgs?.length ?? 0) > 0} />
       </View>
 
       {/* Linked accounts */}
