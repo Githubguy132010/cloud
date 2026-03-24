@@ -25,6 +25,7 @@ function RootLayoutNav() {
   const isLoading = authLoading || contextLoading;
   const inAuthGroup = segments[0] === '(auth)';
   const inContextGroup = segments[0] === '(context)';
+  const inKiloClawTab = segments.includes('(kiloclaw)' as never);
 
   useEffect(() => {
     if (isLoading) return;
@@ -41,18 +42,20 @@ function RootLayoutNav() {
       } else {
         router.replace('/(context)/select');
       }
-    } else if (inAuthGroup || inContextGroup) {
+    } else if (inAuthGroup || inContextGroup || !inKiloClawTab) {
       router.replace('/(app)/(tabs)/(kiloclaw)');
     } else {
       void SplashScreen.hideAsync();
     }
-  }, [token, context, isLoading, inAuthGroup, inContextGroup, router]);
+  }, [token, context, isLoading, inAuthGroup, inContextGroup, inKiloClawTab, router]);
 
   const needsRedirect =
     !isLoading &&
     ((!token && !inAuthGroup) ||
       (token !== undefined && !context && !inContextGroup) ||
-      (token !== undefined && context !== undefined && (inAuthGroup || inContextGroup)));
+      (token !== undefined &&
+        context !== undefined &&
+        (inAuthGroup || inContextGroup || !inKiloClawTab)));
 
   if (isLoading || needsRedirect) {
     return;
