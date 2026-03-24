@@ -769,8 +769,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         flyConfig,
         this.ctx,
         this.s,
-        createReconcileContext(this.s, this.env, 'start_recovery'),
-        true /* skipCooldown — start() must always attempt recovery */
+        createReconcileContext(this.s, this.env, 'start_recovery')
       );
       if (!recovered && !this.s.flyMachineId) {
         throw new Error(
