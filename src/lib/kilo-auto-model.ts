@@ -113,8 +113,8 @@ const BALANCED_MODE_TO_MODEL: Record<string, ResolvedAutoModel> = {
   orchestrator: { model: KIMI_CURRENT_MODEL_ID, reasoning: { enabled: true } },
   ask: { model: KIMI_CURRENT_MODEL_ID, reasoning: { enabled: true } },
   debug: { model: KIMI_CURRENT_MODEL_ID, reasoning: { enabled: true } },
-  build: { model: KIMI_CURRENT_MODEL_ID },
-  explore: { model: KIMI_CURRENT_MODEL_ID },
+  build: { model: MINIMAX_CURRENT_MODEL_ID },
+  explore: { model: MINIMAX_CURRENT_MODEL_ID },
   code: BALANCED_CODE_MODEL,
 };
 
