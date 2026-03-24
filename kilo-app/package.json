@@ -13,7 +13,7 @@
     "lint": "expo lint",
     "format": "oxfmt src",
     "format:check": "oxfmt --list-different src",
-    "knip": "knip"
+    "check:unused": "knip"
   },
   "dependencies": {
     "@kilocode/trpc": "workspace:*",
