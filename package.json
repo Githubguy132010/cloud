@@ -213,10 +213,7 @@
     "onlyBuiltDependencies": [
       "@swc/core",
       "@tailwindcss/oxide",
-      "core-js-pure",
-      "es5-ext",
       "esbuild",
-      "libpq",
       "protobufjs",
       "workerd"
     ]
