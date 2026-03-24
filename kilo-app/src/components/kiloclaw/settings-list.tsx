@@ -1,0 +1,105 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  ChevronRight,
+  Globe,
+  Key,
+  Lock,
+  MessageSquare,
+  Monitor,
+  Pin,
+  Shield,
+} from 'lucide-react-native';
+import { type LucideIcon } from 'lucide-react-native';
+import { Pressable, View } from 'react-native';
+
+import { Text } from '@/components/ui/text';
+import { useThemeColors } from '@/lib/hooks/use-theme-colors';
+
+type SettingsItem = {
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  path: string;
+};
+
+const SETTINGS_ITEMS: SettingsItem[] = [
+  {
+    icon: Key,
+    label: 'Environment Variables',
+    description: 'Configure env vars',
+    path: 'settings/env-vars',
+  },
+  {
+    icon: Lock,
+    label: 'Secrets',
+    description: 'Encrypted credentials',
+    path: 'settings/secrets',
+  },
+  {
+    icon: MessageSquare,
+    label: 'Channels',
+    description: 'Telegram, Discord, Slack, GitHub',
+    path: 'settings/channels',
+  },
+  {
+    icon: Shield,
+    label: 'Execution Policy',
+    description: 'Security settings',
+    path: 'settings/exec-policy',
+  },
+  {
+    icon: Pin,
+    label: 'Version Pinning',
+    description: 'Pin to a specific version',
+    path: 'settings/version-pin',
+  },
+  {
+    icon: Monitor,
+    label: 'Device Pairing',
+    description: 'Approve device requests',
+    path: 'settings/device-pairing',
+  },
+  {
+    icon: Globe,
+    label: 'Google Account',
+    description: 'Gmail, Calendar, Docs',
+    path: 'settings/google',
+  },
+];
+
+export function SettingsList() {
+  const router = useRouter();
+  const colors = useThemeColors();
+  const { 'instance-id': instanceId } = useLocalSearchParams<{ 'instance-id': string }>();
+
+  return (
+    <View className="rounded-lg bg-secondary overflow-hidden">
+      {SETTINGS_ITEMS.map((item, index) => {
+        const Icon = item.icon;
+        const isLast = index === SETTINGS_ITEMS.length - 1;
+
+        return (
+          <View key={item.path}>
+            <Pressable
+              className="flex-row items-center gap-3 px-4 py-3 active:opacity-70"
+              onPress={() => {
+                router.push(
+                  `/(app)/(tabs)/(1_kiloclaw)/${instanceId ?? 'default'}/${item.path}` as never
+                );
+              }}
+              accessibilityLabel={item.label}
+            >
+              <Icon size={18} color={colors.foreground} />
+              <View className="flex-1">
+                <Text className="text-sm font-medium">{item.label}</Text>
+                <Text className="text-xs text-muted-foreground">{item.description}</Text>
+              </View>
+              <ChevronRight size={16} color={colors.mutedForeground} />
+            </Pressable>
+            {!isLast && <View className="ml-14 h-px bg-border" />}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
