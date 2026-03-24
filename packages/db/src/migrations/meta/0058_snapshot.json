@@ -1,5 +1,5 @@
 {
-  "id": "42b7ecae-76c9-4eb9-8eac-c4c63085ed0f",
+  "id": "0f39fa83-40ae-4d85-b1d6-70cd08d15d14",
   "prevId": "2f2f1356-3c1f-48f9-b3a2-8317823a4868",
   "version": "7",
   "dialect": "postgresql",
@@ -8172,6 +8172,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "discord_server_membership_verified_at": {
+          "name": "discord_server_membership_verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "openrouter_upstream_safety_identifier": {
           "name": "openrouter_upstream_safety_identifier",
           "type": "text",
@@ -13439,14 +13445,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "hosted_domain": {
-          "name": "hosted_domain",
+        "display_name": {
+          "name": "display_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "display_name": {
-          "name": "display_name",
+        "hosted_domain": {
+          "name": "hosted_domain",
           "type": "text",
           "primaryKey": false,
           "notNull": false
