@@ -114,7 +114,7 @@ export function ProvisioningStep({
 }
 
 const PROVISIONING_PHRASES = [
-  "If it works, it's automation; if it breaks, it's a \"learning opportunity.\"",
+  'If it works, it\'s automation; if it breaks, it\'s a "learning opportunity."',
   'I speak fluent bash, mild sarcasm, and aggressive tab-completion energy.',
   'I can grep it, git blame it, and gently roast it—pick your coping mechanism.',
   "I'm the reason your shell history looks like a hacker-movie montage.",
@@ -123,14 +123,14 @@ const PROVISIONING_PHRASES = [
   'If you can describe it, I can probably automate it—or at least make it funnier.',
   'Your config is valid, your assumptions are not.',
   "I'll refactor your busywork like it owes me money.",
-  "Say \"stop\" and I'll stop—say \"ship\" and we'll both learn a lesson.",
+  'Say "stop" and I\'ll stop—say "ship" and we\'ll both learn a lesson.',
   "I'll do the boring stuff while you dramatically stare at the logs like it's cinema.",
   "I'm not saying your workflow is chaotic... I'm just bringing a linter and a helmet.",
   'Type the command with confidence—nature will provide the stack trace if needed.',
-  "I run on caffeine, JSON5, and the audacity of \"it worked on my machine.\"",
+  'I run on caffeine, JSON5, and the audacity of "it worked on my machine."',
   'Gateway online—please keep hands, feet, and appendages inside the shell at all times.',
   "Give me a workspace and I'll give you fewer tabs, fewer toggles, and more oxygen.",
-  "It's not \"failing,\" it's \"discovering new ways to configure the same thing wrong.\"",
+  'It\'s not "failing," it\'s "discovering new ways to configure the same thing wrong."',
   "I can't fix your code taste, but I can fix your build and your backlog.",
   "I'm not magic—I'm just extremely persistent with retries and coping strategies.",
   "I'm basically a Swiss Army knife, but with more opinions and fewer sharp edges.",
