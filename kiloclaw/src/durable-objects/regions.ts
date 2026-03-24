@@ -1,3 +1,11 @@
+import { DEFAULT_FLY_REGION } from '../config';
+
+/** KV key used to store the runtime region configuration. */
+export const FLY_REGIONS_KV_KEY = 'fly-regions';
+
+/** Fly geographic aliases that expand server-side — these should NOT be shuffled. */
+const FLY_META_REGIONS = new Set(['eu', 'us']);
+
 /** Split a comma-separated region string into an array. */
 export function parseRegions(regionList: string): string[] {
   return regionList
@@ -25,4 +33,35 @@ export function deprioritizeRegion(regions: string[], failedRegion: string | nul
   if (!failedRegion) return regions;
   const without = regions.filter(r => r !== failedRegion);
   return without.length < regions.length ? [...without, failedRegion] : regions;
+}
+
+/** Returns true if a region code is a Fly geographic alias (not a specific region). */
+export function isMetaRegion(region: string): boolean {
+  return FLY_META_REGIONS.has(region.toLowerCase());
+}
+
+/**
+ * Conditionally shuffle regions: specific region codes (e.g. dfw, ord) are shuffled
+ * for load distribution, while meta-regions (eu, us) are left in declared order
+ * since Fly handles distribution internally.
+ *
+ * If ANY region in the list is specific, the entire list is shuffled.
+ * Duplicates are intentional — they bias the shuffle probability.
+ */
+export function prepareRegions(regions: string[]): string[] {
+  const hasSpecific = regions.some(r => !isMetaRegion(r));
+  return hasSpecific ? shuffleRegions([...regions]) : regions;
+}
+
+/**
+ * Resolve the region list from KV (runtime-configurable), falling back to the
+ * FLY_REGION env var, then the hardcoded default. Applies conditional shuffling.
+ */
+export async function resolveRegions(
+  kv: KVNamespace,
+  envFlyRegion: string | undefined,
+): Promise<string[]> {
+  const kvValue = await kv.get(FLY_REGIONS_KV_KEY);
+  const raw = kvValue ?? envFlyRegion ?? DEFAULT_FLY_REGION;
+  return prepareRegions(parseRegions(raw));
 }
