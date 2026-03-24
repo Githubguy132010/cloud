@@ -440,19 +440,22 @@ export default function UsagePage() {
   }));
 
   return (
-    <PageLayout title="Usage">
-      <Tabs
-        value={period}
-        onValueChange={(value) => setPeriod(value as Period)}
-      >
-        <TabsList>
-          <TabsTrigger value="week">Past Week</TabsTrigger>
-          <TabsTrigger value="month">Past Month</TabsTrigger>
-          <TabsTrigger value="year">Past Year</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
+    <PageLayout
+      title="Usage"
+      headerActions={
+        <Tabs
+          value={period}
+          onValueChange={(value) => setPeriod(value as Period)}
+        >
+          <TabsList>
+            <TabsTrigger value="week">Past Week</TabsTrigger>
+            <TabsTrigger value="month">Past Month</TabsTrigger>
+            <TabsTrigger value="year">Past Year</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      }
+    >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="grid grid-cols-1 gap-4 lg:col-span-2">
           {/* First row - Total metrics */}
