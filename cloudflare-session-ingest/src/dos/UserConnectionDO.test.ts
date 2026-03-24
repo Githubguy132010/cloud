@@ -261,6 +261,30 @@ describe('UserConnectionDO', () => {
       });
     });
 
+    it('replays existing web subscriptions when a session gets a new CLI owner', () => {
+      const { doInstance, mockCtx } = setup();
+      const cli1 = addCliSocket(mockCtx, 'cli-1');
+      const cli2 = addCliSocket(mockCtx, 'cli-2');
+      addWebSocket(mockCtx, 'web-1');
+
+      // cli1 owns s1
+      sendHeartbeat(doInstance, cli1, [makeSession('s1')]);
+
+      // web subscribes to s1 — subscribe sent to cli1 (the current owner)
+      const webWs = mockCtx.sockets.find(s => s._tags.includes('web'))!;
+      sendSubscribe(doInstance, webWs, 's1');
+
+      cli1.send.mockClear();
+      cli2.send.mockClear();
+
+      // cli2 now reports s1 — becomes new owner
+      sendHeartbeat(doInstance, cli2, [makeSession('s1')]);
+
+      // cli2 should have received the replayed subscribe for s1
+      const cli2Msgs = allSent(cli2);
+      expect(cli2Msgs).toContainEqual({ type: 'subscribe', sessionId: 's1' });
+    });
+
     it('schedules stale alarm on heartbeat', () => {
       const { doInstance, mockCtx, ctx } = setup();
       const cliWs = addCliSocket(mockCtx, 'cli-1');
@@ -562,6 +586,51 @@ describe('UserConnectionDO', () => {
       sendSubscribe(doInstance, webWs, 's1');
       expect(cli2.send).toHaveBeenCalled();
       expect(parseSent(cli2)).toEqual({ type: 'subscribe', sessionId: 's1' });
+    });
+
+    it('reconnecting CLI — commands sent to replacement socket are not spuriously failed', () => {
+      const { doInstance, mockCtx } = setup();
+      const cli1 = addCliSocket(mockCtx, 'cli-1');
+      const webWs = addWebSocket(mockCtx, 'web-1');
+
+      sendHeartbeat(doInstance, cli1, [makeSession('s1')]);
+
+      // cli2 connects with the same connectionId (reconnect).
+      // In production, closeStaleSocket removes cli1 before cli2 is accepted.
+      // Simulate that by removing cli1 from the socket list first.
+      mockCtx.removeSocket(cli1);
+      const cli2 = addCliSocket(mockCtx, 'cli-1');
+      sendHeartbeat(doInstance, cli2, [makeSession('s1')]);
+
+      cli2.send.mockClear();
+      webWs.send.mockClear();
+
+      // Web sends a command targeting s1 — should route to cli2 (the replacement)
+      sendCommand(doInstance, webWs, { id: 'cmd-new', command: 'test', sessionId: 's1' });
+      expect(cli2.send).toHaveBeenCalled();
+      const correlationId = getCorrelationId(cli2);
+
+      webWs.send.mockClear();
+
+      // Now cli1's close event fires (stale socket teardown)
+      disconnectCli(doInstance, cli1);
+
+      // Web should NOT have received an error for cmd-new — it was sent to cli2, not cli1
+      const errorMsgs = allSent(webWs).filter(
+        m => m.type === 'response' && m.id === 'cmd-new' && m.error
+      );
+      expect(errorMsgs).toHaveLength(0);
+
+      // cli2 responds successfully
+      webWs.send.mockClear();
+      sendCliResponse(doInstance, cli2, { id: correlationId, result: 'ok' });
+
+      expect(webWs.send).toHaveBeenCalledTimes(1);
+      expect(parseSent(webWs)).toEqual({
+        type: 'response',
+        id: 'cmd-new',
+        result: 'ok',
+      });
     });
 
     it('reconnecting CLI — pending commands from old socket get error responses', () => {

@@ -32,7 +32,7 @@ export class UserConnectionDO extends DurableObject<Env> {
   // Pending command responses: correlationId → originating web socket
   private pendingCommands = new Map<
     string,
-    { ws: WebSocket; sessionId?: string; originalId: string; targetConnectionId: string }
+    { ws: WebSocket; sessionId?: string; originalId: string; targetCliWs: WebSocket }
   >();
   // Last heartbeat timestamp per CLI connectionId (for staleness eviction)
   private lastHeartbeatAt = new Map<string, number>();
@@ -175,7 +175,7 @@ export class UserConnectionDO extends DurableObject<Env> {
     if (!attachment) return;
 
     if (attachment.role === 'cli') {
-      this.handleCliDisconnect(attachment);
+      this.handleCliDisconnect(ws, attachment);
     } else {
       this.handleWebDisconnect(ws);
     }
@@ -277,6 +277,14 @@ export class UserConnectionDO extends DurableObject<Env> {
     this.connectionSessions.set(connectionId, sessions);
     for (const session of sessions) {
       this.sessionOwners.set(session.id, connectionId);
+    }
+
+    // Replay existing subscriptions for sessions newly owned by this CLI
+    const previousIds = new Set(previousSessions.map(s => s.id));
+    for (const session of sessions) {
+      if (!previousIds.has(session.id) && this.webSubscriptions.has(session.id)) {
+        this.sendToCli(ws, { type: 'subscribe', sessionId: session.id });
+      }
     }
 
     // Persist to attachment for hibernation recovery
@@ -450,15 +458,12 @@ export class UserConnectionDO extends DurableObject<Env> {
       return;
     }
 
-    const targetAtt = targetCli.deserializeAttachment() as WSAttachment | null;
-    const targetConnectionId = targetAtt?.role === 'cli' ? targetAtt.connectionId : 'unknown';
-
     const correlationId = crypto.randomUUID();
     this.pendingCommands.set(correlationId, {
       ws,
       sessionId: msg.sessionId,
       originalId: msg.id,
-      targetConnectionId,
+      targetCliWs: targetCli,
     });
 
     this.sendToCli(targetCli, {
@@ -474,7 +479,10 @@ export class UserConnectionDO extends DurableObject<Env> {
   // Disconnect handling
   // ---------------------------------------------------------------------------
 
-  private handleCliDisconnect(attachment: WSAttachment & { role: 'cli' }): void {
+  private handleCliDisconnect(
+    disconnectedWs: WebSocket,
+    attachment: WSAttachment & { role: 'cli' }
+  ): void {
     const { connectionId } = attachment;
 
     // If another CLI socket already has this connectionId, this is a stale
@@ -484,9 +492,8 @@ export class UserConnectionDO extends DurableObject<Env> {
       return att?.role === 'cli' && att.connectionId === connectionId;
     });
 
-    // Fail pending commands that targeted this connection — even on reconnect,
-    // because the replacement socket never saw those correlation IDs.
-    this.failPendingCommandsForConnection(connectionId);
+    // Fail pending commands that targeted this specific socket
+    this.failPendingCommandsForSocket(disconnectedWs);
 
     if (replaced) {
       console.log('Stale CLI socket closed (already replaced)', { connectionId });
@@ -627,9 +634,9 @@ export class UserConnectionDO extends DurableObject<Env> {
     return undefined;
   }
 
-  private failPendingCommandsForConnection(connectionId: string): void {
+  private failPendingCommandsForSocket(targetWs: WebSocket): void {
     for (const [id, entry] of this.pendingCommands) {
-      if (entry.targetConnectionId === connectionId) {
+      if (entry.targetCliWs === targetWs) {
         this.sendToWeb(entry.ws, {
           type: 'response',
           id: entry.originalId,
