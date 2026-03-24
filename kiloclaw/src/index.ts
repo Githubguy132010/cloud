@@ -186,17 +186,20 @@ async function attemptCrashRecovery(c: Context<AppEnv>): Promise<boolean> {
 
     // Machine dead despite running status -- restart
     console.log('[PROXY] Instance status is running but machine unreachable, restarting');
-    await stub.start(userId);
-    writeEvent(c.env, {
-      event: 'instance.crash_recovery_succeeded',
-      delivery: 'http',
-      userId,
-      sandboxId: c.get('sandboxId') ?? undefined,
-      flyMachineId: status.flyMachineId ?? undefined,
-      flyAppName: status.flyAppName ?? undefined,
-      status: status.status,
-      durationMs: performance.now() - startedAt,
-    });
+    const { started } = await stub.start(userId);
+    if (started) {
+      const freshStatus = await stub.getStatus();
+      writeEvent(c.env, {
+        event: 'instance.crash_recovery_succeeded',
+        delivery: 'http',
+        userId,
+        sandboxId: c.get('sandboxId') ?? undefined,
+        flyMachineId: freshStatus.flyMachineId ?? undefined,
+        flyAppName: freshStatus.flyAppName ?? undefined,
+        status: freshStatus.status ?? undefined,
+        durationMs: performance.now() - startedAt,
+      });
+    }
     return true;
   } catch (err) {
     writeEvent(c.env, {

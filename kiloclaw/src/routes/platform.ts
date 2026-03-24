@@ -917,18 +917,20 @@ platform.post('/start', async c => {
   const startedAt = performance.now();
 
   try {
-    await withDORetry(
+    const { started } = await withDORetry(
       instanceStubFactory(c.env, result.data.userId),
       stub => stub.start(result.data.userId),
       'start'
     );
-    writeEvent(c.env, {
-      event: 'instance.manual_start_succeeded',
-      delivery: 'http',
-      route: '/api/platform/start',
-      userId: result.data.userId,
-      durationMs: performance.now() - startedAt,
-    });
+    if (started) {
+      writeEvent(c.env, {
+        event: 'instance.manual_start_succeeded',
+        delivery: 'http',
+        route: '/api/platform/start',
+        userId: result.data.userId,
+        durationMs: performance.now() - startedAt,
+      });
+    }
     return c.json({ ok: true });
   } catch (err) {
     const { message, status } = sanitizeError(err, 'start');

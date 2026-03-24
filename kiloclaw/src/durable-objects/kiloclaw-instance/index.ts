@@ -694,18 +694,19 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
   // ── Lifecycle ───────────────────────────────────────────────────────
 
-  async start(userId?: string): Promise<void> {
+  async start(userId?: string): Promise<{ started: boolean }> {
     // Guard against concurrent start() calls — two overlapping invocations
     // (e.g. startAsync via waitUntil + a direct RPC start) can both see
     // flyMachineId as null and each create a Fly machine, orphaning one.
     if (this.startInProgress) {
       doWarn(this.s, 'start: already in progress, skipping duplicate call');
-      return;
+      return { started: false };
     }
     this.startInProgress = true;
 
     try {
       await this._startInner(userId);
+      return { started: true };
     } finally {
       this.startInProgress = false;
     }
