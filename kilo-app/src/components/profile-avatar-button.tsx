@@ -1,8 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 
-import { Text } from '@/components/ui/text';
+import logo from '@/../assets/images/logo.png';
+import { Image } from '@/components/ui/image';
 import { cn } from '@/lib/utils';
 
 interface ProfileAvatarButtonProps {
@@ -22,9 +23,7 @@ export function ProfileAvatarButton({ className }: Readonly<ProfileAvatarButtonP
       accessibilityRole="button"
       accessibilityLabel="Open profile"
     >
-      <View className="h-8 w-8 items-center justify-center rounded-full bg-secondary">
-        <Text className="text-xs font-semibold text-secondary-foreground">K</Text>
-      </View>
+      <Image source={logo} className="h-7 w-7" />
     </Pressable>
   );
 }
