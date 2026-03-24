@@ -705,14 +705,13 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     this.startInProgress = true;
 
     try {
-      await this._startInner(userId);
-      return { started: true };
+      return await this._startInner(userId);
     } finally {
       this.startInProgress = false;
     }
   }
 
-  private async _startInner(userId?: string): Promise<void> {
+  private async _startInner(userId?: string): Promise<{ started: boolean }> {
     await this.loadState();
 
     if (this.s.status === 'destroying') {
@@ -792,7 +791,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
           );
           console.log('[DO] Machine already running, mount verified');
           await this.scheduleAlarm();
-          return;
+          return { started: false };
         }
         console.log('[DO] Status is running but machine state is:', machine.state, '-- restarting');
       } catch (err) {
@@ -892,7 +891,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     const currentStatus = await this.ctx.storage.get('status');
     if (!currentStatus || currentStatus === 'destroying') {
       doWarn(this.s, 'start: instance was destroyed while starting, aborting');
-      return;
+      return { started: false };
     }
 
     const startingAt = this.s.startingAt;
@@ -919,6 +918,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     });
 
     await this.scheduleAlarm();
+    return { started: true };
   }
 
   /**
