@@ -5,6 +5,18 @@ import { timingSafeEqual } from '@kilocode/encryption';
 import type { AppEnv } from '../types';
 import { userIdFromSandboxId } from '../auth/sandbox-id';
 import { deriveGatewayToken } from '../auth/gateway-token';
+import { getWorkerDb, findEmailByUserId } from '../db';
+import { capturePostHogEvent } from '../lib/posthog';
+
+const ProductTelemetrySchema = z.object({
+  openclawVersion: z.string().nullable(),
+  defaultModel: z.string().nullable(),
+  channelCount: z.number().int().min(0),
+  enabledChannels: z.array(z.string()),
+  toolsProfile: z.string().nullable(),
+  execSecurity: z.string().nullable(),
+  browserEnabled: z.boolean(),
+});
 
 const CheckinSchema = z.object({
   sandboxId: z.string().min(1),
@@ -21,6 +33,7 @@ const CheckinSchema = z.object({
   bandwidthBytesIn: z.number().min(0),
   bandwidthBytesOut: z.number().min(0),
   lastExitReason: z.string().optional(),
+  productTelemetry: ProductTelemetrySchema.optional(),
 });
 
 const controller = new Hono<AppEnv>();
@@ -60,6 +73,28 @@ controller.post('/checkin', async (c: Context<AppEnv>) => {
     return c.json({ error: 'Invalid sandboxId' }, 400);
   }
 
+  console.log(
+    JSON.stringify({
+      tag: 'controller_checkin',
+      sandboxId: data.sandboxId,
+      userId,
+      machineId: data.machineId ?? '',
+      controllerVersion: data.controllerVersion,
+      controllerCommit: data.controllerCommit,
+      openclawVersion: data.openclawVersion ?? '',
+      openclawCommit: data.openclawCommit ?? '',
+      supervisorState: data.supervisorState,
+      totalRestarts: data.totalRestarts,
+      restartsSinceLastCheckin: data.restartsSinceLastCheckin,
+      uptimeSeconds: data.uptimeSeconds,
+      loadAvg5m: data.loadAvg5m,
+      bandwidthBytesIn: data.bandwidthBytesIn,
+      bandwidthBytesOut: data.bandwidthBytesOut,
+      lastExitReason: data.lastExitReason ?? '',
+      flyRegion: c.req.header('fly-region') ?? '',
+    })
+  );
+
   const stub = c.env.KILOCLAW_INSTANCE.get(c.env.KILOCLAW_INSTANCE.idFromName(userId));
   const config = await stub.getConfig().catch(() => null);
   if (!config?.kilocodeApiKey || !timingSafeEqual(apiKey, config.kilocodeApiKey)) {
@@ -92,6 +127,33 @@ controller.post('/checkin', async (c: Context<AppEnv>) => {
     });
   } catch {
     // Best-effort: never fail checkin on AE write errors
+  }
+
+  // Forward product telemetry to PostHog (~every 24h).
+  if (data.productTelemetry && c.env.NEXT_PUBLIC_POSTHOG_KEY) {
+    try {
+      let distinctId = userId;
+      const connectionString = c.env.HYPERDRIVE?.connectionString;
+      if (connectionString) {
+        const email = await findEmailByUserId(getWorkerDb(connectionString), userId);
+        if (email) distinctId = email;
+      }
+
+      await capturePostHogEvent({
+        apiKey: c.env.NEXT_PUBLIC_POSTHOG_KEY,
+        distinctId,
+        event: 'kc_instance_product_telemetry',
+        properties: {
+          ...data.productTelemetry,
+          sandboxId: data.sandboxId,
+          machineId: data.machineId ?? '',
+          flyRegion: c.req.header('fly-region') ?? '',
+          userId,
+        },
+      });
+    } catch (err) {
+      console.warn('[controller] PostHog capture failed (non-fatal):', err);
+    }
   }
 
   return c.body(null, 204);
