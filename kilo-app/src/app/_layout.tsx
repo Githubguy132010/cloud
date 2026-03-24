@@ -42,7 +42,7 @@ function RootLayoutNav() {
         router.replace('/(context)/select');
       }
     } else if (inAuthGroup || inContextGroup) {
-      router.replace('/(app)');
+      router.replace('/(app)/(tabs)/(kiloclaw)');
     } else {
       void SplashScreen.hideAsync();
     }
