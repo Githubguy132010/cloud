@@ -1,32 +1,28 @@
-import { useNavigation, useRouter } from 'expo-router';
+import { useNavigation } from 'expo-router';
+import { Server } from 'lucide-react-native';
 import { useLayoutEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Text } from '@/components/ui/text';
+import { EmptyState } from '@/components/empty-state';
+import { ProfileAvatarButton } from '@/components/profile-avatar-button';
 
 export default function KiloClawInstanceList() {
   const navigation = useNavigation();
-  const router = useRouter();
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: 'KiloClaw',
-      headerRight: () => (
-        <Pressable
-          onPress={() => {
-            router.push('/(app)/profile' as never);
-          }}
-          className="mr-2"
-        >
-          <Text className="text-xl">👤</Text>
-        </Pressable>
-      ),
+      headerRight: () => <ProfileAvatarButton />,
     });
-  }, [navigation, router]);
+  }, [navigation]);
 
   return (
-    <View className="flex-1 items-center justify-center gap-4 bg-background px-6">
-      <Text variant="muted">Your instances will appear here</Text>
+    <View className="flex-1 items-center justify-center bg-background">
+      <EmptyState
+        icon={Server}
+        title="No instances yet"
+        description="Your KiloClaw instances will appear here"
+      />
     </View>
   );
 }

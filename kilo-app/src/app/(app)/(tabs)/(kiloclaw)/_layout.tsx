@@ -1,11 +1,15 @@
 import { Stack } from 'expo-router';
 
+import { useThemeColors } from '@/lib/hooks/use-theme-colors';
+
 export default function KiloClawLayout() {
+  const colors = useThemeColors();
+
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: 'hsl(0, 0%, 3.9%)' },
-        headerTintColor: 'hsl(0, 0%, 98%)',
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.foreground,
       }}
     />
   );

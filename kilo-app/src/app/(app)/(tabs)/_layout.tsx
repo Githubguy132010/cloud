@@ -1,16 +1,26 @@
+import * as Haptics from 'expo-haptics';
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Bot, MessageSquare } from 'lucide-react-native';
+
+import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
 export default function TabsLayout() {
+  const colors = useThemeColors();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: 'hsl(0, 0%, 98%)',
-        tabBarInactiveTintColor: 'hsl(0, 0%, 45%)',
+        tabBarActiveTintColor: colors.foreground,
+        tabBarInactiveTintColor: colors.mutedForeground,
         tabBarStyle: {
-          backgroundColor: 'hsl(0, 0%, 3.9%)',
-          borderTopColor: 'hsl(0, 0%, 14.9%)',
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+        },
+      }}
+      screenListeners={{
+        tabPress: () => {
+          void Haptics.selectionAsync();
         },
       }}
     >
@@ -18,22 +28,14 @@ export default function TabsLayout() {
         name="(kiloclaw)"
         options={{
           title: 'KiloClaw',
-          tabBarIcon: ({ color }) => (
-            <Text className="text-xl" style={{ color }}>
-              💬
-            </Text>
-          ),
+          tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="(agents)"
         options={{
           title: 'Agents',
-          tabBarIcon: ({ color }) => (
-            <Text className="text-xl" style={{ color }}>
-              🤖
-            </Text>
-          ),
+          tabBarIcon: ({ color, size }) => <Bot size={size} color={color} />,
         }}
       />
     </Tabs>
