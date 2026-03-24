@@ -1981,6 +1981,39 @@ export class TownDO extends DurableObject<Env> {
     return { agentId: mayor.id, sessionStatus: 'idle' };
   }
 
+  /**
+   * Hot-update the mayor's model without restarting the session.
+   * Patches the running SDK server config and per-message model override
+   * so both the mayor and its sub-agents use the new model immediately.
+   */
+  async updateMayorModel(model: string, smallModel?: string): Promise<void> {
+    const townId = this.townId;
+    const mayor = agents.listAgents(this.sql, { role: 'mayor' })[0];
+    if (!mayor) return;
+
+    const containerStatus = await dispatch.checkAgentContainerStatus(this.env, townId, mayor.id);
+    const isAlive = containerStatus.status === 'running' || containerStatus.status === 'starting';
+
+    if (isAlive) {
+      const updated = await dispatch.updateAgentModelInContainer(
+        this.env,
+        townId,
+        mayor.id,
+        model,
+        smallModel
+      );
+      if (updated) {
+        console.log(
+          `${TOWN_LOG} updateMayorModel: hot-updated mayor ${mayor.id} to model=${model}`
+        );
+      } else {
+        console.warn(`${TOWN_LOG} updateMayorModel: failed to hot-update mayor ${mayor.id}`);
+      }
+    }
+    // If the mayor is not alive, the next dispatch will pick up the new
+    // model from the updated town config automatically.
+  }
+
   async getMayorStatus(): Promise<{
     configured: boolean;
     townId: string;
