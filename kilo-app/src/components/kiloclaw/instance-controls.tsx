@@ -81,7 +81,7 @@ export function InstanceControls({ status, mutations }: Readonly<InstanceControl
           {mutations.start.isPending ? (
             <ActivityIndicator size="small" color={colors.mutedForeground} />
           ) : (
-            <Play size={14} color={canStart ? colors.foreground : colors.mutedForeground} />
+            <Play size={14} color={canStart ? '#10b981' : colors.mutedForeground} />
           )}
           <Text>Start</Text>
         </Button>
@@ -96,7 +96,7 @@ export function InstanceControls({ status, mutations }: Readonly<InstanceControl
           {mutations.stop.isPending ? (
             <ActivityIndicator size="small" color={colors.mutedForeground} />
           ) : (
-            <Power size={14} color={canStop ? colors.foreground : colors.mutedForeground} />
+            <Power size={14} color={canStop ? '#ef4444' : colors.mutedForeground} />
           )}
           <Text>Stop</Text>
         </Button>
@@ -112,10 +112,7 @@ export function InstanceControls({ status, mutations }: Readonly<InstanceControl
           {mutations.restartOpenClaw.isPending ? (
             <ActivityIndicator size="small" color={colors.mutedForeground} />
           ) : (
-            <RotateCcw
-              size={14}
-              color={canRestartOpenClaw ? colors.foreground : colors.mutedForeground}
-            />
+            <RotateCcw size={14} color={canRestartOpenClaw ? '#f59e0b' : colors.mutedForeground} />
           )}
           <Text>Restart</Text>
         </Button>
@@ -130,7 +127,7 @@ export function InstanceControls({ status, mutations }: Readonly<InstanceControl
           {mutations.restartMachine.isPending ? (
             <ActivityIndicator size="small" color={colors.mutedForeground} />
           ) : (
-            <RefreshCw size={14} color={canRedeploy ? colors.foreground : colors.mutedForeground} />
+            <RefreshCw size={14} color={canRedeploy ? '#3b82f6' : colors.mutedForeground} />
           )}
           <Text>Redeploy</Text>
         </Button>

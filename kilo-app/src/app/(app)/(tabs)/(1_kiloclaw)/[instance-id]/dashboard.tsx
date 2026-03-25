@@ -127,7 +127,7 @@ export default function DashboardScreen() {
                 router.push(`/(app)/(tabs)/(1_kiloclaw)/${instanceId}/billing` as Href);
               }}
             >
-              <CreditCard size={18} color={colors.foreground} />
+              <CreditCard size={18} color="#10b981" />
               <Text className="flex-1 text-sm font-medium">Billing</Text>
             </Pressable>
             <View className="ml-14 h-px bg-border" />
@@ -137,7 +137,7 @@ export default function DashboardScreen() {
                 router.push(`/(app)/(tabs)/(1_kiloclaw)/${instanceId}/changelog` as Href);
               }}
             >
-              <Newspaper size={18} color={colors.foreground} />
+              <Newspaper size={18} color="#3b82f6" />
               <Text className="flex-1 text-sm font-medium">{"What's New"}</Text>
             </Pressable>
           </View>

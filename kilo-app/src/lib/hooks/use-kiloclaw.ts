@@ -25,11 +25,6 @@ export function useKiloClawBillingStatus(enabled = true) {
   );
 }
 
-export function useKiloClawConfig() {
-  const trpc = useTRPC();
-  return useQuery(trpc.kiloclaw.getConfig.queryOptions());
-}
-
 export function useKiloClawGatewayStatus(enabled: boolean) {
   const trpc = useTRPC();
   return useQuery(
@@ -216,7 +211,10 @@ export function useKiloClawMutations() {
       })
     ),
     patchExecPreset: useMutation(
-      trpc.kiloclaw.patchExecPreset.mutationOptions({ onError: onMutationError })
+      trpc.kiloclaw.patchExecPreset.mutationOptions({
+        onSuccess: invalidateStatus,
+        onError: onMutationError,
+      })
     ),
     setMyPin: useMutation(
       trpc.kiloclaw.setMyPin.mutationOptions({

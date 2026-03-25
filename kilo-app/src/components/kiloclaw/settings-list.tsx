@@ -16,6 +16,7 @@ import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
 interface SettingsItem {
   icon: LucideIcon;
+  iconColor: string;
   label: string;
   description: string;
   path: string;
@@ -24,36 +25,42 @@ interface SettingsItem {
 const SETTINGS_ITEMS: SettingsItem[] = [
   {
     icon: Lock,
+    iconColor: '#f59e0b',
     label: 'Secrets',
     description: 'Encrypted credentials',
     path: 'settings/secrets',
   },
   {
     icon: MessageSquare,
+    iconColor: '#3b82f6',
     label: 'Channels',
     description: 'Telegram, Discord, Slack, GitHub',
     path: 'settings/channels',
   },
   {
     icon: Shield,
+    iconColor: '#10b981',
     label: 'Execution Policy',
     description: 'Security settings',
     path: 'settings/exec-policy',
   },
   {
     icon: Pin,
+    iconColor: '#8b5cf6',
     label: 'Version Pinning',
     description: 'Pin to a specific version',
     path: 'settings/version-pin',
   },
   {
     icon: Monitor,
+    iconColor: '#06b6d4',
     label: 'Device Pairing',
     description: 'Approve device requests',
     path: 'settings/device-pairing',
   },
   {
     icon: Globe,
+    iconColor: '#ef4444',
     label: 'Google Account',
     description: 'Gmail, Calendar, Docs',
     path: 'settings/google',
@@ -80,7 +87,7 @@ export function SettingsList() {
               }}
               accessibilityLabel={item.label}
             >
-              <Icon size={18} color={colors.foreground} />
+              <Icon size={18} color={item.iconColor} />
               <View className="flex-1">
                 <Text className="text-sm font-medium">{item.label}</Text>
                 <Text className="text-xs text-muted-foreground">{item.description}</Text>
