@@ -147,7 +147,7 @@ export function StatusCard({
           value={restarts != null ? String(restarts) : '—'}
           loading={gatewayLoading}
         />
-        {lastExitLabel && <DetailRow icon={Server} label="Last Exit" value={lastExitLabel} />}
+        <DetailRow icon={Server} label="Last Exit" value={lastExitLabel ?? '—'} />
       </View>
     </View>
   );
