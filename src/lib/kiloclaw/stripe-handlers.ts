@@ -14,9 +14,11 @@ import {
 import type { KiloClawSubscriptionStatus } from '@kilocode/db/schema-types';
 import {
   getClawPlanForStripePriceId,
+  getKnownStripePriceIdsForKiloClaw,
   getStripePriceIdForClawPlan,
   isIntroPriceId,
 } from '@/lib/kiloclaw/stripe-price-ids.server';
+import { applyStripeFundedKiloClawPeriod } from '@/lib/kiloclaw/credit-billing';
 import { sentryLogger } from '@/lib/utils.server';
 import { KiloClawInternalClient } from '@/lib/kiloclaw/kiloclaw-internal-client';
 import PostHogClient from '@/lib/posthog';
@@ -100,7 +102,7 @@ function mapStripeStatus(stripeStatus: string): KiloClawSubscriptionStatus {
 /**
  * If the user was suspended, try to start their instance and clear suspension state.
  */
-async function autoResumeIfSuspended(kiloUserId: string): Promise<void> {
+export async function autoResumeIfSuspended(kiloUserId: string): Promise<void> {
   const [activeInstance] = await db
     .select({ id: kiloclaw_instances.id })
     .from(kiloclaw_instances)
@@ -838,56 +840,168 @@ export async function handleKiloClawScheduleEvent(params: {
 }
 
 /**
- * Handle invoice.paid for KiloClaw subscriptions.
- * Fires a claw_transaction PostHog event for revenue tracking.
+ * Handle invoice.paid events for KiloClaw subscriptions.
+ *
+ * Extracts required fields from the invoice, resolves the user from subscription
+ * metadata, delegates to the credit settlement flow, and fires a PostHog
+ * claw_transaction event for revenue tracking.
  */
-export function handleKiloClawInvoicePaid(params: {
+export async function handleKiloClawInvoicePaid(params: {
   eventId: string;
   invoice: Stripe.Invoice;
-}): void {
+}): Promise<void> {
   const { eventId, invoice } = params;
-  const subDetails = invoice.parent?.subscription_details;
-  const kiloUserId = subDetails?.metadata?.kiloUserId ?? null;
-  const plan = subDetails?.metadata?.plan ?? null;
-  const stripeSubscriptionId =
-    typeof subDetails?.subscription === 'string' ? subDetails.subscription : null;
 
-  if (!kiloUserId) {
-    logWarning('KiloClaw invoice.paid missing kiloUserId in subscription metadata', {
+  // Resolve chargeId — the charge field is present at runtime in webhook payloads
+  // but removed from newer Stripe type definitions. Use a runtime guard.
+  const chargeId =
+    'charge' in invoice && typeof invoice.charge === 'string' ? invoice.charge : null;
+
+  // Resolve stripeSubscriptionId from parent subscription details
+  const rawSubscription = invoice.parent?.subscription_details?.subscription;
+  const stripeSubscriptionId =
+    rawSubscription === null || rawSubscription === undefined
+      ? null
+      : typeof rawSubscription === 'string'
+        ? rawSubscription
+        : rawSubscription.id;
+
+  if (!chargeId || !stripeSubscriptionId) {
+    logWarning('KiloClaw invoice.paid missing charge or subscription', {
+      stripe_event_id: eventId,
+      stripe_invoice_id: invoice.id,
+      has_charge: !!chargeId,
+      has_subscription: !!stripeSubscriptionId,
+    });
+    return;
+  }
+
+  // Find the KiloClaw line item by matching price against known price IDs
+  let knownPriceIds: readonly string[];
+  try {
+    knownPriceIds = getKnownStripePriceIdsForKiloClaw();
+  } catch {
+    logWarning('KiloClaw price IDs not configured, skipping invoice', {
+      stripe_event_id: eventId,
+    });
+    return;
+  }
+  const knownIdSet = new Set(knownPriceIds);
+
+  const lines = invoice.lines?.data ?? [];
+  const matchingLine = lines.find(line => {
+    const priceId = line.pricing?.price_details?.price ?? null;
+    return priceId !== null && knownIdSet.has(priceId);
+  });
+
+  if (!matchingLine) {
+    logWarning('KiloClaw invoice.paid has no matching line item', {
       stripe_event_id: eventId,
       stripe_invoice_id: invoice.id,
     });
     return;
   }
 
-  if (IS_IN_AUTOMATED_TEST) return;
+  const matchingPriceId = matchingLine.pricing?.price_details?.price ?? null;
+  const periodStartUnix = matchingLine.period?.start;
+  const periodEndUnix = matchingLine.period?.end;
 
-  after(async () => {
-    const [user] = await db
-      .select({ email: kilocode_users.google_user_email })
-      .from(kilocode_users)
-      .where(eq(kilocode_users.id, kiloUserId))
-      .limit(1);
-
-    if (!user) {
-      logWarning('KiloClaw invoice.paid user not found', {
-        stripe_event_id: eventId,
-        kilo_user_id: kiloUserId,
-      });
-      return;
-    }
-
-    PostHogClient().capture({
-      distinctId: user.email,
-      event: 'claw_transaction',
-      properties: {
-        user_id: kiloUserId,
-        plan: plan ?? 'unknown',
-        amount_cents: invoice.amount_paid,
-        currency: invoice.currency,
-        stripe_invoice_id: invoice.id,
-        stripe_subscription_id: stripeSubscriptionId,
-      },
+  if (!matchingPriceId || !periodStartUnix || !periodEndUnix) {
+    logWarning('KiloClaw invoice.paid line item missing price or period', {
+      stripe_event_id: eventId,
+      stripe_invoice_id: invoice.id,
+      has_price: !!matchingPriceId,
+      has_period_start: !!periodStartUnix,
+      has_period_end: !!periodEndUnix,
     });
+    return;
+  }
+
+  // Determine plan from the matching price ID
+  const plan = getClawPlanForStripePriceId(matchingPriceId);
+  if (!plan) {
+    logWarning('KiloClaw invoice.paid price ID does not map to a plan', {
+      stripe_event_id: eventId,
+      stripe_invoice_id: invoice.id,
+      price_id: matchingPriceId,
+    });
+    return;
+  }
+
+  // Resolve user ID from subscription metadata.
+  // We must fetch the subscription from Stripe to read metadata.
+  let stripeSubscription: Stripe.Subscription;
+  try {
+    stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  } catch (error) {
+    logWarning('Failed to retrieve Stripe subscription for invoice settlement', {
+      stripe_event_id: eventId,
+      stripe_subscription_id: stripeSubscriptionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+
+  const metadata = getKiloClawMetadata(stripeSubscription.metadata);
+  if (!metadata) {
+    logWarning('KiloClaw invoice.paid subscription has no KiloClaw metadata', {
+      stripe_event_id: eventId,
+      stripe_subscription_id: stripeSubscriptionId,
+    });
+    return;
+  }
+
+  const periodStart = new Date(periodStartUnix * 1000).toISOString();
+  const periodEnd = new Date(periodEndUnix * 1000).toISOString();
+  const amountMicrodollars = invoice.amount_paid * 10_000;
+
+  await applyStripeFundedKiloClawPeriod({
+    userId: metadata.kiloUserId,
+    stripeSubscriptionId,
+    chargeId,
+    plan,
+    amountMicrodollars,
+    periodStart,
+    periodEnd,
   });
+
+  logInfo('KiloClaw invoice.paid processed', {
+    stripe_event_id: eventId,
+    user_id: metadata.kiloUserId,
+    plan,
+    stripe_subscription_id: stripeSubscriptionId,
+    amount_paid: invoice.amount_paid,
+  });
+
+  // Fire PostHog revenue tracking event in the background
+  if (!IS_IN_AUTOMATED_TEST) {
+    after(async () => {
+      const [user] = await db
+        .select({ email: kilocode_users.google_user_email })
+        .from(kilocode_users)
+        .where(eq(kilocode_users.id, metadata.kiloUserId))
+        .limit(1);
+
+      if (!user) {
+        logWarning('KiloClaw invoice.paid user not found for PostHog tracking', {
+          stripe_event_id: eventId,
+          kilo_user_id: metadata.kiloUserId,
+        });
+        return;
+      }
+
+      PostHogClient().capture({
+        distinctId: user.email,
+        event: 'claw_transaction',
+        properties: {
+          user_id: metadata.kiloUserId,
+          plan,
+          amount_cents: invoice.amount_paid,
+          currency: invoice.currency,
+          stripe_invoice_id: invoice.id,
+          stripe_subscription_id: stripeSubscriptionId,
+        },
+      });
+    });
+  }
 }
