@@ -93,17 +93,24 @@ export function StatusCard({
   return (
     <View className="rounded-lg bg-secondary p-4 gap-1">
       <View className="flex-row items-center justify-between pb-2">
-        <Pressable
-          className="flex-1 flex-row items-center gap-3 active:opacity-70"
-          onPress={onRename}
-          disabled={!onRename}
-          accessibilityLabel="Rename instance"
-        >
-          <Text className="shrink text-sm font-semibold" numberOfLines={1}>
-            {name ?? sandboxId ?? 'Instance'}
-          </Text>
-          {onRename && <Pencil size={14} color={colors.mutedForeground} />}
-        </Pressable>
+        <View className="flex-1 flex-row items-center gap-3">
+          {onRename ? (
+            <Pressable
+              className="flex-row items-center gap-3 active:opacity-70"
+              onPress={onRename}
+              accessibilityLabel="Rename instance"
+            >
+              <Text className="shrink text-sm font-semibold" numberOfLines={1}>
+                {name ?? sandboxId ?? 'Instance'}
+              </Text>
+              <Pencil size={14} color={colors.mutedForeground} />
+            </Pressable>
+          ) : (
+            <Text className="shrink text-sm font-semibold" numberOfLines={1}>
+              {name ?? sandboxId ?? 'Instance'}
+            </Text>
+          )}
+        </View>
         <StatusBadge status={status} />
       </View>
 
