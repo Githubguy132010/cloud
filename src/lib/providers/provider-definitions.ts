@@ -14,12 +14,6 @@ export default {
     apiKey: getEnvVariable('ALIBABA_API_KEY'),
     hasGenerationEndpoint: false,
   },
-  GIGAPOTATO: {
-    id: 'gigapotato',
-    apiUrl: getEnvVariable('GIGAPOTATO_API_URL'),
-    apiKey: getEnvVariable('GIGAPOTATO_API_KEY'),
-    hasGenerationEndpoint: false,
-  },
   CORETHINK: {
     id: 'corethink',
     apiUrl: 'https://api.corethink.ai/v1/code',
