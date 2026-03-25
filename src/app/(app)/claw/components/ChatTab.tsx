@@ -130,12 +130,8 @@ function BotStatusBar({ botUserId }: { botUserId: string }) {
 
   return (
     <div className="flex items-center gap-2 border-b border-white/10 px-3 py-1.5">
-      <span
-        className={`size-2 rounded-full ${online ? 'bg-emerald-400' : 'bg-white/20'}`}
-      />
-      <span className="text-xs text-white/50">
-        KiloClaw {online ? 'Online' : 'Offline'}
-      </span>
+      <span className={`size-2 rounded-full ${online ? 'bg-emerald-400' : 'bg-white/20'}`} />
+      <span className="text-xs text-white/50">KiloClaw {online ? 'Online' : 'Offline'}</span>
     </div>
   );
 }
