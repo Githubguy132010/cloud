@@ -13,16 +13,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  Sparkles,
-  Clock,
-  FolderOpen,
-  Search,
-  ChevronRight,
-  Trash2,
-  Users,
-  User,
-} from 'lucide-react';
+import { Clock, FolderOpen, Search, ChevronRight, Trash2, Users, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -774,7 +765,7 @@ export function AppBuilderLanding({ organizationId, onProjectCreated }: AppBuild
     <div className="flex h-dvh w-full flex-col items-center overflow-y-auto p-4 md:p-8">
       <div className="my-auto w-full max-w-3xl">
         {/* Header */}
-         <div className="mb-8 text-center">
+        <div className="mb-8 text-center">
           <SetPageTitle title="App Builder">
             <Badge variant="new">new</Badge>
           </SetPageTitle>

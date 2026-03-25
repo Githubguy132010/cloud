@@ -13,11 +13,7 @@ export function PageLayout({ title, subtitle, children, headerActions }: PageLay
   const hasSubtitleOrActions = subtitle || headerActions;
   return (
     <PageContainer>
-      {typeof title === 'string' ? (
-        <SetPageTitle title={title} />
-      ) : (
-        title
-      )}
+      {typeof title === 'string' ? <SetPageTitle title={title} /> : title}
       {hasSubtitleOrActions && (
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-2">

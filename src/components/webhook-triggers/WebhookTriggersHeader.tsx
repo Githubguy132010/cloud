@@ -33,8 +33,7 @@ export const WebhookTriggersHeader = memo(function WebhookTriggersHeader({
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between">
-        <SetPageTitle title={title}>
-          <Webhook className="h-5 w-5" />
+        <SetPageTitle title={title} icon={<Webhook className="h-4 w-4" />}>
           {badgeLabel && <Badge variant="new">{badgeLabel}</Badge>}
         </SetPageTitle>
         {!hideCreate && (
