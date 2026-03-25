@@ -56,13 +56,23 @@ export function shuffleRegions(regions: string[]): string[] {
 }
 
 /**
- * Move a failed region to the end of the list so we try other regions first.
- * E.g. deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'dfw') → ['yyz', 'cdg', 'dfw']
+ * Exclude a failed region from the candidate list. With 3+ distinct regions
+ * the failed region is removed entirely (including duplicates). With only 2
+ * distinct regions the failed region is moved to the end so we still have a
+ * fallback.
+ *
+ * E.g. deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'dfw') → ['yyz', 'cdg']
+ *      deprioritizeRegion(['dfw', 'dfw', 'ord'], 'dfw') → ['ord']
+ *      deprioritizeRegion(['dfw', 'yyz'], 'dfw')        → ['yyz', 'dfw']
  */
 export function deprioritizeRegion(regions: string[], failedRegion: string | null): string[] {
   if (!failedRegion) return regions;
   const without = regions.filter(r => r !== failedRegion);
-  return without.length < regions.length ? [...without, failedRegion] : regions;
+  if (without.length === regions.length) return regions; // failedRegion wasn't in the list
+  if (without.length === 0) return regions; // only region — keep it as sole fallback
+  const distinctCount = new Set(regions).size;
+  if (distinctCount <= 2) return [...without, failedRegion];
+  return without;
 }
 
 /** Returns true if a region code is a Fly geographic alias (not a specific region). */

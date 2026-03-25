@@ -2401,16 +2401,28 @@ describe('parseRegions', () => {
 });
 
 describe('deprioritizeRegion', () => {
-  it('moves failed region to end', () => {
-    expect(deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'dfw')).toEqual(['yyz', 'cdg', 'dfw']);
+  it('removes failed region entirely with 3+ distinct regions', () => {
+    expect(deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'dfw')).toEqual(['yyz', 'cdg']);
   });
 
-  it('moves middle region to end', () => {
-    expect(deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'yyz')).toEqual(['dfw', 'cdg', 'yyz']);
+  it('removes middle region entirely with 3+ distinct regions', () => {
+    expect(deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'yyz')).toEqual(['dfw', 'cdg']);
   });
 
-  it('returns list unchanged when failed region is already last', () => {
-    expect(deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'cdg')).toEqual(['dfw', 'yyz', 'cdg']);
+  it('removes last region entirely with 3+ distinct regions', () => {
+    expect(deprioritizeRegion(['dfw', 'yyz', 'cdg'], 'cdg')).toEqual(['dfw', 'yyz']);
+  });
+
+  it('removes all duplicates of failed region with 3+ distinct', () => {
+    expect(deprioritizeRegion(['dfw', 'dfw', 'yyz', 'cdg'], 'dfw')).toEqual(['yyz', 'cdg']);
+  });
+
+  it('moves failed region to end with only 2 distinct regions', () => {
+    expect(deprioritizeRegion(['dfw', 'yyz'], 'dfw')).toEqual(['yyz', 'dfw']);
+  });
+
+  it('moves failed region to end with 2 distinct including duplicates', () => {
+    expect(deprioritizeRegion(['dfw', 'dfw', 'yyz'], 'dfw')).toEqual(['yyz', 'dfw']);
   });
 
   it('returns list unchanged when failed region is not in list', () => {
@@ -2419,10 +2431,6 @@ describe('deprioritizeRegion', () => {
 
   it('returns list unchanged when failedRegion is null', () => {
     expect(deprioritizeRegion(['dfw', 'yyz'], null)).toEqual(['dfw', 'yyz']);
-  });
-
-  it('handles single-element list', () => {
-    expect(deprioritizeRegion(['dfw'], 'dfw')).toEqual(['dfw']);
   });
 });
 

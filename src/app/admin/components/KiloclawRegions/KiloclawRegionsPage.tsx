@@ -27,18 +27,20 @@ export function RegionsTab() {
   const { data, isLoading } = useQuery(trpc.admin.kiloclawRegions.getRegions.queryOptions());
 
   const [inputValue, setInputValue] = useState('');
+  const [dirty, setDirty] = useState(false);
 
-  // Sync input with fetched data
+  // Hydrate input from server data only when the form is pristine.
   useEffect(() => {
-    if (data?.raw) {
+    if (data?.raw && !dirty) {
       setInputValue(data.raw);
     }
-  }, [data?.raw]);
+  }, [data?.raw, dirty]);
 
   const updateMutation = useMutation(
     trpc.admin.kiloclawRegions.updateRegions.mutationOptions({
       onSuccess: () => {
         toast.success('Regions updated');
+        setDirty(false);
         void queryClient.invalidateQueries({
           queryKey: trpc.admin.kiloclawRegions.getRegions.queryKey(),
         });
@@ -119,7 +121,10 @@ export function RegionsTab() {
               <Input
                 id="region-input"
                 value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
+                onChange={e => {
+                  setInputValue(e.target.value);
+                  setDirty(true);
+                }}
                 placeholder="e.g. eu,us or dfw,ord,lax"
                 className="font-mono"
               />
