@@ -51,11 +51,10 @@ function getSubscriptionPeriods(subscription: Stripe.Subscription, kiloUserId?: 
   // Stripe moved period timestamps to the item level (not the top-level subscription object).
   const item = subscription.items.data[0];
   if (!item) {
-    console.warn(
-      '[stripe] Subscription has no items:',
-      subscription.id,
-      kiloUserId ? `userId=${kiloUserId}` : ''
-    );
+    logWarning('Subscription has no items', {
+      stripe_subscription_id: subscription.id,
+      ...(kiloUserId ? { user_id: kiloUserId } : {}),
+    });
   }
   return {
     current_period_start: item ? new Date(item.current_period_start * 1000).toISOString() : null,
@@ -118,6 +117,9 @@ export async function autoResumeIfSuspended(kiloUserId: string): Promise<void> {
         user_id: kiloUserId,
         error: startError instanceof Error ? startError.message : String(startError),
       });
+      // Preserve suspension state so the interrupted-auto-resume retry
+      // sweep can pick up this row on the next cron run.
+      return;
     }
   }
 
@@ -129,6 +131,7 @@ export async function autoResumeIfSuspended(kiloUserId: string): Promise<void> {
     'claw_suspended_payment',
     'claw_destruction_warning',
     'claw_instance_destroyed',
+    'claw_credit_renewal_failed',
   ];
   await db
     .delete(kiloclaw_email_log)
@@ -153,6 +156,11 @@ export async function autoResumeIfSuspended(kiloUserId: string): Promise<void> {
     .update(kiloclaw_subscriptions)
     .set({ suspended_at: null, destruction_deadline: null })
     .where(eq(kiloclaw_subscriptions.user_id, kiloUserId));
+
+  logInfo('Auto-resume completed', {
+    user_id: kiloUserId,
+    had_active_instance: !!activeInstance,
+  });
 }
 
 function resolveScheduleId(
@@ -544,14 +552,18 @@ export async function handleKiloClawSubscriptionCreated(params: {
           cancel_at_period_end: subscription.cancel_at_period_end,
           // Hybrid guard: when existing row is hybrid (payment_source = 'credits'
           // AND has a stripe_subscription_id), preserve billing fields owned by
-          // invoice settlement. Pure credit rows (no stripe_subscription_id) and
-          // legacy/null payment_source rows get overwritten normally.
-          payment_source: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.payment_source} ELSE ${kiloclaw_subscriptions.payment_source} END`,
+          // invoice settlement (Hybrid Subscription Ownership rule 3).
+          // Non-hybrid rows (pure credit with null stripe_subscription_id, or
+          // legacy/null payment_source) get reset to fresh Stripe state. The
+          // ELSE branches must NOT preserve stale values — a canceled pure-credit
+          // row resubscribing via Stripe must reset payment_source to 'stripe'
+          // and clear credit_renewal_at to avoid looking hybrid before settlement.
+          payment_source: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.payment_source} ELSE 'stripe' END`,
           plan: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.plan} ELSE ${plan} END`,
           status: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.status} ELSE ${status} END`,
           current_period_start: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.current_period_start} ELSE ${periods.current_period_start}::timestamptz END`,
           current_period_end: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.current_period_end} ELSE ${periods.current_period_end}::timestamptz END`,
-          credit_renewal_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.credit_renewal_at} ELSE ${kiloclaw_subscriptions.credit_renewal_at} END`,
+          credit_renewal_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.credit_renewal_at} ELSE NULL END`,
           commit_ends_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.commit_ends_at} ELSE ${commitEndsAt}::timestamptz END`,
           past_due_since: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.past_due_since} ELSE NULL END`,
           suspended_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.suspended_at} ELSE NULL END`,
@@ -647,7 +659,15 @@ export async function handleKiloClawSubscriptionUpdated(params: {
           eq(kiloclaw_subscriptions.stripe_subscription_id, subscription.id)
         )
       );
+    logInfo('KiloClaw subscription.updated processed (hybrid path)', {
+      stripe_event_id: eventId,
+      user_id: kiloUserId,
+      status,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      propagated_dunning: status === 'past_due' || status === 'unpaid',
+    });
     // No auto-resume for hybrid rows — recovery is owned by invoice settlement
+    return;
   } else {
     // Non-hybrid: keep existing behavior unchanged
     const wasSuspended = status === 'active' && !!preRead?.suspended_at;

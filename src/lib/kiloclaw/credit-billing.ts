@@ -11,7 +11,19 @@ import {
 } from '@kilocode/db/schema';
 import { processTopUp } from '@/lib/credits';
 import { autoResumeIfSuspended } from '@/lib/kiloclaw/stripe-handlers';
-import { maybeIssueKiloPassBonusFromUsageThreshold } from '@/lib/kilo-pass/usage-triggered-bonus';
+import {
+  computeUsageTriggeredMonthlyBonusDecision,
+  maybeIssueKiloPassBonusFromUsageThreshold,
+} from '@/lib/kilo-pass/usage-triggered-bonus';
+import { getKiloPassStateForUser } from '@/lib/kilo-pass/state';
+import { getEffectiveKiloPassThreshold } from '@/lib/kilo-pass/threshold';
+import { KiloPassCadence } from '@/lib/kilo-pass/enums';
+import {
+  KILO_PASS_TIER_CONFIG,
+  KILO_PASS_YEARLY_MONTHLY_BONUS_PERCENT,
+} from '@/lib/kilo-pass/constants';
+import { computeIssueMonth } from '@/lib/kilo-pass/issuance';
+import { dayjs } from '@/lib/kilo-pass/dayjs';
 import { sentryLogger } from '@/lib/utils.server';
 
 const logInfo = sentryLogger('kiloclaw-credit-billing', 'info');
@@ -22,6 +34,52 @@ export const KILOCLAW_PLAN_COST_MICRODOLLARS = {
   standard: 9_000_000, // $9/month
   commit: 48_000_000, // $48/6 months
 } as const;
+
+/**
+ * Project the pending Kilo Pass bonus microdollars that would be awarded
+ * by the next call to maybeIssueKiloPassBonusFromUsageThreshold.
+ *
+ * Returns 0 when the user has no Kilo Pass, usage hasn't crossed the
+ * threshold, or the subscription isn't active. This is a read-only
+ * projection — no credits are issued.
+ */
+export async function projectPendingKiloPassBonusMicrodollars(params: {
+  userId: string;
+  microdollarsUsed: number;
+  kiloPassThreshold: number | null;
+}): Promise<number> {
+  const { userId, microdollarsUsed, kiloPassThreshold } = params;
+
+  const effectiveThreshold = getEffectiveKiloPassThreshold(kiloPassThreshold);
+  if (effectiveThreshold === null || microdollarsUsed < effectiveThreshold) return 0;
+
+  const subscription = await getKiloPassStateForUser(db, userId);
+  if (!subscription || subscription.status !== 'active') return 0;
+
+  const tierConfig = KILO_PASS_TIER_CONFIG[subscription.tier];
+  const monthlyBaseAmountUsd = tierConfig.monthlyPriceUsd;
+
+  let bonusPercent: number;
+  if (subscription.cadence !== KiloPassCadence.Monthly) {
+    bonusPercent = KILO_PASS_YEARLY_MONTHLY_BONUS_PERCENT;
+  } else {
+    const issueMonth = computeIssueMonth(dayjs().utc());
+    // Conservatively assume returning subscriber to avoid over-projecting
+    // the 50% first-time promo. Under-projection is safe: the user still
+    // succeeds via the post-deduction bonus evaluation (spec rule 6).
+    const assumeReturningSubscriber = false;
+    const decision = computeUsageTriggeredMonthlyBonusDecision({
+      tier: subscription.tier,
+      startedAtIso: subscription.startedAt,
+      currentStreakMonths: subscription.currentStreakMonths,
+      isFirstTimeSubscriberEver: assumeReturningSubscriber,
+      issueMonth,
+    });
+    bonusPercent = decision.bonusPercentApplied;
+  }
+
+  return Math.round(monthlyBaseAmountUsd * bonusPercent * 1_000_000);
+}
 
 /**
  * Settle a Stripe-funded KiloClaw invoice into the credit ledger.
@@ -123,7 +181,8 @@ export async function applyStripeFundedKiloClawPeriod(params: {
     }
 
     // Step 1d: Read existing subscription row to check for suspension and scheduled plan.
-    // Match on stripe_subscription_id for correctness when multiple instances exist.
+    // Currently keyed on user_id (UNIQUE constraint means one row per user).
+    // TODO: When multi-instance subscriptions ship, key on stripe_subscription_id instead.
     const [existingRow] = await tx
       .select({
         suspended_at: kiloclaw_subscriptions.suspended_at,
@@ -229,12 +288,14 @@ export async function enrollWithCredits(params: {
     .select({
       total_microdollars_acquired: kilocode_users.total_microdollars_acquired,
       microdollars_used: kilocode_users.microdollars_used,
+      kilo_pass_threshold: kilocode_users.kilo_pass_threshold,
     })
     .from(kilocode_users)
     .where(eq(kilocode_users.id, userId))
     .limit(1);
 
   if (!user) {
+    logError('Credit enrollment failed: user not found', { user_id: userId, instanceId });
     throw new Error('User not found');
   }
 
@@ -262,9 +323,15 @@ export async function enrollWithCredits(params: {
   const wasSuspended = !!existingSub?.suspended_at;
 
   // Step 2: Check effective balance (spec rule 3)
+  // Effective balance = raw balance + projected Kilo Pass bonus that would
+  // be awarded after the deduction by maybeIssueKiloPassBonusFromUsageThreshold.
   const balance = user.total_microdollars_acquired - user.microdollars_used;
-  // For now (without Kilo Pass bonus projection): effective balance = balance
-  const effectiveBalance = balance;
+  const projectedBonus = await projectPendingKiloPassBonusMicrodollars({
+    userId,
+    microdollarsUsed: user.microdollars_used,
+    kiloPassThreshold: user.kilo_pass_threshold,
+  });
+  const effectiveBalance = balance + projectedBonus;
 
   if (effectiveBalance < costMicrodollars) {
     const shortfall = costMicrodollars - effectiveBalance;

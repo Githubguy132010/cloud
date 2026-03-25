@@ -1582,7 +1582,7 @@ export const kiloclawRouter = createTRPCRouter({
           enabled: true,
           required: 'never',
         },
-        success_url: `${APP_URL}/payments/kilo-pass/awarding?session_id={CHECKOUT_SESSION_ID}&clawHostingPlan=${input.hostingPlan}&clawInstanceId=${instance.id}`,
+        success_url: `${APP_URL}/payments/kilo-pass/awarding?session_id={CHECKOUT_SESSION_ID}&clawHostingPlan=${input.hostingPlan}`,
         cancel_url: `${APP_URL}/claw?checkout=cancelled`,
         subscription_data: {
           metadata: {
@@ -1709,9 +1709,9 @@ export const kiloclawRouter = createTRPCRouter({
       try {
         await ensureAutoIntroSchedule(sub.stripe_subscription_id, ctx.user.id);
       } catch (err) {
-        console.error('Failed to restore auto intro schedule after reactivation', {
-          userId: ctx.user.id,
-          error: err,
+        logBillingError('Failed to restore auto intro schedule after reactivation', {
+          user_id: ctx.user.id,
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     } else if (sub.payment_source === 'credits') {
@@ -1981,9 +1981,9 @@ export const kiloclawRouter = createTRPCRouter({
           await ensureAutoIntroSchedule(sub.stripe_subscription_id, ctx.user.id);
         }
       } catch (err) {
-        console.error('Failed to restore auto intro schedule after cancel plan switch', {
-          userId: ctx.user.id,
-          error: err,
+        logBillingError('Failed to restore auto intro schedule after cancel plan switch', {
+          user_id: ctx.user.id,
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     } else {

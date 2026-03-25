@@ -18,8 +18,11 @@ import {
   kiloclaw_subscriptions,
   kiloclaw_instances,
   kiloclaw_earlybird_purchases,
+  kilocode_users,
+  credit_transactions,
 } from '@kilocode/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { sandboxIdFromUserId } from '@/lib/kiloclaw/sandbox-id';
 import { insertTestUser } from '@/tests/helpers/user.helper';
 import type { User } from '@kilocode/db/schema';
 import type Stripe from 'stripe';
@@ -1871,5 +1874,420 @@ describe('cancelPlanSwitch', () => {
       .limit(1);
 
     expect(row.stripe_schedule_id).toBe('sub_sched_fail');
+  });
+});
+
+// ── Credit Enrollment ──────────────────────────────────────────────────────
+
+describe('enrollWithCredits', () => {
+  async function giveUserCredits(userId: string, microdollars: number) {
+    await db
+      .update(kilocode_users)
+      .set({ total_microdollars_acquired: microdollars })
+      .where(eq(kilocode_users.id, userId));
+  }
+
+  async function createInstance(userId: string) {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({
+        user_id: userId,
+        sandbox_id: sandboxIdFromUserId(userId),
+      })
+      .returning();
+    return instance;
+  }
+
+  it('enrolls with credits for standard plan when balance sufficient', async () => {
+    await createInstance(user.id);
+    await giveUserCredits(user.id, 50_000_000); // $50
+
+    // Create a trialing subscription so enrollment is allowed
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      plan: 'trial',
+      status: 'trialing',
+      trial_started_at: new Date().toISOString(),
+      trial_ends_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.enrollWithCredits({ plan: 'standard' });
+
+    expect(result).toEqual({ success: true });
+
+    const [sub] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(sub.status).toBe('active');
+    expect(sub.payment_source).toBe('credits');
+    expect(sub.plan).toBe('standard');
+    expect(sub.stripe_subscription_id).toBeNull();
+    expect(sub.credit_renewal_at).not.toBeNull();
+    expect(sub.cancel_at_period_end).toBe(false);
+
+    // Verify credit deduction exists
+    const txns = await db
+      .select()
+      .from(credit_transactions)
+      .where(eq(credit_transactions.kilo_user_id, user.id));
+
+    const deduction = txns.find(t => t.amount_microdollars < 0);
+    expect(deduction).toBeDefined();
+    expect(deduction!.amount_microdollars).toBe(-9_000_000);
+    expect(deduction!.credit_category).toContain('kiloclaw-subscription:');
+
+    // Verify balance decreased
+    const [updatedUser] = await db
+      .select({ acquired: kilocode_users.total_microdollars_acquired })
+      .from(kilocode_users)
+      .where(eq(kilocode_users.id, user.id))
+      .limit(1);
+
+    expect(updatedUser.acquired).toBe(50_000_000 - 9_000_000);
+  });
+
+  it('enrolls with credits for commit plan when balance sufficient', async () => {
+    await createInstance(user.id);
+    await giveUserCredits(user.id, 50_000_000); // $50
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.enrollWithCredits({ plan: 'commit' });
+
+    expect(result).toEqual({ success: true });
+
+    const [sub] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(sub.plan).toBe('commit');
+    expect(sub.status).toBe('active');
+    expect(sub.payment_source).toBe('credits');
+    expect(sub.commit_ends_at).not.toBeNull();
+
+    // commit_ends_at should be ~6 months from now
+    const commitEnd = new Date(sub.commit_ends_at!);
+    const diffDays = (commitEnd.getTime() - Date.now()) / 86_400_000;
+    expect(diffDays).toBeGreaterThanOrEqual(178);
+    expect(diffDays).toBeLessThanOrEqual(184);
+  });
+
+  it('rejects enrollment when balance is insufficient', async () => {
+    await createInstance(user.id);
+    await giveUserCredits(user.id, 5_000_000); // $5 — not enough for commit ($48)
+
+    const caller = await createCallerForUser(user.id);
+    await expect(caller.kiloclaw.enrollWithCredits({ plan: 'commit' })).rejects.toThrow(
+      'Insufficient credit balance'
+    );
+  });
+
+  it('rejects enrollment when subscription is active', async () => {
+    const instance = await createInstance(user.id);
+    await giveUserCredits(user.id, 50_000_000);
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      instance_id: instance.id,
+      payment_source: 'credits',
+      plan: 'standard',
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      credit_renewal_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      cancel_at_period_end: false,
+    });
+
+    const caller = await createCallerForUser(user.id);
+    await expect(caller.kiloclaw.enrollWithCredits({ plan: 'standard' })).rejects.toThrow(
+      'active subscription already exists'
+    );
+  });
+
+  it('allows enrollment when subscription is canceled', async () => {
+    const instance = await createInstance(user.id);
+    await giveUserCredits(user.id, 50_000_000);
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      instance_id: instance.id,
+      payment_source: 'credits',
+      plan: 'standard',
+      status: 'canceled',
+      cancel_at_period_end: false,
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.enrollWithCredits({ plan: 'standard' });
+
+    expect(result).toEqual({ success: true });
+
+    const [sub] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(sub.status).toBe('active');
+    expect(sub.payment_source).toBe('credits');
+  });
+
+  it('allows enrollment when subscription is trialing', async () => {
+    await createInstance(user.id);
+    await giveUserCredits(user.id, 50_000_000);
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      plan: 'trial',
+      status: 'trialing',
+      trial_started_at: new Date().toISOString(),
+      trial_ends_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.enrollWithCredits({ plan: 'standard' });
+
+    expect(result).toEqual({ success: true });
+
+    const [sub] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(sub.status).toBe('active');
+    expect(sub.plan).toBe('standard');
+  });
+
+  it('deduction is idempotent via credit_category uniqueness', async () => {
+    await createInstance(user.id);
+    await giveUserCredits(user.id, 50_000_000);
+
+    const caller = await createCallerForUser(user.id);
+    await caller.kiloclaw.enrollWithCredits({ plan: 'standard' });
+
+    // Second enrollment in the same period should fail
+    // Reset subscription status so the enrollment guard doesn't reject first
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({ status: 'canceled' })
+      .where(eq(kiloclaw_subscriptions.user_id, user.id));
+
+    // Re-fetch user balance (it was decremented by first enrollment)
+    await giveUserCredits(user.id, 50_000_000);
+
+    await expect(caller.kiloclaw.enrollWithCredits({ plan: 'standard' })).rejects.toThrow(
+      'Enrollment already processed for this billing period'
+    );
+  });
+});
+
+// ── Billing Status with Credits ────────────────────────────────────────────
+
+describe('getBillingStatus with credits', () => {
+  it('includes hasStripeFunding=true for Stripe-funded subscription', async () => {
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_stripe_funded',
+      plan: 'standard',
+      status: 'active',
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.getBillingStatus();
+
+    expect(result.subscription).not.toBeNull();
+    expect(result.subscription!.hasStripeFunding).toBe(true);
+  });
+
+  it('includes hasStripeFunding=false for pure credit subscription', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: `test-sandbox-${Math.random()}` })
+      .returning();
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      instance_id: instance.id,
+      payment_source: 'credits',
+      plan: 'standard',
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      credit_renewal_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      cancel_at_period_end: false,
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.getBillingStatus();
+
+    expect(result.subscription).not.toBeNull();
+    expect(result.subscription!.hasStripeFunding).toBe(false);
+  });
+
+  it('includes credit balance in response', async () => {
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.getBillingStatus();
+
+    expect(typeof result.creditBalanceMicrodollars).toBe('number');
+  });
+
+  it('reports pure credit subscription data (not suppressed)', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: `test-sandbox-${Math.random()}` })
+      .returning();
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      instance_id: instance.id,
+      payment_source: 'credits',
+      plan: 'standard',
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      credit_renewal_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      cancel_at_period_end: false,
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.getBillingStatus();
+
+    expect(result.subscription).not.toBeNull();
+    expect(result.subscription!.plan).toBe('standard');
+    expect(result.subscription!.status).toBe('active');
+    expect(result.subscription!.paymentSource).toBe('credits');
+    expect(result.subscription!.creditRenewalAt).not.toBeNull();
+    expect(result.subscription!.renewalCostMicrodollars).toBe(9_000_000);
+  });
+});
+
+// ── Pure Credit Cancel/Reactivate/SwitchPlan/CancelPlanSwitch ──────────────
+
+describe('pure credit cancel/reactivate', () => {
+  async function createPureCreditSubscription(
+    userId: string,
+    plan: 'standard' | 'commit' = 'standard',
+    overrides: Record<string, unknown> = {}
+  ) {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: userId, sandbox_id: `test-sandbox-${Math.random()}` })
+      .returning();
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: userId,
+      instance_id: instance.id,
+      payment_source: 'credits',
+      plan,
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      credit_renewal_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      cancel_at_period_end: false,
+      ...overrides,
+    });
+
+    return instance;
+  }
+
+  it('cancels pure credit subscription without Stripe API call', async () => {
+    await createPureCreditSubscription(user.id);
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.cancelSubscription();
+
+    expect(result).toEqual({ success: true });
+
+    // No Stripe calls should have been made
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+    expect(stripeMock.subscriptionSchedules.release).not.toHaveBeenCalled();
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.cancel_at_period_end).toBe(true);
+    // Schedule fields should be cleared defensively
+    expect(row.stripe_schedule_id).toBeNull();
+    expect(row.scheduled_plan).toBeNull();
+    expect(row.scheduled_by).toBeNull();
+  });
+
+  it('reactivates pure credit subscription without Stripe API call', async () => {
+    await createPureCreditSubscription(user.id, 'standard', {
+      cancel_at_period_end: true,
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.reactivateSubscription();
+
+    expect(result).toEqual({ success: true });
+
+    // No Stripe calls
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.cancel_at_period_end).toBe(false);
+  });
+
+  it('switches plan for pure credit subscription locally', async () => {
+    await createPureCreditSubscription(user.id, 'standard');
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.switchPlan({ toPlan: 'commit' });
+
+    expect(result).toEqual({ success: true });
+
+    // No Stripe calls
+    expect(stripeMock.subscriptionSchedules.create).not.toHaveBeenCalled();
+    expect(stripeMock.subscriptionSchedules.update).not.toHaveBeenCalled();
+    expect(stripeMock.subscriptions.retrieve).not.toHaveBeenCalled();
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.scheduled_plan).toBe('commit');
+    expect(row.scheduled_by).toBe('user');
+  });
+
+  it('cancels plan switch for pure credit subscription locally', async () => {
+    await createPureCreditSubscription(user.id, 'standard', {
+      scheduled_plan: 'commit',
+      scheduled_by: 'user',
+    });
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.cancelPlanSwitch();
+
+    expect(result).toEqual({ success: true });
+
+    // No Stripe calls
+    expect(stripeMock.subscriptionSchedules.release).not.toHaveBeenCalled();
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.scheduled_plan).toBeNull();
+    expect(row.scheduled_by).toBeNull();
   });
 });
