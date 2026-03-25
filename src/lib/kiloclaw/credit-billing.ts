@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { eq, sql } from 'drizzle-orm';
+import { addMonths, format } from 'date-fns';
 
 import { db } from '@/lib/drizzle';
 import {
@@ -16,6 +17,11 @@ import { sentryLogger } from '@/lib/utils.server';
 const logInfo = sentryLogger('kiloclaw-credit-billing', 'info');
 const logWarning = sentryLogger('kiloclaw-credit-billing', 'warning');
 const logError = sentryLogger('kiloclaw-credit-billing', 'error');
+
+export const KILOCLAW_PLAN_COST_MICRODOLLARS = {
+  standard: 9_000_000, // $9/month
+  commit: 48_000_000, // $48/6 months
+} as const;
 
 /**
  * Settle a Stripe-funded KiloClaw invoice into the credit ledger.
@@ -200,5 +206,184 @@ export async function applyStripeFundedKiloClawPeriod(params: {
     stripe_subscription_id: stripeSubscriptionId,
     chargeId,
     amountMicrodollars,
+  });
+}
+
+/**
+ * Enroll a user's instance in a KiloClaw hosting plan funded by credits.
+ *
+ * Deducts the first period's cost from the user's credit balance and creates
+ * (or upserts) an active pure-credit subscription. See spec "Credit Enrollment"
+ * rules 1-8.
+ */
+export async function enrollWithCredits(params: {
+  userId: string;
+  instanceId: string;
+  plan: 'commit' | 'standard';
+}): Promise<void> {
+  const { userId, instanceId, plan } = params;
+  const costMicrodollars = KILOCLAW_PLAN_COST_MICRODOLLARS[plan];
+
+  // Step 1: Read current state
+  const [user] = await db
+    .select({
+      total_microdollars_acquired: kilocode_users.total_microdollars_acquired,
+      microdollars_used: kilocode_users.microdollars_used,
+    })
+    .from(kilocode_users)
+    .where(eq(kilocode_users.id, userId))
+    .limit(1);
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const [existingSub] = await db
+    .select({
+      status: kiloclaw_subscriptions.status,
+      suspended_at: kiloclaw_subscriptions.suspended_at,
+    })
+    .from(kiloclaw_subscriptions)
+    .where(eq(kiloclaw_subscriptions.user_id, userId))
+    .limit(1);
+
+  // Reject if subscription is active, past_due, or unpaid (spec rule 1)
+  if (
+    existingSub &&
+    existingSub.status !== 'trialing' &&
+    existingSub.status !== 'canceled'
+  ) {
+    throw new Error(
+      'Cannot enroll: an active subscription already exists. Cancel it first.'
+    );
+  }
+
+  // Save suspension state for post-transaction auto-resume (spec rule 4)
+  const wasSuspended = !!existingSub?.suspended_at;
+
+  // Step 2: Check effective balance (spec rule 3)
+  const balance = user.total_microdollars_acquired - user.microdollars_used;
+  // For now (without Kilo Pass bonus projection): effective balance = balance
+  const effectiveBalance = balance;
+
+  if (effectiveBalance < costMicrodollars) {
+    const shortfall = costMicrodollars - effectiveBalance;
+    throw new Error(
+      `Insufficient credit balance. You need ${shortfall} more microdollars to enroll.`
+    );
+  }
+
+  // Step 3: Single DB transaction (spec rule 5)
+  const now = new Date();
+  const periodMonths = plan === 'commit' ? 6 : 1;
+  const periodEnd = addMonths(now, periodMonths);
+  const periodKey = format(now, 'yyyy-MM');
+  const categoryPrefix =
+    plan === 'commit'
+      ? `kiloclaw-subscription-commit:${instanceId}`
+      : `kiloclaw-subscription:${instanceId}`;
+  const deductionCategory = `${categoryPrefix}:${periodKey}`;
+
+  await db.transaction(async tx => {
+    // 5a: Insert negative credit transaction with period-encoded idempotency key
+    const deductionResult = await tx
+      .insert(credit_transactions)
+      .values({
+        id: crypto.randomUUID(),
+        kilo_user_id: userId,
+        amount_microdollars: -costMicrodollars,
+        is_free: false,
+        description: `KiloClaw ${plan} enrollment`,
+        credit_category: deductionCategory,
+        check_category_uniqueness: true,
+        original_baseline_microdollars_used: user.microdollars_used,
+      })
+      .onConflictDoNothing();
+
+    const deductionIsNew = (deductionResult.rowCount ?? 0) > 0;
+
+    if (!deductionIsNew) {
+      // Duplicate key from prior committed transaction — abort as duplicate attempt
+      logInfo('Duplicate credit enrollment attempt', {
+        user_id: userId,
+        instanceId,
+        deductionCategory,
+      });
+      throw new Error(
+        'Enrollment already processed for this billing period.'
+      );
+    }
+
+    // 5b: Atomically decrement total_microdollars_acquired
+    await tx
+      .update(kilocode_users)
+      .set({
+        total_microdollars_acquired: sql`${kilocode_users.total_microdollars_acquired} - ${costMicrodollars}`,
+      })
+      .where(eq(kilocode_users.id, userId));
+
+    // 5c: Upsert subscription row as pure credit
+    const nowIso = now.toISOString();
+    const periodEndIso = periodEnd.toISOString();
+    const commitEndsAt = plan === 'commit' ? periodEndIso : null;
+
+    await tx
+      .insert(kiloclaw_subscriptions)
+      .values({
+        user_id: userId,
+        instance_id: instanceId,
+        payment_source: 'credits',
+        status: 'active',
+        plan,
+        current_period_start: nowIso,
+        current_period_end: periodEndIso,
+        credit_renewal_at: periodEndIso,
+        stripe_subscription_id: null,
+        commit_ends_at: commitEndsAt,
+        past_due_since: null,
+        cancel_at_period_end: false,
+        // DO NOT clear suspended_at or destruction_deadline (spec rule 5d)
+      })
+      .onConflictDoUpdate({
+        target: kiloclaw_subscriptions.user_id,
+        set: {
+          instance_id: instanceId,
+          payment_source: 'credits',
+          status: 'active',
+          plan,
+          current_period_start: nowIso,
+          current_period_end: periodEndIso,
+          credit_renewal_at: periodEndIso,
+          stripe_subscription_id: null,
+          commit_ends_at: commitEndsAt,
+          past_due_since: null,
+          cancel_at_period_end: false,
+        },
+      });
+  });
+
+  // Step 4: Post-transaction bonus evaluation (spec rule 6)
+  try {
+    await maybeIssueKiloPassBonusFromUsageThreshold({
+      kiloUserId: userId,
+      nowIso: new Date().toISOString(),
+    });
+  } catch (error) {
+    logError('Kilo Pass bonus evaluation failed after credit enrollment', {
+      user_id: userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Step 5: Auto-resume if suspended (spec rule 7)
+  if (wasSuspended) {
+    await autoResumeIfSuspended(userId);
+  }
+
+  logInfo('Credit enrollment completed', {
+    user_id: userId,
+    instanceId,
+    plan,
+    costMicrodollars,
   });
 }

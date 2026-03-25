@@ -54,6 +54,7 @@ import {
   KILOCLAW_EARLYBIRD_EXPIRY_DATE,
   KILOCLAW_TRIAL_DURATION_DAYS,
 } from '@/lib/kiloclaw/constants';
+import { enrollWithCredits as enrollWithCreditsImpl } from '@/lib/kiloclaw/credit-billing';
 import type { ClawBillingStatus } from '@/app/(app)/claw/components/billing/billing-types';
 import PostHogClient from '@/lib/posthog';
 import { CHANGELOG_ENTRIES } from '@/app/(app)/claw/components/changelog-data';
@@ -1313,8 +1314,14 @@ export const kiloclawRouter = createTRPCRouter({
           }
         : null;
 
+    // Include subscription data when a paid subscription exists — either Stripe-funded
+    // (stripe_subscription_id present) or credit-funded (payment_source = 'credits').
+    // See Billing Status Reporting rule 4.
     const subscriptionData =
-      sub && sub.plan !== 'trial' && sub.status !== 'trialing' && sub.stripe_subscription_id
+      sub &&
+      sub.plan !== 'trial' &&
+      sub.status !== 'trialing' &&
+      (sub.stripe_subscription_id || sub.payment_source === 'credits')
         ? {
             plan: sub.plan,
             status: sub.status,
@@ -1347,10 +1354,15 @@ export const kiloclawRouter = createTRPCRouter({
       };
     }
 
+    // Credit balance: microdollars available for credit enrollment
+    const creditBalanceMicrodollars =
+      ctx.user.total_microdollars_acquired - ctx.user.microdollars_used;
+
     return {
       hasAccess,
       accessReason,
       trialEligible: !activeInstance && !sub && !earlybird,
+      creditBalanceMicrodollars,
       trial: trialData,
       subscription: subscriptionData,
       earlybird: earlybirdData,
@@ -1434,6 +1446,27 @@ export const kiloclawRouter = createTRPCRouter({
       });
 
       return { url: typeof session.url === 'string' ? session.url : null };
+    }),
+
+  enrollWithCredits: baseProcedure
+    .input(z.object({ plan: z.enum(['commit', 'standard']) }))
+    .mutation(async ({ ctx, input }) => {
+      // Look up the user's active (non-destroyed) instance
+      const instance = await getActiveInstance(ctx.user.id);
+      if (!instance) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No active instance found. Provision an instance first.',
+        });
+      }
+
+      await enrollWithCreditsImpl({
+        userId: ctx.user.id,
+        instanceId: instance.id,
+        plan: input.plan,
+      });
+
+      return { success: true };
     }),
 
   cancelSubscription: baseProcedure.mutation(async ({ ctx }) => {

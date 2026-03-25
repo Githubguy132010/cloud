@@ -15,6 +15,9 @@ export type ClawBillingStatus = {
   accessReason: 'trial' | 'subscription' | 'earlybird' | null;
   trialEligible: boolean;
 
+  /** User's credit balance in microdollars (null when not fetched). */
+  creditBalanceMicrodollars: number | null;
+
   trial: {
     startedAt: string;
     endsAt: string;
