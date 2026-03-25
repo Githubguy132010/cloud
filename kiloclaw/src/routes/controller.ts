@@ -27,8 +27,6 @@ const CheckinSchema = z.object({
 
 /**
  * Derive the Next.js app origin for internal API calls.
- * In dev, KILOCODE_API_BASE_URL points at a tunnel (e.g. http://localhost:3000/api/gateway/);
- * in production it's unset and we fall back to the hardcoded default.
  */
 function nextApiOrigin(kilocodeApiBaseUrl: string | undefined): string {
   if (!kilocodeApiBaseUrl) {
