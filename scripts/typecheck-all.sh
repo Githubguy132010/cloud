@@ -48,14 +48,14 @@ if ! $changes_only; then
   exit 0
 fi
 
-# Incremental: find workspace packages with TS changes and typecheck only those
-changed_dirs=$(git diff --name-only "$base" -- '*.ts' '*.tsx' | \
+# Incremental: find workspace packages with TS or config changes and typecheck only those
+changed_dirs=$(git diff --name-only "$base" -- '*.ts' '*.tsx' 'tsconfig*.json' '*/package.json' | \
   { grep -v '^src/' || true; } | \
   sed 's|/src/.*||; s|/[^/]*\.[^/]*$||' | \
   sort -u)
 
 if [ -z "$changed_dirs" ]; then
-  echo "[typecheck] no workspace TS changes, skipping workspace typecheck"
+  echo "[typecheck] no workspace changes, skipping workspace typecheck"
   exit 0
 fi
 
