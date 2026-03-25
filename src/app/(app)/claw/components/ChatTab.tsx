@@ -68,7 +68,7 @@ function StreamChatUI({
   useEffect(() => {
     if (!client) return;
     const ch = client.channel('messaging', channelId);
-    ch.watch({ presence: true });
+    void ch.watch({ presence: true });
     setChannel(ch);
   }, [client, channelId]);
 
