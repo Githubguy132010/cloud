@@ -391,14 +391,19 @@ async function ensureProvisionAccess(userId: string, userEmail: string): Promise
 
   if (!existing && !earlybird) {
     // New user with no earlybird purchase — start trial.
-    // Use onConflictDoNothing so concurrent requests (e.g. double-submit)
-    // don't fail on the unique user_id constraint.
+    // Ensure the instance row exists first so we can link the subscription to it.
+    // ensureActiveInstance is idempotent, so the subsequent call in provisionInstance
+    // is a no-op.
+    const instance = await ensureActiveInstance(userId);
     const now = new Date();
     const trialEndsAt = new Date(now.getTime() + KILOCLAW_TRIAL_DURATION_DAYS * 86_400_000);
+    // Use onConflictDoNothing so concurrent requests (e.g. double-submit)
+    // don't fail on the unique user_id constraint.
     const [inserted] = await db
       .insert(kiloclaw_subscriptions)
       .values({
         user_id: userId,
+        instance_id: instance.id,
         plan: 'trial',
         status: 'trialing',
         trial_started_at: now.toISOString(),

@@ -490,6 +490,15 @@ export async function handleKiloClawSubscriptionCreated(params: {
     // Captured after the stale guard so stale events don't auto-resume
     wasSuspended = !!existingRow?.suspended_at;
 
+    // Look up the user's active instance to link the subscription.
+    const [activeInstance] = await tx
+      .select({ id: kiloclaw_instances.id })
+      .from(kiloclaw_instances)
+      .where(
+        and(eq(kiloclaw_instances.user_id, kiloUserId), isNull(kiloclaw_instances.destroyed_at))
+      )
+      .limit(1);
+
     // For commit plans, derive commit_ends_at. Pre-launch subscriptions
     // had a delayed-billing trial_end — the 6-month commit term starts
     // after the trial boundary, not at subscription creation time.
@@ -515,6 +524,7 @@ export async function handleKiloClawSubscriptionCreated(params: {
       .insert(kiloclaw_subscriptions)
       .values({
         user_id: kiloUserId,
+        instance_id: activeInstance?.id ?? null,
         stripe_subscription_id: subscription.id,
         plan,
         status,
@@ -526,6 +536,7 @@ export async function handleKiloClawSubscriptionCreated(params: {
       .onConflictDoUpdate({
         target: kiloclaw_subscriptions.user_id,
         set: {
+          instance_id: activeInstance?.id ?? null,
           stripe_subscription_id: subscription.id,
           plan,
           status,
@@ -609,7 +620,7 @@ export async function handleKiloClawSubscriptionUpdated(params: {
       current_period_end: periods.current_period_end,
       // Commit plan auto-renewal: when the existing commit_ends_at boundary
       // has passed, advance it forward in 6-month increments until it is in
-      // the future. This fires naturally on monthly renewal webhooks
+      // the future. This fires naturally on renewal webhooks
       // (subscription.updated events), keeping the subscription on the
       // commit price indefinitely in 6-month windows.
       // If commit_ends_at is null (e.g. update webhook arrived before the

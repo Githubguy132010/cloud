@@ -195,6 +195,10 @@ function makeStripeSubscription(params: {
             {
               price: { id: params.priceId },
               current_period_start: now,
+              // 30-day period is used for both standard (monthly) and commit
+              // (6-month) plan fixtures. The fixture period length does not
+              // affect billing logic; only the Stripe price ID determines
+              // the plan. Stripe's real period would be ~180 days for commit.
               current_period_end: now + 86400 * 30,
             },
           ]
