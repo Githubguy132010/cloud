@@ -58,6 +58,7 @@ import {
   getKilocodeRepoOpenPullRequestsSummary,
   getKilocodeRepoRecentlyClosedExternalPRs,
   getKilocodeRepoRecentlyMergedExternalPRs,
+  ALL_REPO_IDS,
 } from '@/lib/github/open-pull-request-counts';
 
 const SyncResponseSchema = z.object({
@@ -166,11 +167,20 @@ export const adminRouter = createTRPCRouter({
     }),
 
     getKilocodeOpenPullRequestsSummary: adminProcedure
-      .input(z.object({ includeDrafts: z.boolean().optional() }).optional())
+      .input(
+        z
+          .object({
+            includeDrafts: z.boolean().optional(),
+            repos: z.array(z.enum(['kilocode', 'cloud', 'kilo-marketplace'])).optional(),
+          })
+          .optional()
+      )
       .query(async ({ input }) => {
+        const repos = input?.repos ?? [...ALL_REPO_IDS];
         return getKilocodeRepoOpenPullRequestsSummary({
           ttlMs: 2 * 60_000,
           includeDrafts: input?.includeDrafts ?? false,
+          repos,
         });
       }),
 
@@ -178,9 +188,22 @@ export const adminRouter = createTRPCRouter({
       return getKilocodeRepoRecentlyMergedExternalPRs({ ttlMs: 2 * 60_000, maxResults: 50 });
     }),
 
-    getKilocodeRecentlyClosedExternalPRs: adminProcedure.query(async () => {
-      return getKilocodeRepoRecentlyClosedExternalPRs({ ttlMs: 2 * 60_000, maxResults: 50 });
-    }),
+    getKilocodeRecentlyClosedExternalPRs: adminProcedure
+      .input(
+        z
+          .object({
+            repos: z.array(z.enum(['kilocode', 'cloud', 'kilo-marketplace'])).optional(),
+          })
+          .optional()
+      )
+      .query(async ({ input }) => {
+        const repos = input?.repos ?? [...ALL_REPO_IDS];
+        return getKilocodeRepoRecentlyClosedExternalPRs({
+          ttlMs: 2 * 60_000,
+          maxResults: 50,
+          repos,
+        });
+      }),
   }),
 
   users: createTRPCRouter({
