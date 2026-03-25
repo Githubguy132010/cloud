@@ -133,9 +133,10 @@ controller.post('/checkin', async (c: Context<AppEnv>) => {
 
   // Instance readiness detection: when load drops below threshold, send a
   // one-time "instance ready" email to the user via the Next.js internal API.
-  if (data.loadAvg5m < INSTANCE_READY_LOAD_THRESHOLD) {
+  if (data.loadAvg5m <= INSTANCE_READY_LOAD_THRESHOLD) {
     try {
       const { shouldNotify } = await stub.tryMarkInstanceReady();
+
       if (shouldNotify && c.env.INTERNAL_API_SECRET) {
         const apiOrigin = nextApiOrigin(c.env.KILOCODE_API_BASE_URL);
         c.executionCtx.waitUntil(

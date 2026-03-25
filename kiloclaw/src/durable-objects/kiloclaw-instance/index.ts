@@ -1298,8 +1298,15 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     if (this.s.instanceReadyEmailSent) {
       return { shouldNotify: false, userId: this.s.userId };
     }
+
     this.s.instanceReadyEmailSent = true;
     await this.persist({ instanceReadyEmailSent: true });
+
+    // If the instance was provisioned more than 6 hours ago, don't send the email
+    if (this.s.provisionedAt && this.s.provisionedAt < Date.now() - 1000 * 60 * 60 * 6) {
+      return { shouldNotify: false, userId: this.s.userId };
+    }
+
     return { shouldNotify: true, userId: this.s.userId };
   }
 
