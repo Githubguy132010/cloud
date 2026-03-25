@@ -160,7 +160,7 @@ function SecretCard({
                   }}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  secureTextEntry
+                  autoComplete="off"
                   returnKeyType="done"
                 />
               </View>
