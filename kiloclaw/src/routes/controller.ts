@@ -8,6 +8,9 @@ import { deriveGatewayToken } from '../auth/gateway-token';
 
 const INSTANCE_READY_LOAD_THRESHOLD = 0.1;
 
+/** Production default for the Next.js app URL. */
+const DEFAULT_NEXT_API_ORIGIN = 'https://kilo.ai';
+
 const CheckinSchema = z.object({
   sandboxId: z.string().min(1),
   machineId: z.string().optional(),
@@ -24,6 +27,22 @@ const CheckinSchema = z.object({
   bandwidthBytesOut: z.number().min(0),
   lastExitReason: z.string().optional(),
 });
+
+/**
+ * Derive the Next.js app origin for internal API calls.
+ * In dev, KILOCODE_API_BASE_URL points at a tunnel (e.g. http://localhost:3000/api/gateway/);
+ * in production it's unset and we fall back to the hardcoded default.
+ */
+function nextApiOrigin(kilocodeApiBaseUrl: string | undefined): string {
+  if (kilocodeApiBaseUrl) {
+    try {
+      return new URL(kilocodeApiBaseUrl).origin;
+    } catch {
+      // Malformed URL — fall through to default.
+    }
+  }
+  return DEFAULT_NEXT_API_ORIGIN;
+}
 
 /**
  * Fire-and-forget HTTP POST to the Next.js internal API to trigger
@@ -124,14 +143,10 @@ controller.post('/checkin', async (c: Context<AppEnv>) => {
   if (data.loadAvg5m < INSTANCE_READY_LOAD_THRESHOLD) {
     try {
       const { shouldNotify } = await stub.tryMarkInstanceReady();
-      if (shouldNotify && c.env.NEXT_INTERNAL_API_URL && c.env.INTERNAL_API_SECRET) {
+      if (shouldNotify && c.env.INTERNAL_API_SECRET) {
+        const apiOrigin = nextApiOrigin(c.env.KILOCODE_API_BASE_URL);
         c.executionCtx.waitUntil(
-          notifyInstanceReady(
-            c.env.NEXT_INTERNAL_API_URL,
-            c.env.INTERNAL_API_SECRET,
-            userId,
-            data.sandboxId
-          ).catch(
+          notifyInstanceReady(apiOrigin, c.env.INTERNAL_API_SECRET, userId, data.sandboxId).catch(
             err => {
               console.error('[controller] instance-ready notification error:', err);
             }

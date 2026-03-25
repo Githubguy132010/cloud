@@ -9,7 +9,6 @@ function makeEnv(options?: {
   kilocodeApiKey?: string;
   writeDataPoint?: (payload: unknown) => void;
   tryMarkInstanceReady?: Mock;
-  nextInternalApiUrl?: string;
   internalApiSecret?: string;
 }) {
   const getConfig = vi.fn().mockResolvedValue({
@@ -21,7 +20,6 @@ function makeEnv(options?: {
 
   return {
     GATEWAY_TOKEN_SECRET: options?.gatewayTokenSecret ?? 'gateway-secret',
-    NEXT_INTERNAL_API_URL: options?.nextInternalApiUrl,
     INTERNAL_API_SECRET: options?.internalApiSecret,
     KILOCLAW_INSTANCE: {
       idFromName: (userId: string) => userId,
