@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
-  useControllerVersion,
   useKiloClawAvailableVersions,
   useKiloClawLatestVersion,
   useKiloClawMutations,
   useKiloClawMyPin,
 } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
+import { parseTimestamp, timeAgo } from '@/lib/utils';
 
 type VersionItem = NonNullable<
   ReturnType<typeof useKiloClawAvailableVersions>['data']
@@ -23,15 +23,13 @@ type VersionItem = NonNullable<
 export default function VersionPinScreen() {
   const colors = useThemeColors();
   const myPinQuery = useKiloClawMyPin();
-  const controllerQuery = useControllerVersion(true);
   const latestVersionQuery = useKiloClawLatestVersion();
   const availableVersionsQuery = useKiloClawAvailableVersions();
   const mutations = useKiloClawMutations();
   const [pendingReason, setPendingReason] = useState('');
   const [pendingItem, setPendingItem] = useState<VersionItem>();
 
-  const isLoading =
-    myPinQuery.isPending || controllerQuery.isPending || latestVersionQuery.isPending;
+  const isLoading = myPinQuery.isPending || latestVersionQuery.isPending;
 
   if (isLoading) {
     return (
@@ -50,7 +48,6 @@ export default function VersionPinScreen() {
   }
 
   const myPin = myPinQuery.data;
-  const controllerVersion = controllerQuery.data;
   const latestVersion = latestVersionQuery.data;
   const versions = availableVersionsQuery.data?.items ?? [];
 
@@ -95,19 +92,26 @@ export default function VersionPinScreen() {
 
   function renderVersionItem({ item }: { item: VersionItem }) {
     const isPinned = myPin?.image_tag === item.image_tag;
-    const dateStr = item.published_at
-      ? new Date(item.published_at).toLocaleDateString()
-      : undefined;
+    const publishedAgo = item.published_at ? timeAgo(parseTimestamp(item.published_at)) : undefined;
+    const isLatest = latestVersion?.imageTag === item.image_tag;
+    const showVariant = item.variant && item.variant !== 'default';
     const isPending = pendingItem?.image_tag === item.image_tag;
 
     return (
       <View>
         <View className="flex-row items-center gap-3 px-4 py-3">
           <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-medium">{item.openclaw_version}</Text>
-            {Boolean(dateStr ?? item.variant) && (
+            <View className="flex-row items-center gap-2">
+              <Text className="text-sm font-medium">{item.openclaw_version}</Text>
+              {isLatest && (
+                <View className="rounded-full bg-blue-600 px-1.5 py-0.5">
+                  <Text className="text-[10px] font-semibold text-white">latest</Text>
+                </View>
+              )}
+            </View>
+            {Boolean(publishedAgo ?? showVariant) && (
               <Text variant="muted" className="text-xs">
-                {[dateStr, item.variant].filter(Boolean).join(' · ')}
+                {[publishedAgo, showVariant ? item.variant : null].filter(Boolean).join(' · ')}
               </Text>
             )}
           </View>
@@ -168,56 +172,45 @@ export default function VersionPinScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <Animated.View entering={FadeIn.duration(200)} className="gap-4 mb-2">
-            <View className="rounded-lg bg-secondary p-4 gap-3">
-              <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Current Version
-              </Text>
-              {controllerVersion ? (
-                <View className="gap-1">
-                  <Text className="text-sm font-medium">
-                    {controllerVersion.version ?? 'Unknown'}
-                  </Text>
-                  {controllerVersion.openclawVersion && (
-                    <Text variant="muted" className="text-xs">
-                      OpenClaw: {controllerVersion.openclawVersion}
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <Text variant="muted" className="text-sm">
-                  Version info unavailable
-                </Text>
-              )}
-
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1 gap-0.5">
-                  <Text variant="muted" className="text-xs">
-                    {myPin
-                      ? `Pinned to ${myPin.openclaw_version ?? myPin.image_tag}`
-                      : 'Using latest'}
-                  </Text>
-                  {myPin?.reason && (
-                    <Text variant="muted" className="text-xs">
-                      Reason: {myPin.reason}
-                    </Text>
-                  )}
+            <View className="rounded-lg bg-secondary p-4 gap-2">
+              {myPin ? (
+                <>
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 gap-1">
+                      <Text className="text-sm font-medium">
+                        Pinned to {myPin.openclaw_version ?? myPin.image_tag}
+                      </Text>
+                      {myPin.reason && (
+                        <Text variant="muted" className="text-xs">
+                          {myPin.reason}
+                        </Text>
+                      )}
+                    </View>
+                    {!isPinnedByAdmin && (
+                      <Button size="sm" variant="outline" onPress={handleUnpin}>
+                        <Text>Unpin</Text>
+                      </Button>
+                    )}
+                  </View>
                   {isPinnedByAdmin && (
                     <Text className="text-xs text-amber-600 dark:text-amber-400">
-                      Pinned by admin — contact your admin to change or remove it.
+                      Pinned by admin — contact your admin to change.
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <View className="flex-row items-center gap-2">
+                  <View className="rounded-full bg-green-200 dark:bg-green-900 px-2 py-0.5">
+                    <Text className="text-xs font-medium text-green-800 dark:text-green-100">
+                      Following latest
+                    </Text>
+                  </View>
+                  {latestVersion && (
+                    <Text variant="muted" className="text-xs">
+                      {latestVersion.openclawVersion}
                     </Text>
                   )}
                 </View>
-                {myPin && !isPinnedByAdmin && (
-                  <Button size="sm" variant="outline" onPress={handleUnpin}>
-                    <Text>Unpin</Text>
-                  </Button>
-                )}
-              </View>
-
-              {latestVersion && (
-                <Text variant="muted" className="text-xs">
-                  Latest available: {latestVersion.openclawVersion}
-                </Text>
               )}
             </View>
 
