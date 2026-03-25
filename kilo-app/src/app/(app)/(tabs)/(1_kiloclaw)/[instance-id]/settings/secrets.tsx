@@ -1,8 +1,7 @@
 import { Check, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, TextInput, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { Alert, ScrollView, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { toast } from 'sonner-native';
 
 import { ScreenHeader } from '@/components/screen-header';
@@ -185,13 +184,13 @@ export default function SecretsScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title="Secrets" />
-      <Animated.View layout={LinearTransition} className="flex-1">
-        <KeyboardAwareScrollView
+      <View className="flex-1">
+        <ScrollView
           contentContainerClassName="pt-4 pb-8 gap-3"
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
-          bottomOffset={80}
+          automaticallyAdjustKeyboardInsets
         >
           {isLoading ? (
             <Animated.View exiting={FadeOut.duration(150)} className="gap-3 px-4">
@@ -207,8 +206,8 @@ export default function SecretsScreen() {
               ))}
             </Animated.View>
           )}
-        </KeyboardAwareScrollView>
-      </Animated.View>
+        </ScrollView>
+      </View>
     </View>
   );
 }

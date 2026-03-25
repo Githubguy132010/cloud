@@ -48,7 +48,7 @@ npx expo install --dev <package-name>   # devDependencies
 
 - Every mutation must include an `onError` handler that shows a toast (`toast.error(error.message)` via `sonner-native`). Silent failures are not acceptable — users must always see feedback when something goes wrong.
 - Centralize `onError` in the mutation hook (e.g., `useKiloClawMutations`) rather than in individual components. Components can add their own `onSuccess` callbacks via `mutate(input, { onSuccess })` for UI-specific behavior (e.g., closing a form, clearing fields).
-- For screens with text inputs, use `KeyboardAwareScrollView` from `react-native-keyboard-controller` instead of plain `ScrollView`. Set `bottomOffset` to ensure inputs and action buttons remain visible above the keyboard.
+- For screens with text inputs, use `ScrollView` with `automaticallyAdjustKeyboardInsets` to keep inputs visible above the keyboard. No external keyboard library needed — the native iOS prop works smoothly.
 
 ## Code Style
 

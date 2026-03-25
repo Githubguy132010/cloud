@@ -6,7 +6,6 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
 
@@ -69,19 +68,17 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView className="flex-1">
-      <KeyboardProvider>
-        <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-          <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <ContextProvider>
-                <RootLayoutNav />
-                <Toaster />
-                <PortalHost />
-              </ContextProvider>
-            </AuthProvider>
-          </QueryClientProvider>
-        </TRPCProvider>
-      </KeyboardProvider>
+      <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <ContextProvider>
+              <RootLayoutNav />
+              <Toaster />
+              <PortalHost />
+            </ContextProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </TRPCProvider>
     </GestureHandlerRootView>
   );
 }
