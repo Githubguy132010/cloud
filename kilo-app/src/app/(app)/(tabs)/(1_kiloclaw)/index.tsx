@@ -87,9 +87,6 @@ export default function KiloClawInstanceList() {
           name={status.name}
           sandboxId={status.sandboxId}
           status={status.status}
-          region={status.flyRegion}
-          cpus={status.machineSize?.cpus}
-          memoryMb={status.machineSize?.memory_mb}
           onPress={handlePress}
           onSettingsPress={handleSettingsPress}
         />

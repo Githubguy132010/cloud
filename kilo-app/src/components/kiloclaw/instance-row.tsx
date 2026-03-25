@@ -12,9 +12,6 @@ interface InstanceRowProps {
   name: string | null | undefined;
   sandboxId: string | null | undefined;
   status: InstanceStatus | null | undefined;
-  region: string | null | undefined;
-  cpus: number | null | undefined;
-  memoryMb: number | null | undefined;
   onPress: () => void;
   onSettingsPress: () => void;
 }
@@ -23,20 +20,10 @@ export function InstanceRow({
   name,
   sandboxId,
   status,
-  region,
-  cpus,
-  memoryMb,
   onPress,
   onSettingsPress,
 }: Readonly<InstanceRowProps>) {
   const colors = useThemeColors();
-
-  const specsLabel = [
-    cpus ? `${String(cpus)} vCPU` : undefined,
-    memoryMb ? `${(memoryMb / 1024).toFixed(0)} GB` : undefined,
-  ]
-    .filter(Boolean)
-    .join(' · ');
 
   return (
     <Pressable
@@ -48,13 +35,7 @@ export function InstanceRow({
         <Text className="text-sm font-medium" numberOfLines={1}>
           {name ?? sandboxId ?? 'Instance'}
         </Text>
-        <View className="flex-row items-center gap-2">
-          <StatusBadge status={status} />
-          {region && <Text className="text-xs text-muted-foreground">{region}</Text>}
-          {Boolean(specsLabel) && (
-            <Text className="text-xs text-muted-foreground">{specsLabel}</Text>
-          )}
-        </View>
+        <StatusBadge status={status} />
       </View>
       <Pressable
         className="items-center justify-center rounded-md bg-muted p-2 active:opacity-70"
