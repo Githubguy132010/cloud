@@ -113,9 +113,16 @@ export function fixResponsesRequest(request: GatewayResponsesRequest) {
   }
   for (const msg of request.input) {
     const outputMsg = msg as Partial<OpenAI.Responses.ResponseOutputMessage>;
-    if (outputMsg.role === 'assistant' && !outputMsg.type) {
+    if (outputMsg.role !== 'assistant') {
+      continue;
+    }
+    if (!outputMsg.type) {
       console.warn('[fixResponsesRequest] assistant message missing type, fixing');
       outputMsg.type = 'message';
+    }
+    if (!outputMsg.status) {
+      console.warn('[fixResponsesRequest] assistant message missing status, fixing');
+      outputMsg.status = 'completed';
     }
   }
 }
