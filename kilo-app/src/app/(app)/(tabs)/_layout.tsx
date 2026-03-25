@@ -20,17 +20,17 @@ export default function TabsLayout() {
           borderTopColor: colors.border,
         },
       }}
-      screenListeners={{
-        tabPress: () => {
-          void Haptics.selectionAsync();
-        },
-      }}
     >
       <Tabs.Screen
         name="(1_kiloclaw)"
         options={{
           title: 'KiloClaw',
           tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
+        }}
+        listeners={{
+          tabPress: () => {
+            void Haptics.selectionAsync();
+          },
         }}
       />
       <Tabs.Screen
