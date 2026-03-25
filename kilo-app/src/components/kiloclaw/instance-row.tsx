@@ -3,10 +3,8 @@ import { Pressable, View } from 'react-native';
 
 import { StatusBadge } from '@/components/kiloclaw/status-badge';
 import { Text } from '@/components/ui/text';
-import { type useKiloClawStatus } from '@/lib/hooks/use-kiloclaw';
+import { type InstanceStatus } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
-
-type InstanceStatus = NonNullable<ReturnType<typeof useKiloClawStatus>['data']>['status'];
 
 interface InstanceRowProps {
   name: string | null | undefined;

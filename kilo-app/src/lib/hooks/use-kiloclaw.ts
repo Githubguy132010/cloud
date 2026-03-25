@@ -3,6 +3,13 @@ import { toast } from 'sonner-native';
 
 import { useTRPC } from '@/lib/trpc';
 
+// ── Derived types ───────────────────────────────────────────────────
+
+export type InstanceStatus = NonNullable<ReturnType<typeof useKiloClawStatus>['data']>['status'];
+export type GatewayState = NonNullable<
+  ReturnType<typeof useKiloClawGatewayStatus>['data']
+>['state'];
+
 // ── Queries ──────────────────────────────────────────────────────────
 
 export function useKiloClawStatus(enabled = true) {

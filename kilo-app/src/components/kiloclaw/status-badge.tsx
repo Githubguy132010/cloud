@@ -1,11 +1,8 @@
 import { View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
-import { type useKiloClawGatewayStatus, type useKiloClawStatus } from '@/lib/hooks/use-kiloclaw';
+import { type GatewayState, type InstanceStatus } from '@/lib/hooks/use-kiloclaw';
 import { cn } from '@/lib/utils';
-
-type InstanceStatus = NonNullable<ReturnType<typeof useKiloClawStatus>['data']>['status'];
-type GatewayState = NonNullable<ReturnType<typeof useKiloClawGatewayStatus>['data']>['state'];
 type StatusValue = InstanceStatus | GatewayState | null | undefined;
 
 const STATUS_COLORS: Record<string, string> = {

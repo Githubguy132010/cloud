@@ -15,11 +15,8 @@ import { Pressable, View } from 'react-native';
 import { StatusBadge } from '@/components/kiloclaw/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { type useKiloClawGatewayStatus, type useKiloClawStatus } from '@/lib/hooks/use-kiloclaw';
+import { type GatewayState, type InstanceStatus } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
-
-type InstanceStatus = NonNullable<ReturnType<typeof useKiloClawStatus>['data']>['status'];
-type GatewayState = NonNullable<ReturnType<typeof useKiloClawGatewayStatus>['data']>['state'];
 
 interface StatusCardProps {
   status: InstanceStatus | null | undefined;
