@@ -37,7 +37,7 @@ import {
   usageLimitExceededResponse,
   wrapInSafeNextResponse,
   forbiddenFreeModelResponse,
-  previousResponseIdIsNotSupported,
+  storeAndPreviousResponseIdIsNotSupported,
 } from '@/lib/llm-proxy-helpers';
 import { getBalanceAndOrgSettings } from '@/lib/organizations/organization-usage';
 import { ENABLE_TOOL_REPAIR, repairTools } from '@/lib/tool-calling';
@@ -141,7 +141,6 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       requestBodyParsed = { kind: 'messages', body };
     } else {
       const body: GatewayResponsesRequest = JSON.parse(requestBodyText);
-      body.store = false;
       requestBodyParsed = { kind: 'responses', body };
     }
   } catch (e) {
@@ -266,8 +265,11 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     user = maybeUser;
   }
 
-  if (requestBodyParsed.kind === 'responses' && requestBodyParsed.body.previous_response_id) {
-    return previousResponseIdIsNotSupported();
+  if (
+    requestBodyParsed.kind === 'responses' &&
+    (requestBodyParsed.body.store || requestBodyParsed.body.previous_response_id)
+  ) {
+    return storeAndPreviousResponseIdIsNotSupported();
   }
 
   // Log to free_model_usage for rate limiting (at request start, before processing)

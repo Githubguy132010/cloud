@@ -84,7 +84,7 @@ declare const OrganizationPlanSchema: z.ZodEnum<{
     enterprise: "enterprise";
 }>;
 type OrganizationPlan = z.infer<typeof OrganizationPlanSchema>;
-type AuthProviderId = 'email' | 'google' | 'github' | 'gitlab' | 'linkedin' | 'fake-login' | 'workos';
+type AuthProviderId = 'email' | 'google' | 'github' | 'gitlab' | 'linkedin' | 'discord' | 'fake-login' | 'workos';
 type IntegrationPermissions = Record<string, string>;
 type PlatformRepository = {
     id: number;
@@ -612,6 +612,23 @@ declare const kilocode_users: drizzle_orm_pg_core.PgTableWithColumns<{
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        discord_server_membership_verified_at: drizzle_orm_pg_core.PgColumn<{
+            name: "discord_server_membership_verified_at";
+            tableName: "kilocode_users";
+            dataType: "string";
+            columnType: "PgTimestampString";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
             baseColumn: never;
             identity: undefined;
             generated: undefined;
@@ -3274,6 +3291,8 @@ type PlatformStatusResponse = {
     trackedImageDigest: string | null;
     googleConnected: boolean;
     gmailNotificationsEnabled: boolean;
+    execSecurity: string | null;
+    execAsk: string | null;
 };
 /** Response from GET /api/platform/debug-status (internal/admin only). */
 type PlatformDebugStatusResponse = PlatformStatusResponse & {
@@ -3342,6 +3361,8 @@ type ConfigRestoreResponse = {
     ok: boolean;
     signaled: boolean;
 };
+/** Response from GET /api/platform/gateway/ready (opaque — shape depends on OpenClaw version) */
+type GatewayReadyResponse = Record<string, unknown>;
 /** Response from GET /api/platform/controller-version. Null fields = old controller. */
 type ControllerVersionResponse = {
     version: string | null;
@@ -3378,6 +3399,18 @@ type ReassociateVolumeResponse = {
     previousVolumeId: string | null;
     newVolumeId: string;
     newRegion: string;
+};
+/** Response from GET /api/platform/regions */
+type RegionsResponse = {
+    regions: string[];
+    source: 'kv' | 'env' | 'default';
+    raw: string;
+};
+/** Response from PUT /api/platform/regions */
+type UpdateRegionsResponse = {
+    ok: true;
+    regions: string[];
+    raw: string;
 };
 
 /** Keep in sync with: kiloclaw/controller/src/routes/files.ts, kiloclaw/src/.../gateway.ts (Zod) */
@@ -4562,6 +4595,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             getAutocomplete: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     organizationId: string;
+                    period?: "all" | "year" | "month" | "week" | undefined;
                 };
                 output: {
                     cost: number;
@@ -7552,7 +7586,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         linkAuthProvider: _trpc_server.TRPCMutationProcedure<{
             input: {
-                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "fake-login" | "workos";
+                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "discord" | "fake-login" | "workos";
             };
             output: {
                 success: true;
@@ -7561,7 +7595,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         unlinkAuthProvider: _trpc_server.TRPCMutationProcedure<{
             input: {
-                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "fake-login" | "workos";
+                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "discord" | "fake-login" | "workos";
             };
             output: {
                 success: true;
@@ -7595,6 +7629,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         getAutocompleteMetrics: _trpc_server.TRPCQueryProcedure<{
             input: {
                 viewType?: string | undefined;
+                period?: "all" | "year" | "month" | "week" | undefined;
             };
             output: {
                 cost: number;
@@ -7691,6 +7726,23 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             output: {
                 success: true;
             };
+            meta: object;
+        }>;
+        getDiscordGuildStatus: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: SuccessResult<{
+                linked: boolean;
+                discord_avatar_url: string | null;
+                discord_display_name: string | null;
+                discord_server_membership_verified_at: string | null;
+            }>;
+            meta: object;
+        }>;
+        verifyDiscordGuildMembership: _trpc_server.TRPCMutationProcedure<{
+            input: void;
+            output: SuccessResult<{
+                is_member: boolean;
+            }>;
             meta: object;
         }>;
     }>>;
@@ -7893,6 +7945,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         completed_welcome_form: boolean;
                         linkedin_url: string | null;
                         github_url: string | null;
+                        discord_server_membership_verified_at: string | null;
                         openrouter_upstream_safety_identifier: string | null;
                         customer_source: string | null;
                     };
@@ -9909,6 +9962,15 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 meta: object;
             }>;
+            forceRetryRecovery: _trpc_server.TRPCMutationProcedure<{
+                input: {
+                    userId: string;
+                };
+                output: {
+                    ok: true;
+                };
+                meta: object;
+            }>;
             machineStop: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     userId: string;
@@ -10150,6 +10212,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     email: string;
                     name: string;
                 }[];
+                meta: object;
+            }>;
+        }>>;
+        kiloclawRegions: _trpc_server.TRPCBuiltRouter<{
+            ctx: TRPCContext;
+            meta: object;
+            errorShape: {
+                data: {
+                    zodError: {
+                        formErrors: string[];
+                        fieldErrors: {};
+                    } | null;
+                    upstreamCode: string | undefined;
+                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
+                    httpStatus: number;
+                    path?: string;
+                    stack?: string;
+                };
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
+            };
+            transformer: false;
+        }, _trpc_server.TRPCDecorateCreateRouterOptions<{
+            getRegions: _trpc_server.TRPCQueryProcedure<{
+                input: void;
+                output: RegionsResponse;
+                meta: object;
+            }>;
+            updateRegions: _trpc_server.TRPCMutationProcedure<{
+                input: {
+                    regions: string[];
+                };
+                output: UpdateRegionsResponse;
                 meta: object;
             }>;
         }>>;
@@ -14760,6 +14855,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     isBonusUnlocked: boolean;
                     refillAt: string | null;
                 } | null;
+                isEligibleForFirstMonthPromo: boolean;
             };
             meta: object;
         }>;
@@ -14778,13 +14874,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     startedAt: string | null;
                 } | null;
                 creditsAwarded: boolean;
-            };
-            meta: object;
-        }>;
-        getFirstMonthPromoEligibility: _trpc_server.TRPCQueryProcedure<{
-            input: void;
-            output: {
-                eligible: boolean;
             };
             meta: object;
         }>;
@@ -15329,6 +15418,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         getStatus: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: {
+                name: string | null;
                 workerUrl: string;
                 userId: string | null;
                 sandboxId: string | null;
@@ -15350,7 +15440,16 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 trackedImageDigest: string | null;
                 googleConnected: boolean;
                 gmailNotificationsEnabled: boolean;
+                execSecurity: string | null;
+                execAsk: string | null;
             };
+            meta: object;
+        }>;
+        renameInstance: _trpc_server.TRPCMutationProcedure<{
+            input: {
+                name: string | null;
+            };
+            output: void;
             meta: object;
         }>;
         start: _trpc_server.TRPCMutationProcedure<{
@@ -15500,6 +15599,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         gatewayStatus: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: GatewayProcessStatusResponse;
+            meta: object;
+        }>;
+        gatewayReady: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: GatewayReadyResponse;
             meta: object;
         }>;
         controllerVersion: _trpc_server.TRPCQueryProcedure<{
