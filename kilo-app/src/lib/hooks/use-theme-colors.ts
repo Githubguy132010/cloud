@@ -31,5 +31,5 @@ const darkColors = {
 
 export function useThemeColors() {
   const colorScheme = useColorScheme();
-  return colorScheme === 'light' ? lightColors : darkColors;
+  return colorScheme === 'dark' ? darkColors : lightColors;
 }
