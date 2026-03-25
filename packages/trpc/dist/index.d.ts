@@ -10940,6 +10940,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     owner_user_id?: string | undefined;
                     kilocode_token?: string | undefined;
                     default_model?: string | null | undefined;
+                    role_models?: {
+                        mayor?: string | null | undefined;
+                        refinery?: string | null | undefined;
+                        polecat?: string | null | undefined;
+                    } | null | undefined;
                     small_model?: string | null | undefined;
                     max_polecats_per_rig?: number | undefined;
                     refinery?: {
@@ -11076,6 +11081,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         owner_user_id?: string | undefined;
                         kilocode_token?: string | undefined;
                         default_model?: string | null | undefined;
+                        role_models?: {
+                            mayor?: string | null | undefined;
+                            refinery?: string | null | undefined;
+                            polecat?: string | null | undefined;
+                        } | null | undefined;
                         small_model?: string | null | undefined;
                         max_polecats_per_rig?: number | undefined;
                         merge_strategy?: "direct" | "pr" | undefined;
@@ -11104,6 +11114,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     owner_user_id?: string | undefined;
                     kilocode_token?: string | undefined;
                     default_model?: string | null | undefined;
+                    role_models?: {
+                        mayor?: string | null | undefined;
+                        refinery?: string | null | undefined;
+                        polecat?: string | null | undefined;
+                    } | null | undefined;
                     small_model?: string | null | undefined;
                     max_polecats_per_rig?: number | undefined;
                     refinery?: {

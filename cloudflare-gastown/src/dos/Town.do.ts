@@ -2062,12 +2062,22 @@ export class TownDO extends DurableObject<Env> {
     const isAlive = containerStatus.status === 'running' || containerStatus.status === 'starting';
 
     if (isAlive) {
+      // Reconstruct conversation history so the new session retains context
+      // (same mechanism used for container restarts — see PR #1494).
+      const conversationHistory = await this.reconstructConversation(mayor.id);
+
+      // Attach fresh town config so the container can update process.env
+      // before restarting the SDK server (tokens, git identity, etc.).
+      const containerConfig = await config.buildContainerConfig(this.ctx.storage, this.env);
+
       const updated = await dispatch.updateAgentModelInContainer(
         this.env,
         townId,
         mayor.id,
         model,
-        smallModel
+        smallModel,
+        conversationHistory || undefined,
+        containerConfig
       );
       if (updated) {
         console.log(
