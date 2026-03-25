@@ -75,7 +75,6 @@ import type { MicrodollarUsageContext, PromptInfo } from '@/lib/processUsage.typ
 import { extractResponsesPromptInfo } from '@/lib/processUsage.responses';
 import { extractMessagesPromptInfo } from '@/lib/processUsage.messages';
 import { getMaxTokens, hasMiddleOutTransform } from '@/lib/providers/openrouter/request-helpers';
-import { isKiloAffiliatedUser } from '@/lib/isKiloAffiliatedUser';
 
 export const maxDuration = 800;
 
@@ -277,20 +276,6 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     tokenSource = undefined;
   } else {
     user = maybeUser;
-  }
-
-  if (
-    ['messages', 'responses'].includes(requestBodyParsed.kind) &&
-    !isKiloAffiliatedUser(maybeUser, organizationId ?? null)
-  ) {
-    return NextResponse.json(
-      {
-        error: {
-          message: `The ${requestBodyParsed.kind} API is experimental and not yet available to all users.`,
-        },
-      },
-      { status: 403 }
-    );
   }
 
   if (
