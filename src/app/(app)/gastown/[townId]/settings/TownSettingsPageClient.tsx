@@ -177,10 +177,6 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
         handleDeleteDialogChange(false);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: trpc.gastown.listTowns.queryKey() }),
-          queryClient.invalidateQueries({ queryKey: trpc.gastown.getTown.queryKey({ townId }) }),
-          queryClient.invalidateQueries({
-            queryKey: trpc.gastown.getTownConfig.queryKey({ townId }),
-          }),
           queryClient.removeQueries({ queryKey: trpc.gastown.getTown.queryKey({ townId }) }),
           queryClient.removeQueries({ queryKey: trpc.gastown.getTownConfig.queryKey({ townId }) }),
           queryClient.removeQueries({
@@ -250,7 +246,7 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
 
   const townName = townQuery.data?.name ?? '';
   const canDeleteTown = !effectiveReadOnly;
-  const isDeleteConfirmationMatch = deleteConfirmationName === townName;
+  const isDeleteConfirmationMatch = townName.length > 0 && deleteConfirmationName === townName;
 
   function handleSave() {
     const envVarObj: Record<string, string> = {};
