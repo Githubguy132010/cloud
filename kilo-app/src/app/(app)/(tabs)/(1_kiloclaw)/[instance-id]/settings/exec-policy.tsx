@@ -77,7 +77,9 @@ export default function ExecPolicyScreen() {
                 key={option.id}
                 className={cn(
                   'rounded-lg bg-secondary p-4 gap-3 border-2 active:opacity-70',
-                  isSelected ? 'border-primary bg-primary/10' : 'border-transparent'
+                  isSelected
+                    ? 'border-primary bg-neutral-100 dark:bg-neutral-800'
+                    : 'border-transparent'
                 )}
                 onPress={() => {
                   handleSelect(option);

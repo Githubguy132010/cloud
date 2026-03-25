@@ -83,7 +83,7 @@ export default function DashboardScreen() {
         <Animated.View entering={FadeIn.duration(200)} className="gap-4">
           {isServiceDegraded && (
             <Pressable
-              className="flex-row items-center gap-3 rounded-lg bg-destructive/10 p-3 active:opacity-70"
+              className="flex-row items-center gap-3 rounded-lg bg-red-100 dark:bg-red-950 p-3 active:opacity-70"
               onPress={() => {
                 void Linking.openURL('https://status.kilo.ai');
               }}
@@ -110,7 +110,7 @@ export default function DashboardScreen() {
             restarts={gateway?.restarts ?? undefined}
             lastExitCode={gateway?.lastExit?.code ?? undefined}
             lastExitSignal={gateway?.lastExit?.signal ?? undefined}
-            gatewayLoading={true} // TODO: revert — temp force loading
+            gatewayLoading={isRunning && gatewayQuery.isPending}
           />
 
           <InstanceControls status={status?.status ?? undefined} mutations={mutations} />

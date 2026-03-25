@@ -12,9 +12,10 @@ const buttonVariants = cva(
         default: 'bg-primary active:opacity-80 shadow-sm shadow-black/5',
         destructive: 'bg-destructive active:opacity-80 shadow-sm shadow-black/5',
         outline:
-          'border-border bg-background active:opacity-80 dark:border-muted-foreground/20 dark:bg-secondary border shadow-sm shadow-black/5',
-        secondary: 'bg-secondary active:bg-secondary/80 shadow-sm shadow-black/5',
-        ghost: 'active:bg-accent dark:active:bg-accent/50',
+          'border-border bg-background active:opacity-80 dark:border-neutral-700 dark:bg-secondary border shadow-sm shadow-black/5',
+        secondary:
+          'bg-secondary active:bg-neutral-200 dark:active:bg-neutral-700 shadow-sm shadow-black/5',
+        ghost: 'active:bg-neutral-100 dark:active:bg-neutral-800',
         link: '',
       },
       size: {

@@ -52,7 +52,7 @@ function getBannerConfig(
       return {
         icon: AlertTriangle,
         message: 'Trial expires today',
-        bgClass: 'bg-destructive/10',
+        bgClass: 'bg-red-100 dark:bg-red-950',
       };
     }
     case 'earlybird_active': {
@@ -77,14 +77,14 @@ function getBannerConfig(
         message: billing.subscription
           ? `Subscription cancels ${formatBillingDate(billing.subscription.currentPeriodEnd)}`
           : '',
-        bgClass: 'bg-destructive/10',
+        bgClass: 'bg-red-100 dark:bg-red-950',
       };
     }
     case 'subscription_past_due': {
       return {
         icon: AlertTriangle,
         message: 'Payment past due — please update your payment method',
-        bgClass: 'bg-destructive/10',
+        bgClass: 'bg-red-100 dark:bg-red-950',
       };
     }
     default: {
