@@ -1,11 +1,12 @@
 import type React from 'react';
 import type { SecretIconKey } from '@kilocode/kiloclaw-secret-catalog';
-import { Key, ListChecks } from 'lucide-react';
+import { Key, Lock } from 'lucide-react';
 import { TelegramIcon } from './icons/TelegramIcon';
 import { DiscordIcon } from './icons/DiscordIcon';
 import { SlackIcon } from './icons/SlackIcon';
 import { GitHubIcon } from './icons/GitHubIcon';
 import { AgentCardIcon } from './icons/AgentCardIcon';
+import { BraveSearchIcon } from './icons/BraveSearchIcon';
 
 const ICON_MAP: Record<SecretIconKey, React.ComponentType<{ className?: string }>> = {
   send: TelegramIcon,
@@ -13,8 +14,9 @@ const ICON_MAP: Record<SecretIconKey, React.ComponentType<{ className?: string }
   slack: SlackIcon,
   key: Key,
   github: GitHubIcon,
-  'list-checks': ListChecks,
   'credit-card': AgentCardIcon,
+  lock: Lock,
+  brave: BraveSearchIcon,
 };
 
 export function getIcon(iconKey: SecretIconKey): React.ComponentType<{ className?: string }> {
@@ -27,8 +29,9 @@ const DESCRIPTION_MAP: Record<string, string> = {
   discord: 'Connect your Discord bot',
   slack: 'Connect your Slack workspace',
   github: 'Connect a GitHub account for code operations',
-  linear: 'Connect Linear for issue tracking',
   agentcard: 'Give your bot virtual debit cards for spending',
+  onepassword: 'Look up credentials and manage vault items via the op CLI',
+  'brave-search': 'Add a Brave Search API key for web search',
 };
 
 export function getDescription(entryId: string): string {

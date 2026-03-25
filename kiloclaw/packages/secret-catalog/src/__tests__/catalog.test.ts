@@ -45,6 +45,8 @@ describe('Secret Catalog', () => {
         'github',
         'list-checks',
         'credit-card',
+        'lock',
+        'brave',
       ]);
       for (const entry of SECRET_CATALOG) {
         expect(validIcons.has(entry.icon)).toBe(true);
@@ -119,6 +121,7 @@ describe('Secret Catalog', () => {
         'GITHUB_TOKEN',
         'GITHUB_USERNAME',
         'GITHUB_EMAIL',
+        'BRAVE_API_KEY',
         'LINEAR_API_KEY',
       ]);
 
@@ -137,6 +140,7 @@ describe('Secret Catalog', () => {
       expect(FIELD_KEY_TO_ENV_VAR.get('githubToken')).toBe('GITHUB_TOKEN');
       expect(FIELD_KEY_TO_ENV_VAR.get('githubUsername')).toBe('GITHUB_USERNAME');
       expect(FIELD_KEY_TO_ENV_VAR.get('githubEmail')).toBe('GITHUB_EMAIL');
+      expect(FIELD_KEY_TO_ENV_VAR.get('braveSearchApiKey')).toBe('BRAVE_API_KEY');
     });
 
     it('ENV_VAR_TO_FIELD_KEY is the exact reverse of FIELD_KEY_TO_ENV_VAR', () => {
@@ -154,6 +158,7 @@ describe('Secret Catalog', () => {
       expect(ENV_VAR_TO_FIELD_KEY.get('GITHUB_TOKEN')).toBe('githubToken');
       expect(ENV_VAR_TO_FIELD_KEY.get('GITHUB_USERNAME')).toBe('githubUsername');
       expect(ENV_VAR_TO_FIELD_KEY.get('GITHUB_EMAIL')).toBe('githubEmail');
+      expect(ENV_VAR_TO_FIELD_KEY.get('BRAVE_API_KEY')).toBe('braveSearchApiKey');
     });
   });
 
@@ -195,10 +200,12 @@ describe('Secret Catalog', () => {
 
     it('returns all tool entries sorted by order', () => {
       const tools = getEntriesByCategory('tool');
-      expect(tools.length).toBe(3);
+      expect(tools.length).toBe(4);
       expect(tools[0].id).toBe('github');
       expect(tools[1].id).toBe('linear');
       expect(tools[2].id).toBe('agentcard');
+      expect(tools[2].id).toBe('onepassword');
+      expect(tools[3].id).toBe('brave-search');
     });
 
     it('returns empty array for categories with no entries', () => {
@@ -224,7 +231,9 @@ describe('Secret Catalog', () => {
       expect(keys).toContain('githubEmail');
       expect(keys).toContain('linearApiKey');
       expect(keys).toContain('agentcardApiKey');
-      expect(keys.size).toBe(5);
+      expect(keys).toContain('onepasswordServiceAccountToken');
+      expect(keys).toContain('braveSearchApiKey');
+      expect(keys.size).toBe(6);
     });
 
     it('returns empty set for categories with no entries', () => {
@@ -359,6 +368,21 @@ describe('Secret Catalog', () => {
       expect(validateFieldValue('github_pat_short', pattern)).toBe(false);
       expect(validateFieldValue('gho_invalidprefix', pattern)).toBe(false);
       expect(validateFieldValue('invalid', pattern)).toBe(false);
+    });
+
+    it('accepts valid Brave Search API keys', () => {
+      const pattern = '^BSA[A-Za-z0-9_-]{20,}$';
+      // Real key format: BSA + mixed alphanumeric, ~30 chars total
+      expect(validateFieldValue('BSAq2h7cYupyy704DHyXPFlUx8SinqK', pattern)).toBe(true);
+      expect(validateFieldValue('BSA' + 'A'.repeat(20), pattern)).toBe(true);
+      expect(validateFieldValue('BSAIabcDEF_123-456abcDEF1234', pattern)).toBe(true);
+    });
+
+    it('rejects invalid Brave Search API keys', () => {
+      const pattern = '^BSA[A-Za-z0-9_-]{20,}$';
+      expect(validateFieldValue('invalid', pattern)).toBe(false);
+      expect(validateFieldValue('BSAshort', pattern)).toBe(false);
+      expect(validateFieldValue('bsa' + 'A'.repeat(20), pattern)).toBe(false);
     });
 
     it('rejects empty strings', () => {

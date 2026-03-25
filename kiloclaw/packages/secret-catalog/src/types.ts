@@ -12,6 +12,8 @@ export const SecretIconKeySchema = z.enum([
   'github',
   'list-checks',
   'credit-card',
+  'lock',
+  'brave',
 ]);
 
 /**
