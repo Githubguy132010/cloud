@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGastownTRPC } from '@/lib/gastown/trpc';
 import { useUser } from '@/hooks/useUser';
@@ -32,6 +33,17 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { AdminViewingBanner } from '@/components/gastown/AdminViewingBanner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Props = { townId: string; readOnly?: boolean; organizationId?: string };
 
@@ -48,6 +60,7 @@ const SECTIONS = [
   { id: 'merge-strategy', label: 'Merge Strategy', icon: GitPullRequest },
   { id: 'refinery', label: 'Refinery', icon: Shield },
   { id: 'container', label: 'Container', icon: Container },
+  { id: 'danger-zone', label: 'Danger Zone', icon: Trash2 },
 ] as const;
 
 function useScrollSpy(sectionIds: readonly string[]) {
@@ -100,6 +113,7 @@ function useScrollSpy(sectionIds: readonly string[]) {
 }
 
 export function TownSettingsPageClient({ townId, readOnly = false, organizationId }: Props) {
+  const router = useRouter();
   const trpc = useGastownTRPC();
   const queryClient = useQueryClient();
   const { data: currentUser } = useUser();
@@ -157,6 +171,38 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
     })
   );
 
+  const deleteTown = useMutation(
+    trpc.gastown.deleteTown.mutationOptions({
+      onSuccess: async () => {
+        handleDeleteDialogChange(false);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.gastown.listTowns.queryKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.gastown.getTown.queryKey({ townId }) }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.gastown.getTownConfig.queryKey({ townId }),
+          }),
+          queryClient.removeQueries({ queryKey: trpc.gastown.getTown.queryKey({ townId }) }),
+          queryClient.removeQueries({ queryKey: trpc.gastown.getTownConfig.queryKey({ townId }) }),
+          queryClient.removeQueries({
+            queryKey: trpc.gastown.checkAdminAccess.queryKey({ townId }),
+          }),
+          ...(organizationId
+            ? [
+                queryClient.invalidateQueries({
+                  queryKey: trpc.gastown.listOrgTowns.queryKey({ organizationId }),
+                }),
+              ]
+            : []),
+        ]);
+        toast.success('Town deleted');
+        void router.replace(organizationId ? `/organizations/${organizationId}/gastown` : '/gastown');
+      },
+      onError: err => {
+        toast.error(err.message);
+      },
+    })
+  );
+
   // Local state for form fields
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
   const [githubToken, setGithubToken] = useState('');
@@ -174,6 +220,8 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
   const [disableAiCoauthor, setDisableAiCoauthor] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmationName, setDeleteConfirmationName] = useState('');
 
   // Sync config into local state when loaded
   if (configQuery.data && !initialized) {
@@ -199,6 +247,10 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
   const { activeId: activeSection, scrollTo: scrollToSection } = useScrollSpy(
     SECTIONS.map(s => s.id)
   );
+
+  const townName = townQuery.data?.name ?? '';
+  const canDeleteTown = !effectiveReadOnly;
+  const isDeleteConfirmationMatch = deleteConfirmationName === townName;
 
   function handleSave() {
     const envVarObj: Record<string, string> = {};
@@ -234,6 +286,19 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
         },
       },
     });
+  }
+
+  function handleDeleteDialogChange(open: boolean) {
+    setIsDeleteDialogOpen(open);
+    if (!open) {
+      setDeleteConfirmationName('');
+    }
+  }
+
+  function handleDeleteTown() {
+    if (!canDeleteTown || !isDeleteConfirmationMatch) return;
+
+    deleteTown.mutate({ townId });
   }
 
   function addEnvVar() {
@@ -678,6 +743,67 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                   </div>
                 </div>
               </SettingsSection>
+
+              <SettingsSection
+                id="danger-zone"
+                title="Danger Zone"
+                description="Permanently delete this town and all of its associated rigs, beads, and agents."
+                icon={Trash2}
+                index={9}
+                accent="danger"
+              >
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-red-500/25 bg-red-500/8 p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-red-100">Delete town</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-red-100/70">
+                          This action cannot be undone. Deleting a town permanently removes its
+                          settings, rigs, and related runtime state.
+                        </p>
+                      </div>
+                      {isAdminViewing ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span tabIndex={0}>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                disabled
+                                className="w-full sm:w-auto"
+                              >
+                                <Trash2 className="size-3.5" />
+                                Delete Town
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={6}>
+                            Admins cannot delete towns they do not own
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDeleteDialogChange(true)}
+                          disabled={!canDeleteTown}
+                          className="w-full sm:w-auto"
+                        >
+                          <Trash2 className="size-3.5" />
+                          Delete Town
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {!canDeleteTown && !isAdminViewing && (
+                    <p className="text-xs text-red-200/70">
+                      You have view-only access to this town. Only town creators and org owners can
+                      delete it.
+                    </p>
+                  )}
+                </div>
+              </SettingsSection>
             </div>
           </div>
 
@@ -691,6 +817,7 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                 {SECTIONS.map(section => {
                   const isActive = activeSection === section.id;
                   const SectionIcon = section.icon;
+                  const isDangerSection = section.id === 'danger-zone';
 
                   return (
                     <li key={section.id}>
@@ -698,8 +825,12 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                         onClick={() => scrollToSection(section.id)}
                         className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs whitespace-nowrap overflow-hidden text-ellipsis transition-colors ${
                           isActive
-                            ? 'bg-white/[0.06] text-white/80'
-                            : 'text-white/35 hover:bg-white/[0.03] hover:text-white/55'
+                            ? isDangerSection
+                              ? 'bg-red-500/12 text-red-100'
+                              : 'bg-white/[0.06] text-white/80'
+                            : isDangerSection
+                              ? 'text-red-200/60 hover:bg-red-500/8 hover:text-red-100'
+                              : 'text-white/35 hover:bg-white/[0.03] hover:text-white/55'
                         }`}
                       >
                         <SectionIcon className="size-3 shrink-0" />
@@ -707,7 +838,9 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                         {isActive && (
                           <motion.div
                             layoutId="settings-nav-indicator"
-                            className="ml-auto size-1 rounded-full bg-[color:oklch(95%_0.15_108)]"
+                            className={`ml-auto size-1 rounded-full ${
+                              isDangerSection ? 'bg-red-300' : 'bg-[color:oklch(95%_0.15_108)]'
+                            }`}
                             transition={{
                               type: 'spring',
                               stiffness: 350,
@@ -740,6 +873,44 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
           </div>
         </div>
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogChange}>
+        <AlertDialogContent className="border-red-500/25 bg-[color:oklch(0.155_0_0)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-100">Delete town?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60">
+              This permanently deletes <span className="font-semibold text-white">{townName}</span>{' '}
+              and all of its associated resources. Type the town name exactly to enable deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label htmlFor="delete-town-confirmation" className="text-xs text-white/65">
+              Confirm town name
+            </Label>
+            <Input
+              id="delete-town-confirmation"
+              value={deleteConfirmationName}
+              onChange={e => setDeleteConfirmationName(e.target.value)}
+              placeholder={townName}
+              autoFocus
+              className="border-red-500/20 bg-red-500/6 text-white placeholder:text-white/25"
+            />
+            <p className="text-[11px] text-white/35">Enter `{townName}` to continue.</p>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTown.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTown}
+              disabled={!isDeleteConfirmationMatch || deleteTown.isPending}
+              className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500"
+            >
+              {deleteTown.isPending ? 'Deleting...' : 'Delete town'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -753,6 +924,7 @@ function SettingsSection({
   icon: Icon,
   index,
   action,
+  accent = 'default',
   children,
 }: {
   id: string;
@@ -761,8 +933,11 @@ function SettingsSection({
   icon: typeof Settings;
   index: number;
   action?: React.ReactNode;
+  accent?: 'default' | 'danger';
   children: React.ReactNode;
 }) {
+  const isDanger = accent === 'danger';
+
   return (
     <motion.section
       id={id}
@@ -772,17 +947,35 @@ function SettingsSection({
     >
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex size-8 items-center justify-center rounded-lg bg-white/[0.04] ring-1 ring-white/[0.06]">
-            <Icon className="size-4 text-white/40" />
+          <div
+            className={`mt-0.5 flex size-8 items-center justify-center rounded-lg ring-1 ${
+              isDanger
+                ? 'bg-red-500/10 ring-red-500/20'
+                : 'bg-white/[0.04] ring-white/[0.06]'
+            }`}
+          >
+            <Icon className={`size-4 ${isDanger ? 'text-red-200/80' : 'text-white/40'}`} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white/85">{title}</h2>
-            <p className="mt-0.5 text-xs text-white/35">{description}</p>
+            <h2 className={`text-sm font-semibold ${isDanger ? 'text-red-100' : 'text-white/85'}`}>
+              {title}
+            </h2>
+            <p className={`mt-0.5 text-xs ${isDanger ? 'text-red-100/60' : 'text-white/35'}`}>
+              {description}
+            </p>
           </div>
         </div>
         {action}
       </div>
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">{children}</div>
+      <div
+        className={`rounded-xl border p-4 ${
+          isDanger
+            ? 'border-red-500/20 bg-red-500/4'
+            : 'border-white/[0.06] bg-white/[0.02]'
+        }`}
+      >
+        {children}
+      </div>
     </motion.section>
   );
 }
