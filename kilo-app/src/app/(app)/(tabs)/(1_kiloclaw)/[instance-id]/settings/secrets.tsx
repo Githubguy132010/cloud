@@ -1,86 +1,204 @@
-import { Lock, ShieldCheck, ShieldOff } from 'lucide-react-native';
-import { ScrollView, View } from 'react-native';
+import { Check, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
+import { useState } from 'react';
+import { Alert, ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
-import { EmptyState } from '@/components/empty-state';
 import { ScreenHeader } from '@/components/screen-header';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { useKiloClawConfig } from '@/lib/hooks/use-kiloclaw';
+import { useKiloClawMutations, useKiloClawSecretCatalog } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
-export default function SecretsScreen() {
-  const colors = useThemeColors();
-  const configQuery = useKiloClawConfig();
-  const config = configQuery.data;
+type CatalogSecret = NonNullable<ReturnType<typeof useKiloClawSecretCatalog>['data']>[number];
 
-  if (configQuery.isPending) {
-    return (
-      <View className="flex-1 bg-background">
-        <ScreenHeader title="Secrets" />
-        <Animated.View layout={LinearTransition} className="flex-1 px-4 pt-4 gap-3">
-          <Animated.View exiting={FadeOut.duration(150)}>
-            <Skeleton className="h-12 w-full rounded-lg" />
-          </Animated.View>
-          <Animated.View exiting={FadeOut.duration(150)}>
-            <Skeleton className="h-12 w-full rounded-lg" />
-          </Animated.View>
-        </Animated.View>
-      </View>
+function SecretCard({
+  secret,
+  mutations,
+}: Readonly<{
+  secret: CatalogSecret;
+  mutations: ReturnType<typeof useKiloClawMutations>;
+}>) {
+  const colors = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+
+  const isSaving = mutations.patchSecrets.isPending;
+
+  const filledFields = secret.fields.filter(f => (fieldValues[f.key] ?? '').trim().length > 0);
+  const canSave = secret.allFieldsRequired
+    ? filledFields.length === secret.fields.length
+    : filledFields.length > 0;
+
+  function handleSave() {
+    const secrets: Record<string, string> = {};
+    for (const f of secret.fields) {
+      const val = (fieldValues[f.key] ?? '').trim();
+      if (val) secrets[f.key] = val;
+    }
+    mutations.patchSecrets.mutate(
+      { secrets },
+      {
+        onSuccess: () => {
+          setFieldValues({});
+          setExpanded(false);
+        },
+      }
     );
   }
 
-  const entries = Object.entries(config?.configuredSecrets ?? {});
-
-  if (entries.length === 0) {
-    return (
-      <View className="flex-1 bg-background">
-        <ScreenHeader title="Secrets" />
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          className="flex-1 items-center justify-center"
-        >
-          <EmptyState
-            icon={Lock}
-            title="No secrets"
-            description="Secrets configured for this instance will appear here."
-          />
-        </Animated.View>
-      </View>
+  function handleRemove() {
+    Alert.alert(
+      'Remove Secret',
+      `Remove ${secret.label}? This tool will lose access to its credentials.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            const secrets: Record<string, null> = {};
+            for (const f of secret.fields) {
+              // eslint-disable-next-line unicorn/no-null -- tRPC schema requires null for secret removal
+              secrets[f.key] = null;
+            }
+            mutations.patchSecrets.mutate({ secrets });
+          },
+        },
+      ]
     );
   }
 
   return (
-    <Animated.View layout={LinearTransition} className="flex-1 bg-background">
-      <ScreenHeader title="Secrets" />
-      <ScrollView contentContainerClassName="px-4 py-4 gap-4" showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeIn.duration(200)} className="gap-3">
-          <View className="rounded-lg bg-secondary overflow-hidden">
-            {entries.map(([key, configured], index) => (
-              <View key={key}>
-                {index > 0 && <View className="ml-4 h-px bg-border" />}
-                <View className="flex-row items-center gap-3 px-4 py-3">
-                  {configured ? (
-                    <ShieldCheck size={18} color={colors.foreground} />
-                  ) : (
-                    <ShieldOff size={18} color={colors.mutedForeground} />
-                  )}
-                  <View className="flex-1 gap-0.5">
-                    <Text className="text-sm font-medium">{key}</Text>
-                    <Text variant="muted" className="text-xs">
-                      {configured ? 'Configured' : 'Not set'}
-                    </Text>
-                  </View>
-                </View>
+    <View className="rounded-lg bg-secondary mx-4 overflow-hidden">
+      {/* Header row */}
+      <View className="flex-row items-center gap-3 px-4 py-3">
+        <View className="flex-1 gap-0.5">
+          <Text className="text-sm font-medium">{secret.label}</Text>
+          {secret.helpText && (
+            <Text className="text-xs text-muted-foreground">{secret.helpText}</Text>
+          )}
+        </View>
+        {secret.configured ? (
+          <View className="rounded-full bg-green-500/15 px-2 py-0.5">
+            <Text className="text-xs font-medium text-green-600 dark:text-green-400">
+              Connected
+            </Text>
+          </View>
+        ) : (
+          <View className="rounded-full bg-muted px-2 py-0.5">
+            <Text className="text-xs text-muted-foreground">Not connected</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Action buttons */}
+      <View className="flex-row gap-2 px-4 pb-3">
+        {secret.configured ? (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onPress={() => {
+                setExpanded(prev => !prev);
+              }}
+            >
+              {expanded ? (
+                <ChevronUp size={14} color={colors.foreground} />
+              ) : (
+                <ChevronDown size={14} color={colors.foreground} />
+              )}
+              <Text className="text-xs">{expanded ? 'Cancel' : 'Update Token'}</Text>
+            </Button>
+            <Button variant="destructive" size="sm" onPress={handleRemove}>
+              <Trash2 size={14} color="white" />
+              <Text className="text-xs text-destructive-foreground">Remove</Text>
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onPress={() => {
+              setExpanded(prev => !prev);
+            }}
+          >
+            {expanded ? (
+              <ChevronUp size={14} color={colors.foreground} />
+            ) : (
+              <ChevronDown size={14} color={colors.foreground} />
+            )}
+            <Text className="text-xs">{expanded ? 'Cancel' : 'Connect'}</Text>
+          </Button>
+        )}
+      </View>
+
+      {/* Expandable token input area */}
+      {expanded && (
+        <Animated.View entering={FadeIn.duration(150)} className="border-t border-border">
+          <View className="px-4 py-3 gap-3">
+            {secret.allFieldsRequired && secret.fields.length > 1 && (
+              <Text className="text-xs text-muted-foreground">
+                All fields are required to connect {secret.label}.
+              </Text>
+            )}
+            {secret.fields.map(field => (
+              <View key={field.key} className="gap-1.5">
+                <Text className="text-xs font-medium text-muted-foreground">{field.label}</Text>
+                <TextInput
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  placeholder={secret.configured ? field.placeholderConfigured : field.placeholder}
+                  placeholderTextColor={colors.mutedForeground}
+                  value={fieldValues[field.key] ?? ''}
+                  onChangeText={val => {
+                    setFieldValues(prev => ({ ...prev, [field.key]: val }));
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry
+                />
               </View>
             ))}
+            <Button size="sm" disabled={!canSave || isSaving} onPress={handleSave}>
+              <Check size={14} color={colors.primaryForeground} />
+              <Text className="text-xs text-primary-foreground">Save</Text>
+            </Button>
           </View>
-          <Text variant="muted" className="text-xs text-center">
-            {config?.secretCount ?? entries.length} secret
-            {(config?.secretCount ?? entries.length) === 1 ? '' : 's'}
-          </Text>
         </Animated.View>
-      </ScrollView>
-    </Animated.View>
+      )}
+    </View>
+  );
+}
+
+export default function SecretsScreen() {
+  const mutations = useKiloClawMutations();
+  const catalogQuery = useKiloClawSecretCatalog();
+
+  const isLoading = catalogQuery.isPending;
+
+  return (
+    <View className="flex-1 bg-background">
+      <ScreenHeader title="Secrets" />
+      <Animated.View layout={LinearTransition} className="flex-1">
+        <ScrollView contentContainerClassName="py-4 gap-4" showsVerticalScrollIndicator={false}>
+          {isLoading ? (
+            <Animated.View exiting={FadeOut.duration(150)} className="gap-3 px-4">
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
+            </Animated.View>
+          ) : (
+            <Animated.View entering={FadeIn.duration(200)} className="gap-3">
+              {catalogQuery.data?.map(secret => (
+                <SecretCard key={secret.id} secret={secret} mutations={mutations} />
+              ))}
+            </Animated.View>
+          )}
+        </ScrollView>
+      </Animated.View>
+    </View>
   );
 }

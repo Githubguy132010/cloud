@@ -640,6 +640,31 @@ export const kiloclawRouter = createTRPCRouter({
     }));
   }),
 
+  getSecretCatalog: baseProcedure.query(async ({ ctx }) => {
+    const client = new KiloClawUserClient(
+      generateApiToken(ctx.user, undefined, { expiresIn: TOKEN_EXPIRY.fiveMinutes })
+    );
+    const config = await client.getConfig({ userId: ctx.user.id });
+    const tools = getEntriesByCategory('tool');
+
+    return tools.map(entry => ({
+      id: entry.id,
+      label: entry.label,
+      configured: config.configuredSecrets[entry.id] ?? false,
+      fields: entry.fields.map(f => ({
+        key: f.key,
+        label: f.label,
+        placeholder: f.placeholder,
+        placeholderConfigured: f.placeholderConfigured,
+        validationPattern: f.validationPattern,
+        validationMessage: f.validationMessage,
+      })),
+      helpText: entry.helpText,
+      helpUrl: entry.helpUrl,
+      allFieldsRequired: entry.allFieldsRequired ?? false,
+    }));
+  }),
+
   restartMachine: clawAccessProcedure
     .input(
       z

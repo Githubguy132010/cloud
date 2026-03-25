@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react-native';
-import { Alert, FlatList, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, FlatList, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { ScreenHeader } from '@/components/screen-header';
@@ -7,21 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
-  useKiloClawMyPin,
   useControllerVersion,
-  useKiloClawLatestVersion,
   useKiloClawAvailableVersions,
+  useKiloClawLatestVersion,
   useKiloClawMutations,
+  useKiloClawMyPin,
 } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
-interface VersionItem {
-  openclaw_version: string | null | undefined;
-  variant: string | null | undefined;
-  image_tag: string;
-  description: string | null | undefined;
-  published_at: string | null | undefined;
-}
+type VersionItem = NonNullable<
+  ReturnType<typeof useKiloClawAvailableVersions>['data']
+>['items'][number];
 
 export default function VersionPinScreen() {
   const colors = useThemeColors();
@@ -30,6 +27,8 @@ export default function VersionPinScreen() {
   const latestVersionQuery = useKiloClawLatestVersion();
   const availableVersionsQuery = useKiloClawAvailableVersions();
   const mutations = useKiloClawMutations();
+  const [pendingReason, setPendingReason] = useState('');
+  const [pendingItem, setPendingItem] = useState<VersionItem>();
 
   const isLoading =
     myPinQuery.isPending || controllerQuery.isPending || latestVersionQuery.isPending;
@@ -55,6 +54,8 @@ export default function VersionPinScreen() {
   const latestVersion = latestVersionQuery.data;
   const versions = availableVersionsQuery.data?.items ?? [];
 
+  const isPinnedByAdmin = myPin !== null && myPin !== undefined && myPin.pinned_by !== myPin.user_id;
+
   function handleUnpin() {
     Alert.alert('Unpin Version', 'Switch back to the latest available version?', [
       { text: 'Cancel', style: 'cancel' },
@@ -69,16 +70,27 @@ export default function VersionPinScreen() {
   }
 
   function handlePin(item: VersionItem) {
-    const versionLabel = item.openclaw_version ?? item.image_tag;
-    Alert.alert('Pin Version', `Pin your instance to version ${versionLabel}?`, [
-      { text: 'Cancel', style: 'cancel' },
+    setPendingItem(item);
+    setPendingReason('');
+  }
+
+  function confirmPin() {
+    if (!pendingItem) return;
+    const reason = pendingReason.trim() || undefined;
+    mutations.setMyPin.mutate(
+      { imageTag: pendingItem.image_tag, reason },
       {
-        text: 'Pin',
-        onPress: () => {
-          mutations.setMyPin.mutate({ imageTag: item.image_tag });
+        onSuccess: () => {
+          setPendingItem(undefined);
+          setPendingReason('');
         },
-      },
-    ]);
+      }
+    );
+  }
+
+  function cancelPin() {
+    setPendingItem(undefined);
+    setPendingReason('');
   }
 
   function renderVersionItem({ item }: { item: VersionItem }) {
@@ -86,34 +98,61 @@ export default function VersionPinScreen() {
     const dateStr = item.published_at
       ? new Date(item.published_at).toLocaleDateString()
       : undefined;
+    const isPending = pendingItem?.image_tag === item.image_tag;
 
     return (
       <View>
-        <Animated.View>
-          <View className="flex-row items-center gap-3 px-4 py-3">
-            <View className="flex-1 gap-0.5">
-              <Text className="text-sm font-medium">{item.openclaw_version ?? item.image_tag}</Text>
-              {Boolean(dateStr ?? item.variant) && (
-                <Text variant="muted" className="text-xs">
-                  {[dateStr, item.variant].filter(Boolean).join(' · ')}
-                </Text>
-              )}
-            </View>
-            {isPinned ? (
-              <Check size={18} color={colors.foreground} />
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onPress={() => {
-                  handlePin(item);
-                }}
-              >
-                <Text>Pin</Text>
-              </Button>
+        <View className="flex-row items-center gap-3 px-4 py-3">
+          <View className="flex-1 gap-0.5">
+            <Text className="text-sm font-medium">{item.openclaw_version}</Text>
+            {Boolean(dateStr ?? item.variant) && (
+              <Text variant="muted" className="text-xs">
+                {[dateStr, item.variant].filter(Boolean).join(' · ')}
+              </Text>
             )}
           </View>
-        </Animated.View>
+          {isPinned ? (
+            <Check size={18} color={colors.foreground} />
+          ) : (
+            <Button
+              size="sm"
+              variant={isPending ? 'default' : 'outline'}
+              onPress={() => {
+                if (isPending) {
+                  cancelPin();
+                } else {
+                  handlePin(item);
+                }
+              }}
+            >
+              <Text>{isPending ? 'Cancel' : 'Pin'}</Text>
+            </Button>
+          )}
+        </View>
+        {isPending && (
+          <Animated.View entering={FadeIn.duration(150)} className="border-t border-border">
+            <View className="px-4 py-3 gap-3">
+              <Text className="text-xs font-medium text-muted-foreground">Reason (optional)</Text>
+              <TextInput
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                placeholder="Why are you pinning this version?"
+                placeholderTextColor={colors.mutedForeground}
+                value={pendingReason}
+                onChangeText={val => {
+                  if (val.length <= 500) setPendingReason(val);
+                }}
+                autoCapitalize="sentences"
+                autoCorrect
+                multiline
+                maxLength={500}
+              />
+              <Button size="sm" disabled={mutations.setMyPin.isPending} onPress={confirmPin}>
+                <Check size={14} color={colors.primaryForeground} />
+                <Text className="text-xs text-primary-foreground">Confirm Pin</Text>
+              </Button>
+            </View>
+          </Animated.View>
+        )}
       </View>
     );
   }
@@ -151,12 +190,24 @@ export default function VersionPinScreen() {
               )}
 
               <View className="flex-row items-center justify-between">
-                <Text variant="muted" className="text-xs flex-1">
-                  {myPin
-                    ? `Pinned to ${myPin.openclaw_version ?? myPin.image_tag}`
-                    : 'Using latest'}
-                </Text>
-                {myPin && (
+                <View className="flex-1 gap-0.5">
+                  <Text variant="muted" className="text-xs">
+                    {myPin
+                      ? `Pinned to ${myPin.openclaw_version ?? myPin.image_tag}`
+                      : 'Using latest'}
+                  </Text>
+                  {myPin?.reason && (
+                    <Text variant="muted" className="text-xs">
+                      Reason: {myPin.reason}
+                    </Text>
+                  )}
+                  {isPinnedByAdmin && (
+                    <Text className="text-xs text-amber-600 dark:text-amber-400">
+                      Pinned by admin — contact your admin to change or remove it.
+                    </Text>
+                  )}
+                </View>
+                {myPin && !isPinnedByAdmin && (
                   <Button size="sm" variant="outline" onPress={handleUnpin}>
                     <Text>Unpin</Text>
                   </Button>

@@ -132,6 +132,15 @@ export function useKiloClawChannelCatalog() {
   );
 }
 
+export function useKiloClawSecretCatalog() {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.kiloclaw.getSecretCatalog.queryOptions(undefined, {
+      staleTime: 5 * 60_000,
+    })
+  );
+}
+
 // ── Mutations ────────────────────────────────────────────────────────
 
 export function useKiloClawMutations() {
