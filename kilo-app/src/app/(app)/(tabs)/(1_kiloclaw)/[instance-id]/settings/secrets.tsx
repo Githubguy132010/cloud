@@ -1,205 +1,11 @@
-import { Check, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, ScrollView, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, ScrollView, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { toast } from 'sonner-native';
 
+import { SettingsCard } from '@/components/kiloclaw/settings-card';
 import { ScreenHeader } from '@/components/screen-header';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
 import { useKiloClawMutations, useKiloClawSecretCatalog } from '@/lib/hooks/use-kiloclaw';
-import { useThemeColors } from '@/lib/hooks/use-theme-colors';
-
-type CatalogSecret = NonNullable<ReturnType<typeof useKiloClawSecretCatalog>['data']>[number];
-
-function SecretCard({
-  secret,
-  mutations,
-}: Readonly<{
-  secret: CatalogSecret;
-  mutations: ReturnType<typeof useKiloClawMutations>;
-}>) {
-  const colors = useThemeColors();
-  const [expanded, setExpanded] = useState(false);
-  const [canSave, setCanSave] = useState(false);
-  const [isRemoving, setIsRemoving] = useState(false);
-  const fieldValuesRef = useRef<Record<string, string>>({});
-
-  const isSaving = mutations.patchSecrets.isPending && !isRemoving;
-
-  const updateCanSave = useCallback(() => {
-    const vals = fieldValuesRef.current;
-    const filled = secret.fields.filter(f => (vals[f.key] ?? '').trim().length > 0);
-    const next = secret.allFieldsRequired
-      ? filled.length === secret.fields.length
-      : filled.length > 0;
-    setCanSave(next);
-  }, [secret.fields, secret.allFieldsRequired]);
-
-  function handleSave() {
-    const secrets: Record<string, string> = {};
-    for (const f of secret.fields) {
-      const val = (fieldValuesRef.current[f.key] ?? '').trim();
-      if (val) secrets[f.key] = val;
-    }
-    mutations.patchSecrets.mutate(
-      { secrets },
-      {
-        onSuccess: () => {
-          fieldValuesRef.current = {};
-          setCanSave(false);
-          setExpanded(false);
-          toast.success(`${secret.label} saved`);
-        },
-      }
-    );
-  }
-
-  function handleRemove() {
-    Alert.alert(
-      'Remove Secret',
-      `Remove ${secret.label}? This tool will lose access to its credentials.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            setIsRemoving(true);
-            const secrets: Record<string, null> = {};
-            for (const f of secret.fields) {
-              secrets[f.key] = null;
-            }
-            mutations.patchSecrets.mutate(
-              { secrets },
-              {
-                onSettled: () => {
-                  setIsRemoving(false);
-                },
-              }
-            );
-          },
-        },
-      ]
-    );
-  }
-
-  return (
-    <View className="rounded-lg bg-secondary mx-4 overflow-hidden">
-      {/* Header row */}
-      <View className="flex-row items-center gap-3 px-4 py-3">
-        <View className="flex-1 gap-0.5">
-          <Text className="text-sm font-medium">{secret.label}</Text>
-          {secret.helpText && (
-            <Text className="text-xs text-muted-foreground">{secret.helpText}</Text>
-          )}
-        </View>
-        {secret.configured ? (
-          <View className="rounded-full bg-green-500/15 px-2 py-0.5">
-            <Text className="text-xs font-medium text-green-600 dark:text-green-400">
-              Connected
-            </Text>
-          </View>
-        ) : (
-          <View className="rounded-full bg-muted px-2 py-0.5">
-            <Text className="text-xs text-muted-foreground">Not connected</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Action buttons */}
-      <View className="flex-row gap-2 px-4 pb-3">
-        {secret.configured ? (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 dark:bg-background"
-              onPress={() => {
-                setExpanded(prev => !prev);
-              }}
-            >
-              {expanded ? (
-                <ChevronUp size={14} color={colors.foreground} />
-              ) : (
-                <ChevronDown size={14} color={colors.foreground} />
-              )}
-              <Text className="text-xs">{expanded ? 'Cancel' : 'Update Token'}</Text>
-            </Button>
-            <Button variant="destructive" size="sm" disabled={isRemoving} onPress={handleRemove}>
-              {isRemoving ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Trash2 size={14} color="white" />
-              )}
-              <Text className="text-xs text-destructive-foreground">
-                {isRemoving ? 'Removing…' : 'Remove'}
-              </Text>
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 dark:bg-background"
-            onPress={() => {
-              setExpanded(prev => !prev);
-            }}
-          >
-            {expanded ? (
-              <ChevronUp size={14} color={colors.foreground} />
-            ) : (
-              <ChevronDown size={14} color={colors.foreground} />
-            )}
-            <Text className="text-xs">{expanded ? 'Cancel' : 'Connect'}</Text>
-          </Button>
-        )}
-      </View>
-
-      {/* Expandable token input area */}
-      {expanded && (
-        <Animated.View entering={FadeIn.duration(150)}>
-          <View className="border-t border-border px-4 pb-3 pt-3 gap-3">
-            {secret.allFieldsRequired && secret.fields.length > 1 && (
-              <Text className="text-xs text-muted-foreground">
-                All fields are required to connect {secret.label}.
-              </Text>
-            )}
-            {secret.fields.map(field => (
-              <View key={field.key} className="gap-1.5">
-                <Text className="text-xs font-medium text-muted-foreground">{field.label}</Text>
-                <TextInput
-                  className="rounded-md border border-input bg-background px-3 py-2.5 text-sm leading-5 text-foreground"
-                  placeholder={secret.configured ? field.placeholderConfigured : field.placeholder}
-                  placeholderTextColor={colors.mutedForeground}
-                  onChangeText={val => {
-                    fieldValuesRef.current[field.key] = val;
-                    updateCanSave();
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="off"
-                  returnKeyType="done"
-                />
-              </View>
-            ))}
-            <Button size="sm" disabled={!canSave || isSaving} onPress={handleSave}>
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.primaryForeground} />
-              ) : (
-                <Check size={14} color={colors.primaryForeground} />
-              )}
-              <Text className="text-xs text-primary-foreground">
-                {isSaving ? 'Saving…' : 'Save'}
-              </Text>
-            </Button>
-          </View>
-        </Animated.View>
-      )}
-    </View>
-  );
-}
 
 export default function SecretsScreen() {
   const mutations = useKiloClawMutations();
@@ -242,7 +48,14 @@ export default function SecretsScreen() {
           ) : (
             <Animated.View entering={FadeIn.duration(200)} className="gap-3">
               {catalogQuery.data?.map(secret => (
-                <SecretCard key={secret.id} secret={secret} mutations={mutations} />
+                <SettingsCard
+                  key={secret.id}
+                  item={secret}
+                  mutations={mutations}
+                  removeAlertTitle="Remove Secret"
+                  removeAlertMessage={`Remove ${secret.label}? This tool will lose access to its credentials.`}
+                  successMessage={`${secret.label} saved`}
+                />
               ))}
             </Animated.View>
           )}

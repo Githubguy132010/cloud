@@ -1,8 +1,9 @@
-import { Check, ChevronDown, ChevronUp, MessageSquare, Trash2 } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert, ScrollView, TextInput, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { MessageSquare } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Keyboard, ScrollView, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
+import { SettingsCard } from '@/components/kiloclaw/settings-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,173 +15,12 @@ import {
 } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
-type CatalogChannel = NonNullable<ReturnType<typeof useKiloClawChannelCatalog>['data']>[number];
-
 const CHANNEL_LABELS: Record<string, string> = {
   telegram: 'Telegram',
   discord: 'Discord',
   slack: 'Slack',
   github: 'GitHub',
 };
-
-function ChannelCard({
-  channel,
-  mutations,
-}: Readonly<{
-  channel: CatalogChannel;
-  mutations: ReturnType<typeof useKiloClawMutations>;
-}>) {
-  const colors = useThemeColors();
-  const [expanded, setExpanded] = useState(false);
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
-
-  const isSaving = mutations.patchSecrets.isPending;
-
-  const filledFields = channel.fields.filter(f => (fieldValues[f.key] ?? '').trim().length > 0);
-  const canSave = channel.allFieldsRequired
-    ? filledFields.length === channel.fields.length
-    : filledFields.length > 0;
-
-  function handleSave() {
-    const secrets: Record<string, string> = {};
-    for (const f of channel.fields) {
-      const val = (fieldValues[f.key] ?? '').trim();
-      if (val) secrets[f.key] = val;
-    }
-    mutations.patchSecrets.mutate(
-      { secrets },
-      {
-        onSuccess: () => {
-          setFieldValues({});
-          setExpanded(false);
-        },
-      }
-    );
-  }
-
-  function handleRemove() {
-    Alert.alert(
-      'Disconnect Channel',
-      `Remove ${channel.label}? This channel will be disconnected.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            const secrets: Record<string, null> = {};
-            for (const f of channel.fields) {
-              secrets[f.key] = null;
-            }
-            mutations.patchSecrets.mutate({ secrets });
-          },
-        },
-      ]
-    );
-  }
-
-  return (
-    <View className="rounded-lg bg-secondary mx-4 overflow-hidden">
-      {/* Header row */}
-      <View className="flex-row items-center gap-3 px-4 py-3">
-        <View className="flex-1 gap-0.5">
-          <Text className="text-sm font-medium">{channel.label}</Text>
-          {channel.helpText && (
-            <Text className="text-xs text-muted-foreground">{channel.helpText}</Text>
-          )}
-        </View>
-        {channel.configured ? (
-          <View className="rounded-full bg-green-500/15 px-2 py-0.5">
-            <Text className="text-xs font-medium text-green-600 dark:text-green-400">
-              Connected
-            </Text>
-          </View>
-        ) : (
-          <View className="rounded-full bg-muted px-2 py-0.5">
-            <Text className="text-xs text-muted-foreground">Not connected</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Action buttons */}
-      <View className="flex-row gap-2 px-4 pb-3">
-        {channel.configured ? (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onPress={() => {
-                setExpanded(prev => !prev);
-              }}
-            >
-              {expanded ? (
-                <ChevronUp size={14} color={colors.foreground} />
-              ) : (
-                <ChevronDown size={14} color={colors.foreground} />
-              )}
-              <Text className="text-xs">{expanded ? 'Cancel' : 'Update Token'}</Text>
-            </Button>
-            <Button variant="destructive" size="sm" onPress={handleRemove}>
-              <Trash2 size={14} color="white" />
-              <Text className="text-xs text-destructive-foreground">Remove</Text>
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onPress={() => {
-              setExpanded(prev => !prev);
-            }}
-          >
-            {expanded ? (
-              <ChevronUp size={14} color={colors.foreground} />
-            ) : (
-              <ChevronDown size={14} color={colors.foreground} />
-            )}
-            <Text className="text-xs">{expanded ? 'Cancel' : 'Connect'}</Text>
-          </Button>
-        )}
-      </View>
-
-      {/* Expandable token input area */}
-      {expanded && (
-        <Animated.View entering={FadeIn.duration(150)} className="border-t border-border">
-          <View className="px-4 py-3 gap-3">
-            {channel.allFieldsRequired && channel.fields.length > 1 && (
-              <Text className="text-xs text-muted-foreground">
-                All fields are required to connect {channel.label}.
-              </Text>
-            )}
-            {channel.fields.map(field => (
-              <View key={field.key} className="gap-1.5">
-                <Text className="text-xs font-medium text-muted-foreground">{field.label}</Text>
-                <TextInput
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-                  placeholder={channel.configured ? field.placeholderConfigured : field.placeholder}
-                  placeholderTextColor={colors.mutedForeground}
-                  value={fieldValues[field.key] ?? ''}
-                  onChangeText={val => {
-                    setFieldValues(prev => ({ ...prev, [field.key]: val }));
-                  }}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                />
-              </View>
-            ))}
-            <Button size="sm" disabled={!canSave || isSaving} onPress={handleSave}>
-              <Check size={14} color={colors.primaryForeground} />
-              <Text className="text-xs text-primary-foreground">Save</Text>
-            </Button>
-          </View>
-        </Animated.View>
-      )}
-    </View>
-  );
-}
 
 export default function ChannelsScreen() {
   const colors = useThemeColors();
@@ -190,6 +30,20 @@ export default function ChannelsScreen() {
 
   const isLoading = catalogQuery.isPending;
   const pairingRequests = pairingQuery.data?.requests ?? [];
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', e => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   function handleApprove(channel: string, code: string) {
     const label = CHANNEL_LABELS[channel] ?? channel;
@@ -211,8 +65,15 @@ export default function ChannelsScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title="Channels" />
-      <Animated.View layout={LinearTransition} className="flex-1">
-        <ScrollView contentContainerClassName="py-4 gap-4" showsVerticalScrollIndicator={false}>
+      <View className="flex-1">
+        <ScrollView
+          contentContainerClassName="py-4 gap-4"
+          contentInset={{ bottom: keyboardHeight > 0 ? keyboardHeight + 10 : 0 }}
+          scrollIndicatorInsets={{ bottom: keyboardHeight > 0 ? keyboardHeight + 10 : 0 }}
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+        >
           {isLoading ? (
             <Animated.View exiting={FadeOut.duration(150)} className="gap-3 px-4">
               <Skeleton className="h-24 w-full rounded-lg" />
@@ -222,7 +83,14 @@ export default function ChannelsScreen() {
           ) : (
             <Animated.View entering={FadeIn.duration(200)} className="gap-3">
               {catalogQuery.data?.map(channel => (
-                <ChannelCard key={channel.id} channel={channel} mutations={mutations} />
+                <SettingsCard
+                  key={channel.id}
+                  item={channel}
+                  mutations={mutations}
+                  removeAlertTitle="Disconnect Channel"
+                  removeAlertMessage={`Remove ${channel.label}? This channel will be disconnected.`}
+                  successMessage={`${channel.label} connected`}
+                />
               ))}
             </Animated.View>
           )}
@@ -230,10 +98,10 @@ export default function ChannelsScreen() {
           {/* Pairing requests */}
           {pairingRequests.length > 0 && (
             <View className="gap-3 px-4">
-              <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Pending Pairing Requests
               </Text>
-              <View className="rounded-lg bg-secondary overflow-hidden">
+              <View className="overflow-hidden rounded-lg bg-secondary">
                 {pairingRequests.map((request, index) => (
                   <View key={`${request.channel}-${request.code}`}>
                     {index > 0 && <View className="ml-4 h-px bg-border" />}
@@ -262,7 +130,7 @@ export default function ChannelsScreen() {
             </View>
           )}
         </ScrollView>
-      </Animated.View>
+      </View>
     </View>
   );
 }
