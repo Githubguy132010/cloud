@@ -159,6 +159,7 @@ const SAFE_ERROR_PREFIXES = [
   'New volume ID is ', // reassociate: same volume
   'Volume ', // reassociate: volume not found / bad state
   'Cannot restore: ', // snapshot restore: bad state
+  'Cannot destroy: ', // destroy while restoring
   'Cannot retry recovery', // force-retry-recovery guard messages
 ];
 

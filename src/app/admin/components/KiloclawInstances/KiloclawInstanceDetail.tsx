@@ -1392,6 +1392,7 @@ export function KiloclawInstanceDetail({ instanceId }: { instanceId: string }) {
                       variant="destructive"
                       size="sm"
                       onClick={() => setDestroyDialogOpen(true)}
+                      disabled={data.workerStatus?.status === 'restoring'}
                     >
                       <Trash2 className="mr-1 h-4 w-4" />
                       Destroy Instance

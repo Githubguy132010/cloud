@@ -1100,6 +1100,9 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     if (!this.s.userId || !this.s.sandboxId) {
       throw Object.assign(new Error('Instance not provisioned'), { status: 404 });
     }
+    if (this.s.status === 'restoring') {
+      throw new Error('Cannot destroy: instance is restoring from snapshot');
+    }
 
     const machineUptimeMs = this.s.lastStartedAt ? Date.now() - this.s.lastStartedAt : 0;
 
