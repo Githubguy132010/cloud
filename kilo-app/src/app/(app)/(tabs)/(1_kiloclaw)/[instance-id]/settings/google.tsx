@@ -13,6 +13,7 @@ import {
   useKiloClawGoogleSetup,
   useKiloClawMutations,
 } from '@/lib/hooks/use-kiloclaw';
+import { cn } from '@/lib/utils';
 export default function GoogleScreen() {
   const statusQuery = useKiloClawStatus();
   const mutations = useKiloClawMutations();
@@ -74,15 +75,21 @@ export default function GoogleScreen() {
       <ScrollView contentContainerClassName="px-4 py-4 gap-4" showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeIn.duration(200)} className="gap-4">
           {/* Connection status card */}
-          <View className="rounded-lg bg-secondary p-4 gap-3">
+          <View className="rounded-lg bg-secondary p-4 min-h-[60px] justify-center">
             <View className="flex-row items-center gap-3">
               <Globe size={20} color="#ef4444" />
               <Text className="flex-1 text-base font-semibold">Google Account</Text>
               <View
-                className={`px-2 py-1 rounded-full ${isConnected ? 'bg-green-500/20' : 'bg-muted'}`}
+                className={cn(
+                  'px-2 py-1 rounded-full',
+                  isConnected ? 'bg-green-200 dark:bg-green-900' : 'bg-muted'
+                )}
               >
                 <Text
-                  className={`text-xs font-medium ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}
+                  className={cn(
+                    'text-xs font-medium',
+                    isConnected ? 'text-green-800 dark:text-green-100' : 'text-muted-foreground'
+                  )}
                 >
                   {isConnected ? 'Connected' : 'Not connected'}
                 </Text>
@@ -117,10 +124,10 @@ export default function GoogleScreen() {
 
           {isConnected && (
             <Animated.View entering={FadeIn.duration(200)} className="gap-4">
-              <View className="rounded-lg bg-secondary overflow-hidden">
-                <View className="flex-row items-center gap-3 px-4 py-3">
-                  <Mail size={18} color="#10b981" />
-                  <Text className="flex-1 text-sm font-medium">Gmail Notifications</Text>
+              <View className="rounded-lg bg-secondary p-4 min-h-[60px] justify-center">
+                <View className="flex-row items-center gap-3">
+                  <Mail size={20} color="#10b981" />
+                  <Text className="flex-1 text-base font-semibold">Gmail Notifications</Text>
                   <Button
                     size="sm"
                     variant={gmailEnabled ? 'default' : 'outline'}
