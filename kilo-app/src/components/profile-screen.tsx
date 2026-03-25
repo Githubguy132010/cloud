@@ -37,6 +37,7 @@ function CreditsCard({ hasOrgs }: Readonly<{ hasOrgs: boolean }>) {
   const earliestExpiry = expiringBlocks
     .map(b => b.expiry_date)
     .filter((d): d is string => d !== null)
+    // eslint-disable-next-line unicorn/no-array-sort -- toSorted() is not available in Hermes
     .sort((a, b) => a.localeCompare(b))[0];
 
   return (
