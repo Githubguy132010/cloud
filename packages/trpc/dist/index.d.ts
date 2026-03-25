@@ -8,6 +8,15 @@ import { SecretFieldKey } from '@kilocode/kiloclaw-secret-catalog';
 import * as _workos_inc_node from '@workos-inc/node';
 import * as stripe from 'stripe';
 
+type ChangelogCategory = 'feature' | 'bugfix';
+type ChangelogDeployHint = 'redeploy_suggested' | 'redeploy_required' | 'upgrade_required' | null;
+type ChangelogEntry = {
+    date: string;
+    description: string;
+    category: ChangelogCategory;
+    deployHint: ChangelogDeployHint;
+};
+
 declare enum KiloPassTier {
     Tier19 = "tier_19",
     Tier49 = "tier_49",
@@ -84,7 +93,7 @@ declare const OrganizationPlanSchema: z.ZodEnum<{
     enterprise: "enterprise";
 }>;
 type OrganizationPlan = z.infer<typeof OrganizationPlanSchema>;
-type AuthProviderId = 'email' | 'google' | 'github' | 'gitlab' | 'linkedin' | 'fake-login' | 'workos';
+type AuthProviderId = 'email' | 'google' | 'github' | 'gitlab' | 'linkedin' | 'discord' | 'fake-login' | 'workos';
 type IntegrationPermissions = Record<string, string>;
 type PlatformRepository = {
     id: number;
@@ -612,6 +621,23 @@ declare const kilocode_users: drizzle_orm_pg_core.PgTableWithColumns<{
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        discord_server_membership_verified_at: drizzle_orm_pg_core.PgColumn<{
+            name: "discord_server_membership_verified_at";
+            tableName: "kilocode_users";
+            dataType: "string";
+            columnType: "PgTimestampString";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
             baseColumn: never;
             identity: undefined;
             generated: undefined;
@@ -3274,6 +3300,8 @@ type PlatformStatusResponse = {
     trackedImageDigest: string | null;
     googleConnected: boolean;
     gmailNotificationsEnabled: boolean;
+    execSecurity: string | null;
+    execAsk: string | null;
 };
 /** Response from GET /api/platform/debug-status (internal/admin only). */
 type PlatformDebugStatusResponse = PlatformStatusResponse & {
@@ -3342,6 +3370,8 @@ type ConfigRestoreResponse = {
     ok: boolean;
     signaled: boolean;
 };
+/** Response from GET /api/platform/gateway/ready (opaque — shape depends on OpenClaw version) */
+type GatewayReadyResponse = Record<string, unknown>;
 /** Response from GET /api/platform/controller-version. Null fields = old controller. */
 type ControllerVersionResponse = {
     version: string | null;
@@ -3379,6 +3409,18 @@ type ReassociateVolumeResponse = {
     newVolumeId: string;
     newRegion: string;
 };
+/** Response from GET /api/platform/regions */
+type RegionsResponse = {
+    regions: string[];
+    source: 'kv' | 'env' | 'default';
+    raw: string;
+};
+/** Response from PUT /api/platform/regions */
+type UpdateRegionsResponse = {
+    ok: true;
+    regions: string[];
+    raw: string;
+};
 
 /** Keep in sync with: kiloclaw/controller/src/routes/files.ts, kiloclaw/src/.../gateway.ts (Zod) */
 interface FileNode {
@@ -3394,6 +3436,7 @@ type AdminKiloclawInstance = {
     sandbox_id: string;
     created_at: string;
     destroyed_at: string | null;
+    suspended_at: string | null;
     user_email: string | null;
 };
 
@@ -4561,6 +4604,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             getAutocomplete: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     organizationId: string;
+                    period?: "all" | "year" | "month" | "week" | undefined;
                 };
                 output: {
                     cost: number;
@@ -7551,7 +7595,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         linkAuthProvider: _trpc_server.TRPCMutationProcedure<{
             input: {
-                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "fake-login" | "workos";
+                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "discord" | "fake-login" | "workos";
             };
             output: {
                 success: true;
@@ -7560,7 +7604,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         unlinkAuthProvider: _trpc_server.TRPCMutationProcedure<{
             input: {
-                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "fake-login" | "workos";
+                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "discord" | "fake-login" | "workos";
             };
             output: {
                 success: true;
@@ -7591,9 +7635,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             meta: object;
         }>;
+        getBalance: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: {
+                balance: number;
+                isDepleted: boolean;
+            };
+            meta: object;
+        }>;
         getAutocompleteMetrics: _trpc_server.TRPCQueryProcedure<{
             input: {
                 viewType?: string | undefined;
+                period?: "all" | "year" | "month" | "week" | undefined;
             };
             output: {
                 cost: number;
@@ -7690,6 +7743,23 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             output: {
                 success: true;
             };
+            meta: object;
+        }>;
+        getDiscordGuildStatus: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: SuccessResult<{
+                linked: boolean;
+                discord_avatar_url: string | null;
+                discord_display_name: string | null;
+                discord_server_membership_verified_at: string | null;
+            }>;
+            meta: object;
+        }>;
+        verifyDiscordGuildMembership: _trpc_server.TRPCMutationProcedure<{
+            input: void;
+            output: SuccessResult<{
+                is_member: boolean;
+            }>;
             meta: object;
         }>;
     }>>;
@@ -7892,6 +7962,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         completed_welcome_form: boolean;
                         linkedin_url: string | null;
                         github_url: string | null;
+                        discord_server_membership_verified_at: string | null;
                         openrouter_upstream_safety_identifier: string | null;
                         customer_source: string | null;
                     };
@@ -8068,6 +8139,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         expiresAt: string;
                         daysRemaining: number;
                     } | null;
+                    activeInstanceId: string | null;
                 };
                 meta: object;
             }>;
@@ -9761,6 +9833,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     sandbox_id: string;
                     created_at: string;
                     destroyed_at: string | null;
+                    suspended_at: string | null;
                     user_email: string | null;
                 };
                 meta: object;
@@ -9772,7 +9845,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     sortBy?: "created_at" | "destroyed_at" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                     search?: string | undefined;
-                    status?: "active" | "all" | "destroyed" | undefined;
+                    status?: "active" | "all" | "suspended" | "destroyed" | undefined;
                 };
                 output: {
                     instances: AdminKiloclawInstance[];
@@ -9793,6 +9866,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     overview: {
                         totalInstances: number;
                         activeInstances: number;
+                        suspendedInstances: number;
                         destroyedInstances: number;
                         uniqueUsers: number;
                         last24hCreated: number;
@@ -9905,6 +9979,15 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 meta: object;
             }>;
+            forceRetryRecovery: _trpc_server.TRPCMutationProcedure<{
+                input: {
+                    userId: string;
+                };
+                output: {
+                    ok: true;
+                };
+                meta: object;
+            }>;
             machineStop: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     userId: string;
@@ -9941,7 +10024,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     message: string;
                     id: string;
                     created_at: string;
-                    action: "kiloclaw.volume.reassociate" | "kiloclaw.subscription.update_trial_end" | "kiloclaw.machine.start" | "kiloclaw.machine.stop" | "kiloclaw.instance.destroy" | "kiloclaw.gateway.start" | "kiloclaw.gateway.stop" | "kiloclaw.gateway.restart" | "kiloclaw.config.restore" | "kiloclaw.doctor.run";
+                    action: "kiloclaw.volume.reassociate" | "kiloclaw.subscription.update_trial_end" | "kiloclaw.subscription.reset_trial" | "kiloclaw.machine.start" | "kiloclaw.machine.stop" | "kiloclaw.instance.destroy" | "kiloclaw.gateway.start" | "kiloclaw.gateway.stop" | "kiloclaw.gateway.restart" | "kiloclaw.config.restore" | "kiloclaw.doctor.run";
                     actor_id: string | null;
                     actor_email: string | null;
                     actor_name: string | null;
@@ -10146,6 +10229,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     email: string;
                     name: string;
                 }[];
+                meta: object;
+            }>;
+        }>>;
+        kiloclawRegions: _trpc_server.TRPCBuiltRouter<{
+            ctx: TRPCContext;
+            meta: object;
+            errorShape: {
+                data: {
+                    zodError: {
+                        formErrors: string[];
+                        fieldErrors: {};
+                    } | null;
+                    upstreamCode: string | undefined;
+                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
+                    httpStatus: number;
+                    path?: string;
+                    stack?: string;
+                };
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
+            };
+            transformer: false;
+        }, _trpc_server.TRPCDecorateCreateRouterOptions<{
+            getRegions: _trpc_server.TRPCQueryProcedure<{
+                input: void;
+                output: RegionsResponse;
+                meta: object;
+            }>;
+            updateRegions: _trpc_server.TRPCMutationProcedure<{
+                input: {
+                    regions: string[];
+                };
+                output: UpdateRegionsResponse;
                 meta: object;
             }>;
         }>>;
@@ -10530,7 +10646,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             list: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     page?: number | undefined;
-                    limit?: 10 | 100 | 50 | 25 | undefined;
+                    limit?: 100 | 50 | 10 | 25 | undefined;
                 };
                 output: {
                     requests: {
@@ -10545,7 +10661,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     }[];
                     pagination: {
                         page: number;
-                        limit: 10 | 100 | 50 | 25;
+                        limit: 100 | 50 | 10 | 25;
                         total: number;
                         totalPages: number;
                     };
@@ -11515,7 +11631,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 cursor?: string | undefined;
                 limit?: number | undefined;
-                createdOnPlatform?: string | undefined;
+                createdOnPlatform?: string | string[] | undefined;
                 orderBy?: "updated_at" | "created_at" | undefined;
                 organizationId?: string | null | undefined;
             };
@@ -11543,7 +11659,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 search_string: string;
                 limit?: number | undefined;
                 offset?: number | undefined;
-                createdOnPlatform?: string | undefined;
+                createdOnPlatform?: string | string[] | undefined;
                 organizationId?: string | null | undefined;
             };
             output: {
@@ -14756,6 +14872,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     isBonusUnlocked: boolean;
                     refillAt: string | null;
                 } | null;
+                isEligibleForFirstMonthPromo: boolean;
             };
             meta: object;
         }>;
@@ -14774,13 +14891,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     startedAt: string | null;
                 } | null;
                 creditsAwarded: boolean;
-            };
-            meta: object;
-        }>;
-        getFirstMonthPromoEligibility: _trpc_server.TRPCQueryProcedure<{
-            input: void;
-            output: {
-                eligible: boolean;
             };
             meta: object;
         }>;
@@ -15312,6 +15422,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
+        getChangelog: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: ChangelogEntry[];
+            meta: object;
+        }>;
         serviceDegraded: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: boolean;
@@ -15325,6 +15440,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         getStatus: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: {
+                name: string | null;
                 workerUrl: string;
                 userId: string | null;
                 sandboxId: string | null;
@@ -15346,7 +15462,16 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 trackedImageDigest: string | null;
                 googleConnected: boolean;
                 gmailNotificationsEnabled: boolean;
+                execSecurity: string | null;
+                execAsk: string | null;
             };
+            meta: object;
+        }>;
+        renameInstance: _trpc_server.TRPCMutationProcedure<{
+            input: {
+                name: string | null;
+            };
+            output: void;
             meta: object;
         }>;
         start: _trpc_server.TRPCMutationProcedure<{
@@ -15457,6 +15582,46 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             output: UserConfigResponse;
             meta: object;
         }>;
+        getChannelCatalog: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: {
+                id: string;
+                label: string;
+                configured: boolean;
+                fields: {
+                    key: string;
+                    label: string;
+                    placeholder: string;
+                    placeholderConfigured: string;
+                    validationPattern: string | undefined;
+                    validationMessage: string | undefined;
+                }[];
+                helpText: string | undefined;
+                helpUrl: string | undefined;
+                allFieldsRequired: boolean;
+            }[];
+            meta: object;
+        }>;
+        getSecretCatalog: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: {
+                id: string;
+                label: string;
+                configured: boolean;
+                fields: {
+                    key: string;
+                    label: string;
+                    placeholder: string;
+                    placeholderConfigured: string;
+                    validationPattern: string | undefined;
+                    validationMessage: string | undefined;
+                }[];
+                helpText: string | undefined;
+                helpUrl: string | undefined;
+                allFieldsRequired: boolean;
+            }[];
+            meta: object;
+        }>;
         restartMachine: _trpc_server.TRPCMutationProcedure<{
             input: {
                 imageTag?: string | undefined;
@@ -15496,6 +15661,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         gatewayStatus: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: GatewayProcessStatusResponse;
+            meta: object;
+        }>;
+        gatewayReady: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: GatewayReadyResponse;
             meta: object;
         }>;
         controllerVersion: _trpc_server.TRPCQueryProcedure<{
@@ -15753,7 +15923,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 cursor?: string | undefined;
                 limit?: number | undefined;
-                createdOnPlatform?: string | undefined;
+                createdOnPlatform?: string | string[] | undefined;
                 orderBy?: "updated_at" | "created_at" | undefined;
                 organizationId?: string | null | undefined;
                 includeSubSessions?: boolean | undefined;
@@ -15784,7 +15954,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 search_string: string;
                 limit?: number | undefined;
                 offset?: number | undefined;
-                createdOnPlatform?: string | undefined;
+                createdOnPlatform?: string | string[] | undefined;
                 organizationId?: string | null | undefined;
                 includeSubSessions?: boolean | undefined;
             };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGastownTRPC } from '@/lib/gastown/trpc';
 import { useUser } from '@/hooks/useUser';
@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { useModelSelectorList } from '@/app/api/openrouter/hooks';
+import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
 import {
   Plus,
   Trash2,
@@ -29,8 +31,9 @@ import {
   Key,
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { AdminViewingBanner } from '@/components/gastown/AdminViewingBanner';
 
-type Props = { townId: string; readOnly?: boolean };
+type Props = { townId: string; readOnly?: boolean; organizationId?: string };
 
 type EnvVarEntry = { key: string; value: string; isNew?: boolean };
 
@@ -96,15 +99,33 @@ function useScrollSpy(sectionIds: readonly string[]) {
   return { activeId, scrollTo };
 }
 
-export function TownSettingsPageClient({ townId, readOnly = false }: Props) {
+export function TownSettingsPageClient({ townId, readOnly = false, organizationId }: Props) {
   const trpc = useGastownTRPC();
   const queryClient = useQueryClient();
   const { data: currentUser } = useUser();
 
+  const {
+    data: modelsData,
+    isLoading: isLoadingModels,
+    error: modelsError,
+  } = useModelSelectorList(organizationId);
+
+  const modelOptions = useMemo<ModelOption[]>(
+    () => modelsData?.data.map(model => ({ id: model.id, name: model.name })) ?? [],
+    [modelsData]
+  );
+
   const townQuery = useQuery(trpc.gastown.getTown.queryOptions({ townId }));
   const configQuery = useQuery(trpc.gastown.getTownConfig.queryOptions({ townId }));
+  const adminAccessQuery = useQuery(trpc.gastown.checkAdminAccess.queryOptions({ townId }));
 
-  const effectiveReadOnly = readOnly && currentUser?.id !== configQuery.data?.created_by_user_id;
+  // Admin viewing another user's town → force read-only
+  const isAdminViewing = adminAccessQuery.data?.isAdminViewing ?? false;
+  const effectiveReadOnly =
+    isAdminViewing || (readOnly && currentUser?.id !== configQuery.data?.created_by_user_id);
+
+  // Track the server-side model so we can detect changes on save
+  const savedModelRef = useRef<string>('');
 
   const updateConfig = useMutation(
     trpc.gastown.updateTownConfig.mutationOptions({
@@ -112,7 +133,18 @@ export function TownSettingsPageClient({ townId, readOnly = false }: Props) {
         void queryClient.invalidateQueries({
           queryKey: trpc.gastown.getTownConfig.queryKey({ townId }),
         });
-        toast.success('Configuration saved');
+
+        const modelChanged = defaultModel !== savedModelRef.current;
+        savedModelRef.current = defaultModel;
+
+        if (modelChanged) {
+          toast.success('Configuration saved — reloading for model change…');
+          // Reload after a brief delay so the server-side model update
+          // (SDK server restart + new session) has time to complete.
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          toast.success('Configuration saved');
+        }
       },
       onError: err => toast.error(err.message),
     })
@@ -151,6 +183,7 @@ export function TownSettingsPageClient({ townId, readOnly = false }: Props) {
     setGitlabToken(cfg.git_auth?.gitlab_token ?? '');
     setGitlabInstanceUrl(cfg.git_auth?.gitlab_instance_url ?? '');
     setDefaultModel(cfg.default_model ?? '');
+    savedModelRef.current = cfg.default_model ?? '';
     setMaxPolecats(cfg.max_polecats_per_rig);
     setRefineryGates(cfg.refinery?.gates ?? []);
     setAutoMerge(cfg.refinery?.auto_merge ?? true);
@@ -245,6 +278,7 @@ export function TownSettingsPageClient({ townId, readOnly = false }: Props) {
 
   return (
     <div>
+      <AdminViewingBanner townId={townId} />
       {/* Top bar */}
       <div
         id="settings-sticky-header"
@@ -469,12 +503,24 @@ export function TownSettingsPageClient({ townId, readOnly = false }: Props) {
               >
                 <div className="space-y-4">
                   <FieldGroup label="Default Model">
-                    <Input
-                      value={defaultModel}
-                      onChange={e => setDefaultModel(e.target.value)}
-                      placeholder="anthropic/claude-sonnet-4.6"
-                      className="border-white/[0.08] bg-white/[0.03] font-mono text-sm text-white/85 placeholder:text-white/20"
-                    />
+                    {modelsError ? (
+                      <Input
+                        value={defaultModel}
+                        onChange={e => setDefaultModel(e.target.value)}
+                        placeholder="e.g. anthropic/claude-sonnet-4.6"
+                        className="border-white/[0.08] bg-white/[0.03] font-mono text-sm text-white/85 placeholder:text-white/20"
+                      />
+                    ) : (
+                      <ModelCombobox
+                        label=""
+                        models={modelOptions}
+                        value={defaultModel}
+                        onValueChange={setDefaultModel}
+                        isLoading={isLoadingModels}
+                        placeholder="Select a model"
+                        className="border-white/[0.08] bg-white/[0.03] text-sm text-white/85"
+                      />
+                    )}
                   </FieldGroup>
 
                   <FieldGroup
