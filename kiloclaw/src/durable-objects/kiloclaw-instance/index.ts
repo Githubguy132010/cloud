@@ -1399,6 +1399,11 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     return gateway.getControllerVersion(this.s, this.env);
   }
 
+  async getGatewayReady(): Promise<Record<string, unknown> | null> {
+    await this.loadState();
+    return gateway.getGatewayReady(this.s, this.env);
+  }
+
   async patchConfigOnMachine(patch: Record<string, unknown>): Promise<void> {
     await this.loadState();
     return gateway.patchConfigOnMachine(this.s, this.env, patch);

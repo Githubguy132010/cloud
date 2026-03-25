@@ -659,6 +659,25 @@ export const kiloclawRouter = createTRPCRouter({
     }
   }),
 
+  gatewayReady: baseProcedure.query(async ({ ctx }) => {
+    try {
+      const client = new KiloClawInternalClient();
+      return await client.getGatewayReady(ctx.user.id);
+    } catch (err) {
+      console.error('[gatewayReady] error for user:', ctx.user.id, err);
+      if (err instanceof KiloClawApiError && (err.statusCode === 404 || err.statusCode === 409)) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Gateway ready check unavailable',
+        });
+      }
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch gateway ready state',
+      });
+    }
+  }),
+
   controllerVersion: baseProcedure.query(async ({ ctx }) => {
     const client = new KiloClawInternalClient();
     return client.getControllerVersion(ctx.user.id);

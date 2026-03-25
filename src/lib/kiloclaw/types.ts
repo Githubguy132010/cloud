@@ -219,6 +219,9 @@ export type ConfigRestoreResponse = {
   signaled: boolean;
 };
 
+/** Response from GET /api/platform/gateway/ready (opaque — shape depends on OpenClaw version) */
+export type GatewayReadyResponse = Record<string, unknown>;
+
 /** Response from GET /api/platform/controller-version. Null fields = old controller. */
 export type ControllerVersionResponse = {
   version: string | null;
