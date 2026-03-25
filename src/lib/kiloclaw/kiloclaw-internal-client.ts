@@ -21,6 +21,7 @@ import type {
   GatewayProcessStatusResponse,
   GatewayProcessActionResponse,
   ConfigRestoreResponse,
+  GatewayReadyResponse,
   ControllerVersionResponse,
   OpenclawConfigResponse,
   GoogleCredentialsInput,
@@ -28,6 +29,8 @@ import type {
   GmailNotificationsResponse,
   CandidateVolumesResponse,
   ReassociateVolumeResponse,
+  RegionsResponse,
+  UpdateRegionsResponse,
 } from './types';
 
 /** Keep in sync with: kiloclaw/controller/src/routes/files.ts, kiloclaw/src/.../gateway.ts (Zod) */
@@ -131,13 +134,17 @@ export class KiloClawInternalClient {
     );
   }
 
-  async start(userId: string, instanceId?: string): Promise<{ ok: true }> {
+  async start(
+    userId: string,
+    instanceId?: string,
+    options?: { skipCooldown?: boolean }
+  ): Promise<{ ok: true }> {
     const params = instanceId ? `?instanceId=${encodeURIComponent(instanceId)}` : '';
     return this.request(
       `/api/platform/start${params}`,
       {
         method: 'POST',
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, ...options }),
       },
       { userId }
     );
@@ -306,6 +313,14 @@ export class KiloClawInternalClient {
     );
   }
 
+  async getGatewayReady(userId: string): Promise<GatewayReadyResponse> {
+    return this.request(
+      `/api/platform/gateway/ready?userId=${encodeURIComponent(userId)}`,
+      undefined,
+      { userId }
+    );
+  }
+
   async getControllerVersion(userId: string): Promise<ControllerVersionResponse> {
     return this.request(
       `/api/platform/controller-version?userId=${encodeURIComponent(userId)}`,
@@ -462,6 +477,17 @@ export class KiloClawInternalClient {
     );
   }
 
+  async forceRetryRecovery(userId: string): Promise<{ ok: true }> {
+    return this.request(
+      '/api/platform/force-retry-recovery',
+      {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      },
+      { userId }
+    );
+  }
+
   async listCandidateVolumes(userId: string): Promise<CandidateVolumesResponse> {
     return this.request(
       `/api/platform/candidate-volumes?userId=${encodeURIComponent(userId)}`,
@@ -483,5 +509,16 @@ export class KiloClawInternalClient {
       },
       { userId }
     );
+  }
+
+  async getRegions(): Promise<RegionsResponse> {
+    return this.request('/api/platform/regions');
+  }
+
+  async updateRegions(regions: string[]): Promise<UpdateRegionsResponse> {
+    return this.request('/api/platform/regions', {
+      method: 'PUT',
+      body: JSON.stringify({ regions }),
+    });
   }
 }

@@ -14,6 +14,7 @@ export type ActiveKiloClawInstance = {
   sandboxId: string;
   instanceId: string | null;
   organizationId: string | null;
+  name: string | null;
 };
 
 type EnsureActiveInstanceOpts = {
@@ -68,6 +69,7 @@ export async function ensureActiveInstance(
       sandboxId: kiloclaw_instances.sandbox_id,
       instanceId: kiloclaw_instances.instance_id,
       organizationId: kiloclaw_instances.organization_id,
+      name: kiloclaw_instances.name,
     })
     .from(kiloclaw_instances)
     .where(
@@ -121,6 +123,7 @@ export async function markActiveInstanceDestroyed(
       sandboxId: kiloclaw_instances.sandbox_id,
       instanceId: kiloclaw_instances.instance_id,
       organizationId: kiloclaw_instances.organization_id,
+      name: kiloclaw_instances.name,
     });
 
   return row ?? null;
@@ -136,4 +139,60 @@ export async function restoreDestroyedInstance(instanceId: string): Promise<void
     .update(kiloclaw_instances)
     .set({ destroyed_at: null })
     .where(eq(kiloclaw_instances.id, instanceId));
+}
+
+/**
+ * Fetch the user's active KiloClaw instance (read-only, no upsert).
+ */
+export async function getActiveInstance(userId: string): Promise<ActiveKiloClawInstance | null> {
+  const sandboxId = sandboxIdFromUserId(userId);
+
+  const [row] = await db
+    .select({
+      id: kiloclaw_instances.id,
+      userId: kiloclaw_instances.user_id,
+      sandboxId: kiloclaw_instances.sandbox_id,
+      instanceId: kiloclaw_instances.instance_id,
+      organizationId: kiloclaw_instances.organization_id,
+      name: kiloclaw_instances.name,
+    })
+    .from(kiloclaw_instances)
+    .where(
+      and(
+        eq(kiloclaw_instances.user_id, userId),
+        eq(kiloclaw_instances.sandbox_id, sandboxId),
+        isNull(kiloclaw_instances.destroyed_at)
+      )
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
+/**
+ * Update the display name of the user's active KiloClaw instance.
+ * Pass null to clear the name.
+ */
+export async function renameInstance(userId: string, name: string | null): Promise<void> {
+  const sandboxId = sandboxIdFromUserId(userId);
+  const trimmed = name?.trim() || null;
+
+  if (trimmed !== null && trimmed.length > 50) {
+    throw new Error('Instance name must be 50 characters or fewer');
+  }
+
+  const result = await db
+    .update(kiloclaw_instances)
+    .set({ name: trimmed })
+    .where(
+      and(
+        eq(kiloclaw_instances.user_id, userId),
+        eq(kiloclaw_instances.sandbox_id, sandboxId),
+        isNull(kiloclaw_instances.destroyed_at)
+      )
+    );
+
+  if (result.rowCount === 0) {
+    throw new Error('No active instance found');
+  }
 }
