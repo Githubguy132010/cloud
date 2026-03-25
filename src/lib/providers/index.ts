@@ -86,7 +86,6 @@ export async function getProvider(
           id: 'custom',
           apiUrl: customLlm.base_url,
           apiKey: customLlm.api_key,
-          hasGenerationEndpoint: true,
         },
         userByok: null,
         customLlm,

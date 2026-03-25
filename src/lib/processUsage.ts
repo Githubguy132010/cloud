@@ -788,7 +788,8 @@ async function processTokenData(
   const timer = createTimer();
   const provider = Object.values(PROVIDERS).find(p => p.id === usageContext.provider);
   const generation =
-    provider?.hasGenerationEndpoint &&
+    provider &&
+    useGenerationLookup(provider.id, usageStats) &&
     usageStats.messageId &&
     (await fetchGeneration(usageStats.messageId, provider));
   if (usageStats.messageId) {
@@ -856,6 +857,14 @@ async function processTokenData(
 function useAnthropicStyleTokenCounting(requestedModel: string, provider: ProviderId) {
   return (
     provider === 'vercel' && (isAnthropicModel(requestedModel) || isMinimaxModel(requestedModel))
+  );
+}
+
+function useGenerationLookup(provider: ProviderId, usageStats: MicrodollarUsageStats | null) {
+  // vercel has requested to not hammer their generation endpoint,
+  // so only do it when we didn't get the usage data inline
+  return (
+    provider === 'openrouter' || (provider === 'vercel' && (usageStats?.inputTokens ?? 0) === 0)
   );
 }
 
