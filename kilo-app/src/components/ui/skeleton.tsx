@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -25,8 +24,6 @@ export function Skeleton({ className }: Readonly<SkeletonProps>) {
   }));
 
   return (
-    <Animated.View style={animatedStyle}>
-      <View className={cn('rounded-md bg-muted', className)} />
-    </Animated.View>
+    <Animated.View className={cn('rounded-md bg-muted', className)} style={animatedStyle} />
   );
 }

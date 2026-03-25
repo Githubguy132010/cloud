@@ -13,6 +13,7 @@ import { type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { StatusBadge } from '@/components/kiloclaw/status-badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { type useKiloClawGatewayStatus, type useKiloClawStatus } from '@/lib/hooks/use-kiloclaw';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
@@ -33,6 +34,7 @@ interface StatusCardProps {
   restarts: number | null | undefined;
   lastExitCode: number | null | undefined;
   lastExitSignal: string | null | undefined;
+  gatewayLoading?: boolean;
 }
 
 function formatUptime(seconds: number): string {
@@ -47,15 +49,20 @@ interface DetailRowProps {
   icon: LucideIcon;
   label: string;
   value: string;
+  loading?: boolean;
 }
 
-function DetailRow({ icon: Icon, label, value }: Readonly<DetailRowProps>) {
+function DetailRow({ icon: Icon, label, value, loading }: Readonly<DetailRowProps>) {
   const colors = useThemeColors();
   return (
     <View className="flex-row items-center gap-3 py-2">
       <Icon size={16} color={colors.mutedForeground} />
       <Text className="flex-1 text-sm text-muted-foreground">{label}</Text>
-      <Text className="text-sm font-medium">{value}</Text>
+      {loading ? (
+        <Skeleton className="h-4 w-16 rounded-sm bg-foreground" />
+      ) : (
+        <Text className="text-sm font-medium">{value}</Text>
+      )}
     </View>
   );
 }
@@ -84,6 +91,7 @@ export function StatusCard({
   restarts,
   lastExitCode,
   lastExitSignal,
+  gatewayLoading,
 }: Readonly<StatusCardProps>) {
   const colors = useThemeColors();
   const memoryLabel = memoryMb ? `${(memoryMb / 1024).toFixed(0)} GB` : '—';
@@ -119,19 +127,13 @@ export function StatusCard({
       <DetailRow icon={MemoryStick} label="Memory" value={memoryLabel} />
       <DetailRow icon={HardDrive} label="Storage" value="10 GB SSD" />
 
-      {gatewayState !== null && gatewayState !== undefined && (
-        <View className="mt-2 border-t border-border pt-2 gap-1">
-          <Text className="text-xs font-semibold text-muted-foreground pb-1">Gateway Process</Text>
-          <DetailRow icon={Activity} label="State" value={gatewayState} />
-          {uptime !== null && uptime !== undefined && (
-            <DetailRow icon={Globe} label="Uptime" value={formatUptime(uptime)} />
-          )}
-          {restarts !== null && restarts !== undefined && (
-            <DetailRow icon={RotateCcw} label="Restarts" value={String(restarts)} />
-          )}
-          {lastExitLabel && <DetailRow icon={Server} label="Last Exit" value={lastExitLabel} />}
-        </View>
-      )}
+      <View className="mt-2 border-t border-border pt-2 gap-1">
+        <Text className="text-xs font-semibold text-muted-foreground pb-1">Gateway Process</Text>
+        <DetailRow icon={Activity} label="State" value={gatewayState ?? '—'} loading={gatewayLoading} />
+        <DetailRow icon={Globe} label="Uptime" value={uptime != null ? formatUptime(uptime) : '—'} loading={gatewayLoading} />
+        <DetailRow icon={RotateCcw} label="Restarts" value={restarts != null ? String(restarts) : '—'} loading={gatewayLoading} />
+        {lastExitLabel && <DetailRow icon={Server} label="Last Exit" value={lastExitLabel} />}
+      </View>
     </View>
   );
 }

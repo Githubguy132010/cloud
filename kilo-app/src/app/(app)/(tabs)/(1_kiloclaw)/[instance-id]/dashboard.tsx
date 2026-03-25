@@ -110,6 +110,7 @@ export default function DashboardScreen() {
             restarts={gateway?.restarts ?? undefined}
             lastExitCode={gateway?.lastExit?.code ?? undefined}
             lastExitSignal={gateway?.lastExit?.signal ?? undefined}
+            gatewayLoading={true} // TODO: revert — temp force loading
           />
 
           <InstanceControls status={status?.status ?? undefined} mutations={mutations} />
