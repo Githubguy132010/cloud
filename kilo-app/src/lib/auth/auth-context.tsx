@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { CONTEXT_KEY } from '@/lib/context/context-context';
 import { queryClient } from '@/lib/query-client';
 
 const TOKEN_KEY = 'auth-token';
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync('app-context');
+    await SecureStore.deleteItemAsync(CONTEXT_KEY);
     queryClient.clear();
     setToken(undefined);
   }, []);

@@ -11,7 +11,7 @@ import {
 
 import { queryClient } from '@/lib/query-client';
 
-const CONTEXT_KEY = 'app-context';
+export const CONTEXT_KEY = 'app-context';
 
 type AppContext =
   | {
