@@ -1,8 +1,5 @@
 import { adminProcedure, createTRPCRouter } from '@/lib/trpc/init';
-import {
-  KiloClawInternalClient,
-  KiloClawApiError,
-} from '@/lib/kiloclaw/kiloclaw-internal-client';
+import { KiloClawInternalClient, KiloClawApiError } from '@/lib/kiloclaw/kiloclaw-internal-client';
 import { TRPCError } from '@trpc/server';
 import * as z from 'zod';
 
@@ -20,9 +17,7 @@ function extractRegionsErrorMessage(err: KiloClawApiError): string {
       error?: string;
       details?: Record<string, string[]>;
     };
-    const fieldErrors = body.details
-      ? Object.values(body.details).flat()
-      : [];
+    const fieldErrors = body.details ? Object.values(body.details).flat() : [];
     if (fieldErrors.length > 0) return fieldErrors.join('; ');
     if (body.error) return body.error;
   } catch {
@@ -37,21 +32,19 @@ export const adminKiloclawRegionsRouter = createTRPCRouter({
     return client.getRegions();
   }),
 
-  updateRegions: adminProcedure
-    .input(UpdateRegionsSchema)
-    .mutation(async ({ input }) => {
-      const client = new KiloClawInternalClient();
-      try {
-        return await client.updateRegions(input.regions);
-      } catch (err) {
-        if (err instanceof KiloClawApiError && err.statusCode === 400) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: extractRegionsErrorMessage(err),
-            cause: err,
-          });
-        }
-        throw err;
+  updateRegions: adminProcedure.input(UpdateRegionsSchema).mutation(async ({ input }) => {
+    const client = new KiloClawInternalClient();
+    try {
+      return await client.updateRegions(input.regions);
+    } catch (err) {
+      if (err instanceof KiloClawApiError && err.statusCode === 400) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: extractRegionsErrorMessage(err),
+          cause: err,
+        });
       }
-    }),
+      throw err;
+    }
+  }),
 });

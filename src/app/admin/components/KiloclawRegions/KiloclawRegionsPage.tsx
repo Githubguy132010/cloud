@@ -43,7 +43,7 @@ export function RegionsTab() {
           queryKey: trpc.admin.kiloclawRegions.getRegions.queryKey(),
         });
       },
-      onError: (err) => {
+      onError: err => {
         toast.error(`Failed to update regions: ${err.message}`);
       },
     })
@@ -78,7 +78,11 @@ export function RegionsTab() {
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground text-sm">Source:</span>
                 <Badge variant="outline">
-                  {data.source === 'kv' ? 'KV (runtime)' : data.source === 'env' ? 'Environment variable' : 'Default'}
+                  {data.source === 'kv'
+                    ? 'KV (runtime)'
+                    : data.source === 'env'
+                      ? 'Environment variable'
+                      : 'Default'}
                 </Badge>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -123,15 +127,13 @@ export function RegionsTab() {
                 onClick={handleSave}
                 disabled={updateMutation.isPending || parsedInput.length < 2 || !hasChanged}
               >
-                {updateMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'Save'
-                )}
+                {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
               </Button>
             </div>
             {parsedInput.length > 0 && parsedInput.length < 2 && (
-              <p className="text-destructive text-xs">At least 2 regions required for fallback safety.</p>
+              <p className="text-destructive text-xs">
+                At least 2 regions required for fallback safety.
+              </p>
             )}
           </div>
 
@@ -152,8 +154,8 @@ export function RegionsTab() {
               across all datacenters in that area. Their order is preserved.
               <br />
               <strong>Specific regions</strong> (dfw, ord, etc.) are shuffled for load distribution.
-              Duplicates bias the shuffle probability (e.g. <code className="text-xs">dfw,dfw,ord</code> gives
-              DFW ~67% chance of being first).
+              Duplicates bias the shuffle probability (e.g.{' '}
+              <code className="text-xs">dfw,dfw,ord</code> gives DFW ~67% chance of being first).
             </AlertDescription>
           </Alert>
         </CardContent>

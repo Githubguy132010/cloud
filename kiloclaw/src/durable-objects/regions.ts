@@ -11,11 +11,24 @@ export const FLY_SPECIFIC_REGIONS = [
   // Africa
   'jnb',
   // Asia Pacific
-  'bom', 'sin', 'syd', 'nrt',
+  'bom',
+  'sin',
+  'syd',
+  'nrt',
   // Europe
-  'ams', 'fra', 'lhr', 'cdg', 'arn',
+  'ams',
+  'fra',
+  'lhr',
+  'cdg',
+  'arn',
   // North America
-  'iad', 'ord', 'dfw', 'lax', 'sjc', 'ewr', 'yyz',
+  'iad',
+  'ord',
+  'dfw',
+  'lax',
+  'sjc',
+  'ewr',
+  'yyz',
   // South America
   'gru',
 ] as const;
@@ -78,7 +91,7 @@ export function prepareRegions(regions: string[]): string[] {
  */
 export async function resolveRegions(
   kv: KVNamespace,
-  envFlyRegion: string | undefined,
+  envFlyRegion: string | undefined
 ): Promise<string[]> {
   let kvValue: string | null = null;
   try {

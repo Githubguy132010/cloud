@@ -6,8 +6,18 @@ export type RegionDef = {
 };
 
 export const META_REGIONS: RegionDef[] = [
-  { code: 'eu', label: 'Europe', area: 'Meta', description: 'Fly meta-region — all EU datacenters' },
-  { code: 'us', label: 'United States', area: 'Meta', description: 'Fly meta-region — all US datacenters' },
+  {
+    code: 'eu',
+    label: 'Europe',
+    area: 'Meta',
+    description: 'Fly meta-region — all EU datacenters',
+  },
+  {
+    code: 'us',
+    label: 'United States',
+    area: 'Meta',
+    description: 'Fly meta-region — all US datacenters',
+  },
 ];
 
 export const SPECIFIC_REGIONS: RegionDef[] = [

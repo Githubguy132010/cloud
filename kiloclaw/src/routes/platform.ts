@@ -1273,7 +1273,7 @@ const UpdateRegionsSchema = z.object({
     .min(2, 'At least 2 regions required')
     .refine(
       regions => new Set(regions).size >= 2,
-      'Must include at least 2 distinct regions (duplicates bias the shuffle, but need 2+ unique for fallback)',
+      'Must include at least 2 distinct regions (duplicates bias the shuffle, but need 2+ unique for fallback)'
     ),
 });
 
@@ -1282,7 +1282,7 @@ const UpdateRegionsSchema = z.object({
 platform.get('/regions', async c => {
   try {
     const kvValue = await c.env.KV_CLAW_CACHE.get(FLY_REGIONS_KV_KEY);
-    const source = kvValue ? 'kv' : (c.env.FLY_REGION ? 'env' : 'default');
+    const source = kvValue ? 'kv' : c.env.FLY_REGION ? 'env' : 'default';
     const raw = kvValue ?? c.env.FLY_REGION ?? DEFAULT_FLY_REGION;
     const regions = parseRegions(raw);
     return c.json({ regions, source, raw });
