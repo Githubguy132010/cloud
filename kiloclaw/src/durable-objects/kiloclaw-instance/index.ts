@@ -1533,7 +1533,10 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         console.log('[DO] Machine already gone during restore destroy');
       }
       this.s.flyMachineId = null;
-      await this.persist({ flyMachineId: null });
+      // Machine is gone — update preRestoreStatus so failSnapshotRestore() doesn't
+      // restore to 'running' when the machine no longer exists.
+      this.s.preRestoreStatus = 'stopped';
+      await this.persist({ flyMachineId: null, preRestoreStatus: 'stopped' });
     }
   }
 
