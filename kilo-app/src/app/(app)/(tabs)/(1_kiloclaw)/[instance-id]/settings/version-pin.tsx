@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Keyboard, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, FlatList, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { QueryError } from '@/components/query-error';
@@ -29,21 +29,7 @@ export default function VersionPinScreen() {
   const mutations = useKiloClawMutations();
   const pendingReasonRef = useRef('');
   const [pendingItem, setPendingItem] = useState<VersionItem>();
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatListRef = useRef<FlatList<VersionItem>>(null);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardWillShow', e => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   const isLoading = myPinQuery.isPending || latestVersionQuery.isPending;
 
@@ -214,8 +200,7 @@ export default function VersionPinScreen() {
         keyExtractor={item => item.image_tag}
         renderItem={renderVersionItem}
         contentContainerClassName="px-4 py-4 gap-4"
-        contentInset={{ bottom: keyboardHeight > 0 ? keyboardHeight + 10 : 0 }}
-        scrollIndicatorInsets={{ bottom: keyboardHeight > 0 ? keyboardHeight + 10 : 0 }}
+        automaticallyAdjustKeyboardInsets
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

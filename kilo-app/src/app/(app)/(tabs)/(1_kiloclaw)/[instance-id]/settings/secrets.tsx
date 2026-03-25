@@ -1,6 +1,5 @@
 import { KeyRound } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { Keyboard, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { EmptyState } from '@/components/empty-state';
@@ -14,20 +13,6 @@ export default function SecretsScreen() {
   const mutations = useKiloClawMutations();
   const catalogQuery = useKiloClawSecretCatalog();
   const isLoading = catalogQuery.isPending;
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardWillShow', e => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener('keyboardWillHide', () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   function renderContent() {
     if (isLoading) {
@@ -85,8 +70,7 @@ export default function SecretsScreen() {
       <View className="flex-1">
         <ScrollView
           contentContainerClassName="pt-4 gap-3"
-          contentInset={{ bottom: keyboardHeight > 0 ? keyboardHeight + 10 : 0 }}
-          scrollIndicatorInsets={{ bottom: keyboardHeight > 0 ? keyboardHeight + 10 : 0 }}
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
