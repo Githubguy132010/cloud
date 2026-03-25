@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PageContainer } from './layouts/PageContainer';
+import { SetPageTitle } from './SetPageTitle';
 
 type PageLayoutProps = {
   title: ReactNode;
@@ -11,6 +12,7 @@ type PageLayoutProps = {
 export function PageLayout({ title, subtitle, children, headerActions }: PageLayoutProps) {
   return (
     <PageContainer>
+      {typeof title === 'string' && <SetPageTitle title={title} />}
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-2">
           {typeof title === 'string' ? (
