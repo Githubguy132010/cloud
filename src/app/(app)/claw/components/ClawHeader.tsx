@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import KiloCrabIcon from '@/components/KiloCrabIcon';
+import { SetPageTitle } from '@/components/SetPageTitle';
 import { OpenClawButton } from './OpenClawButton';
 import { CLAW_STATUS_BADGE, type ClawState } from './claw.types';
 
@@ -28,8 +29,8 @@ export function ClawHeader({
           <KiloCrabIcon className="text-muted-foreground h-5 w-5" />
         </div>
         <div>
+          <SetPageTitle title="KiloClaw" />
           <div className="flex items-center gap-2.5">
-            <h1 className="text-foreground text-lg font-semibold tracking-tight">KiloClaw</h1>
             <Badge variant="beta">Beta</Badge>
             {statusInfo && (
               <Badge variant="outline" className={statusInfo.className}>

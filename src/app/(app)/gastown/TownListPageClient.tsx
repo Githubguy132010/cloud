@@ -7,6 +7,7 @@ import { useGastownTRPC } from '@/lib/gastown/trpc';
 import { PageContainer } from '@/components/layouts/PageContainer';
 import { Button } from '@/components/Button';
 import { Badge } from '@/components/ui/badge';
+import { SetPageTitle } from '@/components/SetPageTitle';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateTownDialog } from '@/components/gastown/CreateTownDialog';
@@ -41,8 +42,8 @@ export function TownListPageClient() {
         <div className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div>
+              <SetPageTitle title="Gas Town" />
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-semibold tracking-tight text-white/95">Gas Town</h1>
                 <Badge variant="beta">beta</Badge>
               </div>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">

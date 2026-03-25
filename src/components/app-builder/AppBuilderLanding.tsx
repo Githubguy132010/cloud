@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { SetPageTitle } from '@/components/SetPageTitle';
 import {
   Sheet,
   SheetContent,
@@ -777,8 +778,8 @@ export function AppBuilderLanding({ organizationId, onProjectCreated }: AppBuild
           <div className="bg-primary/10 mx-auto mb-4 w-fit rounded-full p-4">
             <Sparkles className="text-primary h-8 w-8" />
           </div>
+          <SetPageTitle title="App Builder" />
           <div className="flex items-center justify-center gap-3">
-            <h1 className="text-2xl font-bold md:text-3xl">App Builder</h1>
             <Badge variant="new">new</Badge>
           </div>
           <p className="text-muted-foreground mt-2 text-sm md:text-base">

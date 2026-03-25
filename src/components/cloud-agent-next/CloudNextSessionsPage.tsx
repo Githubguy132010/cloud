@@ -15,6 +15,7 @@ import { AlertCircle, ExternalLink, Loader2, RefreshCw, Sparkles } from 'lucide-
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { PageLayout } from '@/components/PageLayout';
+import { SetPageTitle } from '@/components/SetPageTitle';
 import { useProfile, useProfiles, useCombinedProfiles } from '@/hooks/useCloudAgentProfiles';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
@@ -463,7 +464,7 @@ export function CloudNextSessionsPage({ organizationId }: CloudNextSessionsPageP
 
   const titleContent = (
     <div className="flex items-center gap-3">
-      <h1 className="text-foreground text-3xl font-bold">Cloud Agent</h1>
+      <SetPageTitle title="Cloud Agent" />
       <Badge variant="new">new</Badge>
     </div>
   );
