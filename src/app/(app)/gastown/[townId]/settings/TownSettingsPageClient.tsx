@@ -35,7 +35,6 @@ import { motion } from 'motion/react';
 import { AdminViewingBanner } from '@/components/gastown/AdminViewingBanner';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -892,18 +891,21 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
               autoFocus
               className="border-red-500/20 bg-red-500/6 text-white placeholder:text-white/25"
             />
-            <p className="text-[11px] text-white/35">Enter `{townName}` to continue.</p>
+            <p className="text-[11px] text-white/35">Enter "{townName}" to continue.</p>
           </div>
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteTown.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <Button
+              type="button"
               onClick={handleDeleteTown}
               disabled={!isDeleteConfirmationMatch || deleteTown.isPending}
+              variant="danger"
+              size="md"
               className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500"
             >
               {deleteTown.isPending ? 'Deleting...' : 'Delete town'}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
