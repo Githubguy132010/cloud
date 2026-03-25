@@ -536,19 +536,24 @@ export async function handleKiloClawSubscriptionCreated(params: {
       .onConflictDoUpdate({
         target: kiloclaw_subscriptions.user_id,
         set: {
+          // Always update regardless of payment_source
           instance_id: activeInstance?.id ?? null,
           stripe_subscription_id: subscription.id,
-          plan,
-          status,
           cancel_at_period_end: subscription.cancel_at_period_end,
-          current_period_start: periods.current_period_start,
-          current_period_end: periods.current_period_end,
-          commit_ends_at: commitEndsAt,
-          // Reset delinquency/suspension state from a previous subscription so
-          // the new subscription gets a full 14-day grace period on first failure.
-          past_due_since: null,
-          suspended_at: null,
-          destruction_deadline: null,
+          // Hybrid guard: when existing row is hybrid (payment_source = 'credits'
+          // AND has a stripe_subscription_id), preserve billing fields owned by
+          // invoice settlement. Pure credit rows (no stripe_subscription_id) and
+          // legacy/null payment_source rows get overwritten normally.
+          payment_source: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.payment_source} ELSE ${kiloclaw_subscriptions.payment_source} END`,
+          plan: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.plan} ELSE ${plan} END`,
+          status: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.status} ELSE ${status} END`,
+          current_period_start: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.current_period_start} ELSE ${periods.current_period_start}::timestamptz END`,
+          current_period_end: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.current_period_end} ELSE ${periods.current_period_end}::timestamptz END`,
+          credit_renewal_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.credit_renewal_at} ELSE ${kiloclaw_subscriptions.credit_renewal_at} END`,
+          commit_ends_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.commit_ends_at} ELSE ${commitEndsAt}::timestamptz END`,
+          past_due_since: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.past_due_since} ELSE NULL END`,
+          suspended_at: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.suspended_at} ELSE NULL END`,
+          destruction_deadline: sql`CASE WHEN ${kiloclaw_subscriptions.payment_source} = 'credits' AND ${kiloclaw_subscriptions.stripe_subscription_id} IS NOT NULL THEN ${kiloclaw_subscriptions.destruction_deadline} ELSE NULL END`,
         },
       });
 
@@ -593,73 +598,111 @@ export async function handleKiloClawSubscriptionUpdated(params: {
   const periods = getSubscriptionPeriods(subscription, kiloUserId);
   const status = mapStripeStatus(subscription.status);
 
-  const wasSuspended =
-    status === 'active'
-      ? await db
-          .select({ suspended_at: kiloclaw_subscriptions.suspended_at })
-          .from(kiloclaw_subscriptions)
-          .where(
-            and(
-              eq(kiloclaw_subscriptions.user_id, kiloUserId),
-              eq(kiloclaw_subscriptions.stripe_subscription_id, subscription.id)
-            )
-          )
-          .limit(1)
-          .then(([row]) => !!row?.suspended_at)
-      : false;
-
-  // Guard on stripe_subscription_id so stale webhooks for a superseded
-  // subscription don't overwrite the replacement subscription's data.
-  await db
-    .update(kiloclaw_subscriptions)
-    .set({
-      status,
-      plan,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-      current_period_start: periods.current_period_start,
-      current_period_end: periods.current_period_end,
-      // Commit plan auto-renewal: when the existing commit_ends_at boundary
-      // has passed, advance it forward in 6-month increments until it is in
-      // the future. This fires naturally on renewal webhooks
-      // (subscription.updated events), keeping the subscription on the
-      // commit price indefinitely in 6-month windows.
-      // If commit_ends_at is null (e.g. update webhook arrived before the
-      // creation handler persisted it), fall back to current_period_start
-      // + 6 months to approximate the correct 6-month commit boundary.
-      // When leaving commit, clear it.
-      ...(plan !== 'commit'
-        ? { commit_ends_at: null }
-        : {
-            commit_ends_at: sql`CASE
-              WHEN ${kiloclaw_subscriptions.commit_ends_at} IS NOT NULL
-                   AND ${kiloclaw_subscriptions.commit_ends_at} < now()
-              THEN ${kiloclaw_subscriptions.commit_ends_at} + interval '6 months'
-                   * CEIL(EXTRACT(EPOCH FROM (now() - ${kiloclaw_subscriptions.commit_ends_at}))
-                          / EXTRACT(EPOCH FROM interval '6 months'))
-              ELSE COALESCE(
-                ${kiloclaw_subscriptions.commit_ends_at},
-                ${periods.current_period_start}::timestamptz + interval '6 months'
-              )
-            END`,
-          }),
-      // Record when the subscription first entered past_due; clear when recovered.
-      // past_due_since drives the 14-day grace period in the billing lifecycle cron
-      // (updated_at would be unreliable because $onUpdateFn refreshes it on every write).
-      past_due_since:
-        status === 'past_due'
-          ? sql`COALESCE(${kiloclaw_subscriptions.past_due_since}, now())`
-          : null,
-      ...(status === 'active' ? { suspended_at: null, destruction_deadline: null } : {}),
+  // Pre-read to detect hybrid state and suspension for auto-resume
+  const [preRead] = await db
+    .select({
+      suspended_at: kiloclaw_subscriptions.suspended_at,
+      payment_source: kiloclaw_subscriptions.payment_source,
+      stripe_subscription_id: kiloclaw_subscriptions.stripe_subscription_id,
     })
+    .from(kiloclaw_subscriptions)
     .where(
       and(
         eq(kiloclaw_subscriptions.user_id, kiloUserId),
         eq(kiloclaw_subscriptions.stripe_subscription_id, subscription.id)
       )
-    );
+    )
+    .limit(1);
 
-  if (wasSuspended) {
-    await autoResumeIfSuspended(kiloUserId);
+  const isHybrid =
+    preRead?.payment_source === 'credits' && preRead.stripe_subscription_id !== null;
+
+  if (isHybrid) {
+    // Hybrid guard: only propagate cancel intent and dunning states.
+    // Do NOT overwrite plan, period fields, commit_ends_at, payment_source.
+    // Do NOT clear suspended_at/destruction_deadline or trigger auto-resume.
+    // Dunning = payment-failure statuses only. Do NOT include 'canceled' here:
+    // when Stripe reports canceled for a hybrid row, the standalone-to-credit
+    // conversion handler manages the transition (see spec Standalone-to-Credit
+    // Conversion rule 4). Propagating canceled here would prematurely terminate
+    // the hybrid row before conversion can run.
+    const isDunningStatus = status === 'past_due' || status === 'unpaid';
+
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        // Only propagate dunning statuses; do NOT update to active
+        ...(isDunningStatus ? { status } : {}),
+        // Record past_due_since for dunning states; preserve existing for non-dunning
+        ...(status === 'past_due'
+          ? { past_due_since: sql`COALESCE(${kiloclaw_subscriptions.past_due_since}, now())` }
+          : {}),
+      })
+      .where(
+        and(
+          eq(kiloclaw_subscriptions.user_id, kiloUserId),
+          eq(kiloclaw_subscriptions.stripe_subscription_id, subscription.id)
+        )
+      );
+    // No auto-resume for hybrid rows — recovery is owned by invoice settlement
+  } else {
+    // Non-hybrid: keep existing behavior unchanged
+    const wasSuspended = status === 'active' && !!preRead?.suspended_at;
+
+    // Guard on stripe_subscription_id so stale webhooks for a superseded
+    // subscription don't overwrite the replacement subscription's data.
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({
+        status,
+        plan,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        current_period_start: periods.current_period_start,
+        current_period_end: periods.current_period_end,
+        // Commit plan auto-renewal: when the existing commit_ends_at boundary
+        // has passed, advance it forward in 6-month increments until it is in
+        // the future. This fires naturally on renewal webhooks
+        // (subscription.updated events), keeping the subscription on the
+        // commit price indefinitely in 6-month windows.
+        // If commit_ends_at is null (e.g. update webhook arrived before the
+        // creation handler persisted it), fall back to current_period_start
+        // + 6 months to approximate the correct 6-month commit boundary.
+        // When leaving commit, clear it.
+        ...(plan !== 'commit'
+          ? { commit_ends_at: null }
+          : {
+              commit_ends_at: sql`CASE
+                WHEN ${kiloclaw_subscriptions.commit_ends_at} IS NOT NULL
+                     AND ${kiloclaw_subscriptions.commit_ends_at} < now()
+                THEN ${kiloclaw_subscriptions.commit_ends_at} + interval '6 months'
+                     * CEIL(EXTRACT(EPOCH FROM (now() - ${kiloclaw_subscriptions.commit_ends_at}))
+                            / EXTRACT(EPOCH FROM interval '6 months'))
+                ELSE COALESCE(
+                  ${kiloclaw_subscriptions.commit_ends_at},
+                  ${periods.current_period_start}::timestamptz + interval '6 months'
+                )
+              END`,
+            }),
+        // Record when the subscription first entered past_due; clear when recovered.
+        // past_due_since drives the 14-day grace period in the billing lifecycle cron
+        // (updated_at would be unreliable because $onUpdateFn refreshes it on every write).
+        past_due_since:
+          status === 'past_due'
+            ? sql`COALESCE(${kiloclaw_subscriptions.past_due_since}, now())`
+            : null,
+        ...(status === 'active' ? { suspended_at: null, destruction_deadline: null } : {}),
+      })
+      .where(
+        and(
+          eq(kiloclaw_subscriptions.user_id, kiloUserId),
+          eq(kiloclaw_subscriptions.stripe_subscription_id, subscription.id)
+        )
+      );
+
+    if (wasSuspended) {
+      await autoResumeIfSuspended(kiloUserId);
+    }
   }
 
   logInfo('KiloClaw subscription.updated processed', {
@@ -734,6 +777,7 @@ export async function handleKiloClawScheduleEvent(params: {
       user_id: kiloclaw_subscriptions.user_id,
       plan: kiloclaw_subscriptions.plan,
       scheduled_plan: kiloclaw_subscriptions.scheduled_plan,
+      payment_source: kiloclaw_subscriptions.payment_source,
     })
     .from(kiloclaw_subscriptions)
     .where(eq(kiloclaw_subscriptions.stripe_schedule_id, scheduleId))
@@ -755,14 +799,17 @@ export async function handleKiloClawScheduleEvent(params: {
       scheduled_by: null,
     };
 
-    // Apply the scheduled plan only on 'completed'. Our schedules use
-    // end_behavior: 'release', so natural transitions fire as 'released' —
-    // but so do intentional cancels (cancelSubscription, cancelPlanSwitch).
-    // Since subscription.updated already picks up the new price via
-    // detectPlanFromSubscription, we don't need to apply the plan here for
-    // 'released'. Restricting to 'completed' eliminates the race where a
-    // cancel-release webhook arrives before the local DB clears the schedule.
-    if (scheduleStatus === 'completed' && row.scheduled_plan) {
+    // Apply the scheduled plan only on 'completed' for non-hybrid rows.
+    // Hybrid rows: plan mutation is owned by invoice settlement (Hybrid
+    // Subscription Ownership rule 4). Only clear schedule tracking fields.
+    // Our schedules use end_behavior: 'release', so natural transitions
+    // fire as 'released' — but so do intentional cancels (cancelSubscription,
+    // cancelPlanSwitch). Since subscription.updated already picks up the new
+    // price via detectPlanFromSubscription, we don't need to apply the plan
+    // here for 'released'. Restricting to 'completed' eliminates the race
+    // where a cancel-release webhook arrives before the local DB clears the
+    // schedule.
+    if (scheduleStatus === 'completed' && row.scheduled_plan && row.payment_source !== 'credits') {
       updateSet.plan = row.scheduled_plan;
       if (row.scheduled_plan === 'standard') {
         updateSet.commit_ends_at = null;
