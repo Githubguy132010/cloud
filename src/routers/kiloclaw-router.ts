@@ -49,6 +49,10 @@ import {
   getStripePriceIdForClawPlan,
   getStripePriceIdForClawPlanIntro,
 } from '@/lib/kiloclaw/stripe-price-ids.server';
+import { getStripePriceIdForKiloPass } from '@/lib/kilo-pass/stripe-price-ids.server';
+import { KiloPassTier, KiloPassCadence } from '@/lib/kilo-pass/enums';
+import { isStripeSubscriptionEnded } from '@/lib/kilo-pass/stripe-subscription-status';
+import { getKiloPassStateForUser } from '@/lib/kilo-pass/state';
 import { ensureAutoIntroSchedule, resolvePhasePrice } from '@/lib/kiloclaw/stripe-handlers';
 import {
   KILOCLAW_EARLYBIRD_EXPIRY_DATE,
@@ -1467,6 +1471,108 @@ export const kiloclawRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  createKiloPassUpsellCheckout: baseProcedure
+    .input(
+      z.object({
+        tier: z.enum(['19', '49', '199']),
+        cadence: z.enum(['monthly', 'yearly']),
+        hostingPlan: z.enum(['commit', 'standard']),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const stripeCustomerId = ctx.user.stripe_customer_id;
+      if (!stripeCustomerId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Missing Stripe customer for user.' });
+      }
+
+      // Reject if user already has a non-ended KiloClaw subscription
+      const [existing] = await db
+        .select({ status: kiloclaw_subscriptions.status })
+        .from(kiloclaw_subscriptions)
+        .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id))
+        .limit(1);
+
+      if (existing && existing.status !== 'canceled' && existing.status !== 'trialing') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'You already have an active subscription.',
+        });
+      }
+
+      // Reject if user already has an active Kilo Pass subscription
+      const existingKiloPass = await getKiloPassStateForUser(db, ctx.user.id);
+      if (existingKiloPass && !isStripeSubscriptionEnded(existingKiloPass.status)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'You already have an active Kilo Pass subscription.',
+        });
+      }
+
+      // Get the user's active instance ID for the callback URL
+      const instance = await getActiveInstance(ctx.user.id);
+      if (!instance) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No active instance found. Provision an instance first.',
+        });
+      }
+
+      const tierMap = {
+        '19': KiloPassTier.Tier19,
+        '49': KiloPassTier.Tier49,
+        '199': KiloPassTier.Tier199,
+      } as const;
+      const cadenceMap = {
+        monthly: KiloPassCadence.Monthly,
+        yearly: KiloPassCadence.Yearly,
+      } as const;
+
+      const kiloPassTier = tierMap[input.tier];
+      const kiloPassCadence = cadenceMap[input.cadence];
+      const priceId = getStripePriceIdForKiloPass({
+        tier: kiloPassTier,
+        cadence: kiloPassCadence,
+      });
+
+      const rewardfulReferral = await getRewardfulReferral();
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: stripeCustomerId,
+        ...(rewardfulReferral && { client_reference_id: rewardfulReferral }),
+        allow_promotion_codes: true,
+        billing_address_collection: 'required',
+        line_items: [{ price: priceId, quantity: 1 }],
+        customer_update: {
+          name: 'auto',
+          address: 'auto',
+        },
+        tax_id_collection: {
+          enabled: true,
+          required: 'never',
+        },
+        success_url: `${APP_URL}/payments/kilo-pass/awarding?session_id={CHECKOUT_SESSION_ID}&clawHostingPlan=${input.hostingPlan}&clawInstanceId=${instance.id}`,
+        cancel_url: `${APP_URL}/claw?checkout=cancelled`,
+        subscription_data: {
+          metadata: {
+            type: 'kilo-pass',
+            kiloUserId: ctx.user.id,
+            tier: kiloPassTier,
+            cadence: kiloPassCadence,
+            rewardful: 'false',
+          },
+        },
+        metadata: {
+          type: 'kilo-pass',
+          kiloUserId: ctx.user.id,
+          tier: kiloPassTier,
+          cadence: kiloPassCadence,
+        },
+      });
+
+      return { url: typeof session.url === 'string' ? session.url : null };
     }),
 
   cancelSubscription: baseProcedure.mutation(async ({ ctx }) => {
