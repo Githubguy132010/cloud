@@ -2,7 +2,6 @@ import {
   Activity,
   Cpu,
   Globe,
-  HardDrive,
   MapPin,
   MemoryStick,
   Pencil,
@@ -122,7 +121,6 @@ export function StatusCard({
       {region && <DetailRow icon={MapPin} label="Region" value={region} />}
       <DetailRow icon={Cpu} label="CPU" value={cpuLabel} />
       <DetailRow icon={MemoryStick} label="Memory" value={memoryLabel} />
-      <DetailRow icon={HardDrive} label="Storage" value="10 GB SSD" />
 
       <View className="mt-2 border-t border-border pt-2 gap-1">
         <Text className="text-xs font-semibold text-muted-foreground pb-1">Gateway Process</Text>
