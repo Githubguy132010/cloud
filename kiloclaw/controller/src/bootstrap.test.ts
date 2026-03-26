@@ -535,7 +535,6 @@ describe('configureLinear', () => {
     expect(env.LINEAR_API_KEY).toBeUndefined();
     logSpy.mockRestore();
   });
-
 });
 
 // ---- runOnboardOrDoctor ----
