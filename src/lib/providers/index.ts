@@ -225,7 +225,7 @@ export function applyProviderSpecificLogic(
   applyPreferredProvider(requestedModel, requestToMutate.body);
 
   if (isXaiModel(requestedModel)) {
-    applyXaiModelSettings(requestedModel, requestToMutate, extraHeaders);
+    applyXaiModelSettings(requestToMutate, extraHeaders);
   }
 
   if (isGeminiModel(requestedModel)) {
