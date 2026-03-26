@@ -31,6 +31,9 @@ export async function GET(
 ): Promise<NextResponse<{ error: string; message: string } | OpenRouterModelsResponse>> {
   try {
     const data = await getEnhancedOpenRouterModels();
+    if (!data.data || !Array.isArray(data.data)) {
+      return NextResponse.json(data);
+    }
     return NextResponse.json({ data: data.data.concat(await getCodingPlanModels()) });
   } catch (error) {
     captureException(error, {
