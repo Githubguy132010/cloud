@@ -165,7 +165,7 @@ export default function DashboardScreen() {
                         mutations.destroy.mutate(undefined, {
                           onSuccess: () => {
                             router.dismissAll();
-                            router.replace('/(app)/(tabs)/(1_kiloclaw)' as Href);
+                            router.replace('/(app)/(tabs)/(1_kiloclaw)');
                           },
                         });
                       },
