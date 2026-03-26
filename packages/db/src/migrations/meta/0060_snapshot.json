@@ -1,5 +1,5 @@
 {
-  "id": "af57bc72-2dc9-4c16-b233-dd2dbc2aa983",
+  "id": "e5272ce7-5408-48b1-b6ce-a81870e0d43d",
   "prevId": "1939c85c-a8df-42d5-a17b-eeda39905369",
   "version": "7",
   "dialect": "postgresql",
@@ -7773,6 +7773,13 @@
         },
         "cancel_at_period_end": {
           "name": "cancel_at_period_end",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "pending_conversion": {
+          "name": "pending_conversion",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

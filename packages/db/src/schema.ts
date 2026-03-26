@@ -3492,6 +3492,7 @@ export const kiloclaw_subscriptions = pgTable(
     scheduled_by: text().$type<KiloClawScheduledBy>(),
     status: text().notNull().$type<KiloClawSubscriptionStatus>(),
     cancel_at_period_end: boolean().notNull().default(false),
+    pending_conversion: boolean().notNull().default(false),
     trial_started_at: timestamp({ withTimezone: true, mode: 'string' }),
     trial_ends_at: timestamp({ withTimezone: true, mode: 'string' }),
     current_period_start: timestamp({ withTimezone: true, mode: 'string' }),

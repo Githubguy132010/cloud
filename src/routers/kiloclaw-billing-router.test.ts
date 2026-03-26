@@ -2318,8 +2318,14 @@ describe('acceptConversion', () => {
   }
 
   it('sets cancel_at_period_end on Stripe-funded subscription when user has active Kilo Pass', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: sandboxIdFromUserId(user.id) })
+      .returning();
+
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
+      instance_id: instance.id,
       stripe_subscription_id: 'sub_convert',
       plan: 'standard',
       status: 'active',
@@ -2344,11 +2350,18 @@ describe('acceptConversion', () => {
       .limit(1);
 
     expect(row.cancel_at_period_end).toBe(true);
+    expect(row.pending_conversion).toBe(true);
   });
 
   it('releases schedule before setting cancel_at_period_end', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: sandboxIdFromUserId(user.id) })
+      .returning();
+
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
+      instance_id: instance.id,
       stripe_subscription_id: 'sub_convert_sched',
       plan: 'commit',
       status: 'active',
@@ -2380,8 +2393,14 @@ describe('acceptConversion', () => {
   });
 
   it('rejects when no active Kilo Pass', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: sandboxIdFromUserId(user.id) })
+      .returning();
+
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
+      instance_id: instance.id,
       stripe_subscription_id: 'sub_no_kp',
       plan: 'standard',
       status: 'active',
@@ -2394,7 +2413,7 @@ describe('acceptConversion', () => {
   it('rejects when subscription is not Stripe-funded', async () => {
     const [instance] = await db
       .insert(kiloclaw_instances)
-      .values({ user_id: user.id, sandbox_id: `test-sandbox-${Math.random()}` })
+      .values({ user_id: user.id, sandbox_id: sandboxIdFromUserId(user.id) })
       .returning();
 
     await db.insert(kiloclaw_subscriptions).values({
@@ -2414,8 +2433,14 @@ describe('acceptConversion', () => {
   });
 
   it('rejects when subscription is already set to cancel', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: sandboxIdFromUserId(user.id) })
+      .returning();
+
     await db.insert(kiloclaw_subscriptions).values({
       user_id: user.id,
+      instance_id: instance.id,
       stripe_subscription_id: 'sub_already_cancel',
       plan: 'standard',
       status: 'active',

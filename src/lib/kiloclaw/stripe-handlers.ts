@@ -15,8 +15,6 @@ import {
 } from '@/lib/kiloclaw/stripe-price-ids.server';
 import { applyStripeFundedKiloClawPeriod } from '@/lib/kiloclaw/credit-billing';
 import { autoResumeIfSuspended } from '@/lib/kiloclaw/instance-lifecycle';
-import { getKiloPassStateForUser } from '@/lib/kilo-pass/state';
-import { isStripeSubscriptionEnded } from '@/lib/kilo-pass/stripe-subscription-status';
 import { sentryLogger } from '@/lib/utils.server';
 import PostHogClient from '@/lib/posthog';
 import { after } from 'next/server';
@@ -740,12 +738,13 @@ export async function handleKiloClawSubscriptionDeleted(params: {
 
   const { kiloUserId } = metadata;
 
-  // Pre-read the row so we can detect hybrid state for conversion.
+  // Pre-read the row so we can detect conversion flag and hybrid state.
   const [preRead] = await db
     .select({
       id: kiloclaw_subscriptions.id,
       payment_source: kiloclaw_subscriptions.payment_source,
       current_period_end: kiloclaw_subscriptions.current_period_end,
+      pending_conversion: kiloclaw_subscriptions.pending_conversion,
     })
     .from(kiloclaw_subscriptions)
     .where(
@@ -765,12 +764,12 @@ export async function handleKiloClawSubscriptionDeleted(params: {
     return;
   }
 
-  // Check if user has an active Kilo Pass — if so, convert to pure credit
-  // instead of canceling. See Standalone-to-Credit Conversion rule 4.
-  const kiloPassState = await getKiloPassStateForUser(db, kiloUserId);
-  const hasActiveKiloPass = !!kiloPassState && !isStripeSubscriptionEnded(kiloPassState.status);
-
-  if (hasActiveKiloPass) {
+  // Only convert to pure credit when the user explicitly accepted conversion
+  // (pending_conversion flag set by acceptConversion). Checking Kilo Pass alone
+  // is insufficient — subscription.deleted also fires for dunning/suspended rows
+  // that Stripe auto-cancels, and restoring active status there would grant a
+  // free grace window. See Standalone-to-Credit Conversion rule 4.
+  if (preRead.pending_conversion) {
     // Conversion path: clear Stripe subscription ID, set payment_source to
     // credits, and set credit_renewal_at to the existing period end so the
     // credit renewal sweep picks up the next renewal.
@@ -784,6 +783,7 @@ export async function handleKiloClawSubscriptionDeleted(params: {
         payment_source: 'credits',
         credit_renewal_at: preRead.current_period_end,
         cancel_at_period_end: false,
+        pending_conversion: false,
         scheduled_plan: null,
         scheduled_by: null,
         stripe_schedule_id: null,
