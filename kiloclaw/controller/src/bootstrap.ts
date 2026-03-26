@@ -327,17 +327,32 @@ export function configureGitHub(env: EnvLike, deps: BootstrapDeps = defaultDeps)
 // ---- Step 6: Linear config ----
 
 /**
- * Configure Linear CLI access via the LINEAR_API_KEY env var.
- * The CLI reads this natively — no interactive login needed.
+ * Configure or clean up Linear CLI access.
+ * When LINEAR_API_KEY is present the CLI reads it natively.
+ * When absent, clean up any on-disk credentials left by a previous
+ * `linear auth login --plaintext` on the persistent volume.
  * Best-effort: logs warnings on failure, does not throw.
+ *
+ * The CLI stores two files under ~/.config/linear/:
+ *   - credentials.toml  — workspace list + inline API keys (plaintext mode)
+ *   - linear.toml        — global config that can also carry an api_key field
+ * The system keyring is not available in this container (no libsecret-tools),
+ * so these files are the only persistence locations.
  */
-export function configureLinear(env: EnvLike): void {
+export function configureLinear(env: EnvLike, deps: BootstrapDeps = defaultDeps): void {
   if (env.LINEAR_API_KEY) {
     console.log('Linear CLI configured via LINEAR_API_KEY');
   } else {
     // Clean up env var if explicitly set to empty
     delete env.LINEAR_API_KEY;
-    console.log('Linear: not configured (no API key)');
+    // Remove any previously stored credentials from the persistent volume.
+    // The CLI recreates ~/.config/linear/ via ensureDir on next auth login.
+    try {
+      deps.execFileSync('rm', ['-rf', '/root/.config/linear'], { stdio: 'pipe' });
+    } catch {
+      // ignore — directory may not exist
+    }
+    console.log('Linear: not configured (credentials cleared)');
   }
 }
 
@@ -691,7 +706,7 @@ export async function bootstrap(
   await yieldToEventLoop();
 
   setPhase('linear');
-  configureLinear(env);
+  configureLinear(env, deps);
   await yieldToEventLoop();
 
   const configExists = deps.existsSync(CONFIG_PATH);

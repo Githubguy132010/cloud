@@ -494,39 +494,48 @@ describe('configureGitHub', () => {
 describe('configureLinear', () => {
   it('logs configured when LINEAR_API_KEY is set', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { deps } = fakeDeps();
     const env: Record<string, string | undefined> = {
       LINEAR_API_KEY: 'lin_api_test123',
     };
 
-    configureLinear(env);
+    configureLinear(env, deps);
 
     expect(env.LINEAR_API_KEY).toBe('lin_api_test123');
     expect(logSpy).toHaveBeenCalledWith('Linear CLI configured via LINEAR_API_KEY');
     logSpy.mockRestore();
   });
 
-  it('logs not configured and cleans up when no LINEAR_API_KEY', () => {
+  it('removes persisted config directory when no LINEAR_API_KEY', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { deps, execCalls } = fakeDeps();
     const env: Record<string, string | undefined> = {};
 
-    configureLinear(env);
+    configureLinear(env, deps);
 
     expect(env.LINEAR_API_KEY).toBeUndefined();
-    expect(logSpy).toHaveBeenCalledWith('Linear: not configured (no API key)');
+    expect(execCalls).toContainEqual({
+      cmd: 'rm',
+      args: ['-rf', '/root/.config/linear'],
+      input: undefined,
+    });
+    expect(logSpy).toHaveBeenCalledWith('Linear: not configured (credentials cleared)');
     logSpy.mockRestore();
   });
 
   it('cleans up empty LINEAR_API_KEY', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { deps } = fakeDeps();
     const env: Record<string, string | undefined> = {
       LINEAR_API_KEY: '',
     };
 
-    configureLinear(env);
+    configureLinear(env, deps);
 
     expect(env.LINEAR_API_KEY).toBeUndefined();
     logSpy.mockRestore();
   });
+
 });
 
 // ---- runOnboardOrDoctor ----
