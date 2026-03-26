@@ -147,16 +147,17 @@ export default function DashboardScreen() {
         </Animated.View>
       </ScrollView>
 
-      <RenameInstanceModal
-        visible={renameVisible}
-        defaultName={status?.name ?? ''}
-        onSubmit={name => {
-          mutations.renameInstance.mutate({ name });
-        }}
-        onClose={() => {
-          setRenameVisible(false);
-        }}
-      />
+      {renameVisible && (
+        <RenameInstanceModal
+          defaultName={status?.name ?? ''}
+          onSubmit={name => {
+            mutations.renameInstance.mutate({ name });
+          }}
+          onClose={() => {
+            setRenameVisible(false);
+          }}
+        />
+      )}
     </Animated.View>
   );
 }

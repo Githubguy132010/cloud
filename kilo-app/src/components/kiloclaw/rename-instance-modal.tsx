@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -6,14 +6,12 @@ import { Text } from '@/components/ui/text';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
 type RenameInstanceModalProps = {
-  visible: boolean;
   defaultName: string;
   onSubmit: (name: string) => void;
   onClose: () => void;
 };
 
 export function RenameInstanceModal({
-  visible,
   defaultName,
   onSubmit,
   onClose,
@@ -21,14 +19,8 @@ export function RenameInstanceModal({
   const colors = useThemeColors();
   const nameRef = useRef(defaultName);
 
-  useEffect(() => {
-    if (visible) {
-      nameRef.current = defaultName;
-    }
-  }, [visible, defaultName]);
-
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -43,7 +35,6 @@ export function RenameInstanceModal({
           >
             <Text className="text-base font-semibold">Rename Instance</Text>
             <TextInput
-              key={defaultName}
               className="rounded-md border border-input bg-background px-3 py-2.5 text-sm leading-5 text-foreground"
               placeholder="Enter a new name (max 50 characters)"
               placeholderTextColor={colors.mutedForeground}
