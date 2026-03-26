@@ -94,7 +94,7 @@
       "id": "kilo-auto/free",
       "name": "Kilo Auto Free",
       "created": 0,
-      "description": "Free with limited capability. No credits required. Uses MiMo-V2-Pro (free).",
+      "description": "Free with limited capability. No credits required. Uses MiMo-V2-Pro.",
       "architecture": {
         "input_modalities": [
           "text"
