@@ -90,7 +90,9 @@ export async function getInstanceBySandboxId(db: WorkerDb, sandboxId: string) {
       user_id: kiloclaw_instances.user_id,
     })
     .from(kiloclaw_instances)
-    .where(and(eq(kiloclaw_instances.sandbox_id, sandboxId), isNull(kiloclaw_instances.destroyed_at)))
+    .where(
+      and(eq(kiloclaw_instances.sandbox_id, sandboxId), isNull(kiloclaw_instances.destroyed_at))
+    )
     .limit(1)
     .then(rows => rows[0] ?? null);
 

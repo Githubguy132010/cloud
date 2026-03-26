@@ -3,10 +3,7 @@ import 'server-only';
 import { and, eq, isNull } from 'drizzle-orm';
 import { kiloclaw_instances } from '@kilocode/db/schema';
 import { db } from '@/lib/drizzle';
-import {
-  sandboxIdFromUserId,
-  sandboxIdFromInstanceId,
-} from '@/lib/kiloclaw/sandbox-id';
+import { sandboxIdFromUserId, sandboxIdFromInstanceId } from '@/lib/kiloclaw/sandbox-id';
 
 export type ActiveKiloClawInstance = {
   id: string;
@@ -57,10 +54,7 @@ export async function ensureActiveInstance(
     values.organization_id = opts.orgId;
   }
 
-  await db
-    .insert(kiloclaw_instances)
-    .values(values)
-    .onConflictDoNothing();
+  await db.insert(kiloclaw_instances).values(values).onConflictDoNothing();
 
   const [row] = await db
     .select({
@@ -103,10 +97,7 @@ export async function markActiveInstanceDestroyed(
   const destroyedAt = new Date().toISOString();
 
   const condition = instanceId
-    ? and(
-        eq(kiloclaw_instances.instance_id, instanceId),
-        isNull(kiloclaw_instances.destroyed_at)
-      )
+    ? and(eq(kiloclaw_instances.instance_id, instanceId), isNull(kiloclaw_instances.destroyed_at))
     : and(
         eq(kiloclaw_instances.user_id, userId),
         eq(kiloclaw_instances.sandbox_id, sandboxIdFromUserId(userId)),

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
 import { isValidImageTag } from '../lib/image-tag-validation';
+import { isValidInstanceId } from '../auth/sandbox-id';
 import { GoogleCredentialsSchema } from '../schemas/instance-config';
 import { instrumented } from '../middleware/analytics';
 
@@ -9,6 +10,25 @@ import { instrumented } from '../middleware/analytics';
  * - /api/admin/* - Admin API routes (user-facing, JWT auth, operations via DO RPC)
  */
 const api = new Hono<AppEnv>();
+
+/**
+ * Parse and validate an optional instanceId query parameter.
+ * Returns the validated instanceId string, or a 400 Response on invalid format.
+ */
+function parseInstanceId(c: {
+  req: { query: (key: string) => string | undefined };
+}): { instanceId: string | undefined } | { error: Response } {
+  const instanceId = c.req.query('instanceId') || undefined;
+  if (instanceId && !isValidInstanceId(instanceId)) {
+    return {
+      error: new Response(JSON.stringify({ error: 'Invalid instance ID' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      }),
+    };
+  }
+  return { instanceId };
+}
 
 /**
  * Resolve the user's KiloClawInstance DO stub.
@@ -66,7 +86,9 @@ adminApi.post('/storage/sync', c =>
 // POST /api/admin/machine/restart - Restart the Fly Machine via the DO
 adminApi.post('/machine/restart', c =>
   instrumented(c, 'POST /api/admin/machine/restart', async () => {
-    const instanceId = c.req.query('instanceId') || undefined;
+    const parsed = parseInstanceId(c);
+    if ('error' in parsed) return parsed.error;
+    const { instanceId } = parsed;
     const stub = resolveStub(c, instanceId);
     const denied = await verifyInstanceOwnership(c, stub, instanceId);
     if (denied) return denied;
@@ -97,7 +119,9 @@ adminApi.post('/machine/restart', c =>
 // POST /api/admin/gateway/restart - Backward-compat alias for machine restart
 adminApi.post('/gateway/restart', c =>
   instrumented(c, 'POST /api/admin/gateway/restart', async () => {
-    const instanceId = c.req.query('instanceId') || undefined;
+    const parsed = parseInstanceId(c);
+    if ('error' in parsed) return parsed.error;
+    const { instanceId } = parsed;
     const stub = resolveStub(c, instanceId);
     const denied = await verifyInstanceOwnership(c, stub, instanceId);
     if (denied) return denied;
@@ -163,7 +187,9 @@ adminApi.get('/public-key', c =>
 // GET /api/admin/google-credentials - Check Google connection status
 adminApi.get('/google-credentials', c =>
   instrumented(c, 'GET /api/admin/google-credentials', async () => {
-    const instanceId = c.req.query('instanceId') || undefined;
+    const parsed = parseInstanceId(c);
+    if ('error' in parsed) return parsed.error;
+    const { instanceId } = parsed;
     const stub = resolveStub(c, instanceId);
     try {
       const status = await stub.getStatus();
@@ -181,7 +207,9 @@ adminApi.get('/google-credentials', c =>
 // POST /api/admin/google-credentials - Store encrypted Google credentials
 adminApi.post('/google-credentials', c =>
   instrumented(c, 'POST /api/admin/google-credentials', async () => {
-    const instanceId = c.req.query('instanceId') || undefined;
+    const iid = parseInstanceId(c);
+    if ('error' in iid) return iid.error;
+    const { instanceId } = iid;
     const stub = resolveStub(c, instanceId);
     const denied = await verifyInstanceOwnership(c, stub, instanceId);
     if (denied) return denied;
@@ -214,7 +242,9 @@ adminApi.post('/google-credentials', c =>
 // DELETE /api/admin/google-credentials - Clear Google credentials
 adminApi.delete('/google-credentials', c =>
   instrumented(c, 'DELETE /api/admin/google-credentials', async () => {
-    const instanceId = c.req.query('instanceId') || undefined;
+    const parsed = parseInstanceId(c);
+    if ('error' in parsed) return parsed.error;
+    const { instanceId } = parsed;
     const stub = resolveStub(c, instanceId);
     const denied = await verifyInstanceOwnership(c, stub, instanceId);
     if (denied) return denied;

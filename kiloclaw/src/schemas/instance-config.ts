@@ -94,7 +94,10 @@ export const ProvisionRequestSchema = z
   .object({
     userId: z.string().min(1),
     /** Optional 12-char hex instance identity for multi-instance support. */
-    instanceId: z.string().regex(/^[0-9a-f]{12}$/).optional(),
+    instanceId: z
+      .string()
+      .regex(/^[0-9a-f]{12}$/)
+      .optional(),
     /** Optional org ID — null/absent means personal instance. Requires instanceId. */
     orgId: z.string().uuid().nullable().optional(),
     ...InstanceConfigSchema.omit({ googleCredentials: true }).shape,

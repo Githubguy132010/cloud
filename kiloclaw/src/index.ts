@@ -231,7 +231,14 @@ app.all('/i/:instanceId/*', async c => {
     gatewayTokenSecret: c.env.GATEWAY_TOKEN_SECRET,
   });
 
-  console.log('[PROXY /i] Handling request:', strippedPath, 'instance:', instanceId, 'machine:', status.flyMachineId);
+  console.log(
+    '[PROXY /i] Handling request:',
+    strippedPath,
+    'instance:',
+    instanceId,
+    'machine:',
+    status.flyMachineId
+  );
 
   const isWebSocketRequest = c.req.raw.headers.get('Upgrade')?.toLowerCase() === 'websocket';
 

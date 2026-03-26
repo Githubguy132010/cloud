@@ -185,11 +185,7 @@ export class KiloClawInternalClient {
   async getDebugStatus(userId: string, instanceId?: string): Promise<PlatformDebugStatusResponse> {
     const params = new URLSearchParams({ userId });
     if (instanceId) params.set('instanceId', instanceId);
-    return this.request(
-      `/api/platform/debug-status?${params.toString()}`,
-      undefined,
-      { userId }
-    );
+    return this.request(`/api/platform/debug-status?${params.toString()}`, undefined, { userId });
   }
 
   async patchKiloCodeConfig(

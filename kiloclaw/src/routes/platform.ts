@@ -1028,7 +1028,11 @@ platform.post('/stop', async c => {
   const instanceId = c.req.query('instanceId');
 
   try {
-    await withDORetry(instanceStubFactory(c.env, result.data.userId, instanceId || undefined), stub => stub.stop(), 'stop');
+    await withDORetry(
+      instanceStubFactory(c.env, result.data.userId, instanceId || undefined),
+      stub => stub.stop(),
+      'stop'
+    );
     return c.json({ ok: true });
   } catch (err) {
     const { message, status } = sanitizeError(err, 'stop');
