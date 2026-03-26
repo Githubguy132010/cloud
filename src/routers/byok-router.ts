@@ -426,7 +426,7 @@ export const byokRouter = createTRPCRouter({
 
         return {
           success: true,
-          message: `API key test success. Provider: ${metadata?.finalProvider ?? 'unknown'}. Model: ${metadata?.originalModelId ?? 'unknown'}. Completion: ${output.text}`,
+          message: `API key test success. Provider: ${metadata?.finalProvider ?? 'unknown'}. Model: ${metadata?.originalModelId ?? 'unknown'}. Model output: ${output.text}`,
         };
       } catch (e) {
         console.error(e);
