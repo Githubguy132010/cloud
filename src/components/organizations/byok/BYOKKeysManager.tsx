@@ -53,10 +53,10 @@ const VERCEL_BYOK_PROVIDERS = [
   { id: VercelUserByokInferenceProviderIdSchema.enum.inception, name: 'Inception' },
   { id: VercelUserByokInferenceProviderIdSchema.enum.google, name: 'Google AI Studio' },
   { id: VercelUserByokInferenceProviderIdSchema.enum.minimax, name: 'MiniMax' },
-  { id: DirectUserByokInferenceProviderIdSchema.enum.codestral, name: 'Mistral AI: Codestral' },
-  { id: VercelUserByokInferenceProviderIdSchema.enum.mistral, name: 'Mistral AI: Devstral' },
+  { id: DirectUserByokInferenceProviderIdSchema.enum.codestral, name: 'Mistral AI (Codestral)' },
+  { id: VercelUserByokInferenceProviderIdSchema.enum.mistral, name: 'Mistral AI (other models)' },
   { id: VercelUserByokInferenceProviderIdSchema.enum.xai, name: 'xAI' },
-  { id: VercelUserByokInferenceProviderIdSchema.enum.zai, name: 'Z.AI (pay as you go)' },
+  { id: VercelUserByokInferenceProviderIdSchema.enum.zai, name: 'Z.ai (pay as you go)' },
 ] as const;
 
 const CODING_PLAN_PROVIDERS = CODING_PLANS.map(plan => ({
