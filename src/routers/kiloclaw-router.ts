@@ -222,7 +222,13 @@ async function provisionInstance(
   user: Parameters<typeof generateApiToken>[0],
   input: z.infer<typeof updateConfigSchema>
 ) {
-  await ensureActiveInstance(user.id);
+  // Check whether this user already had an active row before we create one.
+  // ensureActiveInstance is idempotent: it may return a pre-existing row.
+  // On provision failure we only clean up a *freshly-created* row to avoid
+  // soft-deleting a legitimate pre-existing instance.
+  const preExistingRow = await getActiveInstance(user.id);
+  const instanceRow = await ensureActiveInstance(user.id);
+  const rowIsNew = !preExistingRow || preExistingRow.id !== instanceRow.id;
 
   const encryptedSecrets = input.secrets
     ? Object.fromEntries(
@@ -256,15 +262,17 @@ async function provisionInstance(
       pinnedImageTag,
     });
   } catch (error) {
-    // Clean up the DB row that ensureActiveInstance created so that an
-    // orphaned active row (e.g. from "Cannot provision: instance is being
-    // destroyed") doesn't confuse subsequent getBillingStatus queries.
-    await markActiveInstanceDestroyed(user.id).catch(cleanupErr => {
-      console.error(
-        '[kiloclaw] Failed to clean up instance row after provision error:',
-        cleanupErr
-      );
-    });
+    // Only clean up the row if ensureActiveInstance created it for this
+    // attempt. Pre-existing rows belong to a prior successful provision
+    // and must not be destroyed.
+    if (rowIsNew) {
+      await markActiveInstanceDestroyed(user.id).catch(cleanupErr => {
+        console.error(
+          '[kiloclaw] Failed to clean up instance row after provision error:',
+          cleanupErr
+        );
+      });
+    }
     throw error;
   }
 }
