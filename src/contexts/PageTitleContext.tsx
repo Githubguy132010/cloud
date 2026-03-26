@@ -25,7 +25,9 @@ export function PageTitleProvider({ children }: { children: ReactNode }) {
   const setExtras = useCallback((next: ReactNode) => setExtrasState(next), []);
   const setHidden = useCallback((next: boolean) => setHiddenState(next), []);
   return (
-    <PageTitleContext.Provider value={{ title, icon, extras, hidden, setTitle, setIcon, setExtras, setHidden }}>
+    <PageTitleContext.Provider
+      value={{ title, icon, extras, hidden, setTitle, setIcon, setExtras, setHidden }}
+    >
       {children}
     </PageTitleContext.Provider>
   );
