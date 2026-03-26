@@ -7,10 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "credentialsSource": "remote",
-      "env": {
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
-      }
+      "credentialsSource": "remote"
     },
     "preview": {
       "distribution": "internal",
