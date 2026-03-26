@@ -16,17 +16,17 @@ export function AppTopbar() {
   if (hidden) return null;
 
   return (
-    <header className="@container bg-background sticky top-0 z-10 h-14 shrink-0 border-b grid grid-cols-[auto_1fr_auto] gap-4">
+    <header className="@container bg-background sticky top-0 z-10 h-14 shrink-0 border-b flex flex-row">
       <div className="flex flex-row">
         <div className="flex h-14 items-center gap-2 aspect-square justify-center">
           <SidebarTrigger className="-ml-1" />
         </div>
-        <Separator orientation="vertical" className="h-4 @min-[1280px]:hidden" />
+        <Separator orientation="vertical" className="h-4 @min-[1224]:hidden" />
       </div>
 
-      <div>
+      <div className="absolute w-full h-full">
         {title && (
-          <div className="mx-auto flex h-full w-full max-w-285 items-center gap-2">
+          <div className="mx-auto flex h-full w-full max-w-285 items-center gap-2 pl-18 @min-[1224]:pl-6">
             {icon}
             <Breadcrumb>
               <BreadcrumbList>
