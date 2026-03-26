@@ -558,6 +558,32 @@ describe('configureLinear', () => {
     warnSpy.mockRestore();
   });
 
+  it('warns when /root/.config/linear removal fails', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { deps } = fakeDeps();
+    const env: Record<string, string | undefined> = {};
+
+    const origExec = deps.execFileSync;
+    deps.execFileSync = vi.fn(
+      (cmd: string, args: string[], opts?: Parameters<BootstrapDeps['execFileSync']>[2]) => {
+        if (cmd === 'rm' && args.includes('/root/.config/linear')) {
+          throw new Error('permission denied');
+        }
+        return origExec(cmd, args, opts);
+      }
+    ) as typeof deps.execFileSync;
+
+    configureLinear(env, deps);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'WARNING: failed to remove /root/.config/linear: permission denied'
+    );
+    expect(logSpy).toHaveBeenCalledWith('Linear: not configured (credentials cleared)');
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   it('warns when ~/.linear.toml removal fails', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
