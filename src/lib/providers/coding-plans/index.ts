@@ -4,6 +4,7 @@ import CODING_PLANS from './coding-plan-definitions';
 import { getBYOKforOrganization, getBYOKforUser } from '@/lib/byok';
 import { readDb } from '@/lib/drizzle';
 import { preferredModels } from '@/lib/models';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 export function formatCodingPlanModelId(provider: CodingPlanProvider, model: CodingPlanModel) {
   return provider.id + '/' + model.id;
@@ -90,4 +91,16 @@ export async function getCodingPlanModelsForUser(userId: string) {
     CODING_PLANS.map(provider => provider.id)
   );
   return userByok ? getCodingPlanModels(userByok.map(ub => ub.providerId)) : [];
+}
+
+export function createAiSdkProvider(codingPlanProvider: CodingPlanProvider, apiKey: string) {
+  if (codingPlanProvider.ai_sdk_provider === 'openai-compatible') {
+    return createOpenAICompatible({
+      baseURL: codingPlanProvider.base_url,
+      apiKey,
+      name: 'openaiCompatible',
+    });
+  } else {
+    throw new Error('Unrecognized AI SDK provider: ' + codingPlanProvider.ai_sdk_provider);
+  }
 }

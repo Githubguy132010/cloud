@@ -36,8 +36,7 @@ import { decryptByokRow } from '@/lib/byok';
 import type { GatewayProviderOptions } from '@ai-sdk/gateway';
 import { mapModelIdToVercel } from '@/lib/providers/vercel/mapModelIdToVercel';
 import CODING_PLANS from '@/lib/providers/coding-plans/coding-plan-definitions';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { formatCodingPlanModelId } from '@/lib/providers/coding-plans';
+import { createAiSdkProvider, formatCodingPlanModelId } from '@/lib/providers/coding-plans';
 
 const fetchSupportedModels = unstable_cache(
   async (): Promise<Record<string, string[]>> => {
@@ -418,11 +417,7 @@ export const byokRouter = createTRPCRouter({
           if (codingPlanProvider.ai_sdk_provider === 'openai-compatible') {
             return {
               finalProvider: provider,
-              model: createOpenAICompatible({
-                baseURL: codingPlanProvider.base_url,
-                apiKey: decryptedKey.decryptedAPIKey,
-                name: 'openaiCompatible',
-              })(model),
+              model: createAiSdkProvider(codingPlanProvider, decryptedKey.decryptedAPIKey)(model),
             };
           } else {
             throw new Error('Unrecognized AI SDK provider: ' + codingPlanProvider.ai_sdk_provider);
