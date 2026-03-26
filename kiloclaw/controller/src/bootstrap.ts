@@ -565,18 +565,25 @@ const LINEAR_TOOLS_SECTION = `
 ${LINEAR_MARKER_BEGIN}
 ## Linear
 
-The \`linear\` CLI is configured with your Linear API key. Use it to read and manage issues.
+The \`linear\` CLI is configured with your Linear API key. Use it to read and manage issues. 
 
 - Run \`linear --help\` for full command reference.
+- Run \`--help\` after any command for more details.
 
 ### Best practices
 - **Markdown content**: Use \`--description-file\` for \`issue create/update\` and \`--body-file\` for \`comment add/update\` — avoids shell escaping issues with newlines/special characters
 - **Config file**: Create \`.linear.toml\` in project for defaults (team, sort order, etc.)
 
 ### Gotchas
-- \`issue list\` requires \`--sort manual|priority\` and \`--team <key>\` (or infer from directory)
+
 - \`--no-pager\` only works on \`issue list\` — errors on other commands
 - GraphQL queries with non-null type markers (\`String!\`) must use heredoc: \`linear api --variable key=val <<'GRAPHQL'\`
+
+#### \`issue list\` Gotchas
+- Always requires \`--sort manual|priority\` (or set LINEAR_ISSUE_SORT env var), and \`--team <key>\`
+- Hidden defaults:
+  - Default: \`--status backlog\`. Override: \`--status <status>\` or \`--all-statuses\`
+  - Default:\`--assignee me\`. Override: \`--assignee <user>\` or \`--all-assignees\`
 
 ### Advanced
 - Get API token: \`linear auth token\` (for direct curl requests)
