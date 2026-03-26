@@ -1,7 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Monitor, RefreshCw } from 'lucide-react-native';
+import { useCallback } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { EmptyState } from '@/components/empty-state';
 import { CATALOG_ICONS } from '@/components/icons';
@@ -35,6 +44,25 @@ export default function DevicePairingScreen() {
 
   const isLoading = pairingQuery.isPending || devicePairingQuery.isPending;
 
+  const rotation = useSharedValue(0);
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  const handleRefresh = useCallback(async () => {
+    rotation.value = 0;
+    rotation.value = withTiming(360, {
+      duration: 800,
+      easing: Easing.inOut(Easing.cubic),
+    });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.kiloclaw.listPairingRequests.queryKey() }),
+      queryClient.invalidateQueries({
+        queryKey: trpc.kiloclaw.listDevicePairingRequests.queryKey(),
+      }),
+    ]);
+  }, [queryClient, rotation, trpc]);
+
   const refreshButton = (
     <Pressable
       onPress={() => {
@@ -42,18 +70,11 @@ export default function DevicePairingScreen() {
       }}
       className="p-2"
     >
-      <RefreshCw size={18} color={colors.foreground} />
+      <Animated.View style={spinStyle}>
+        <RefreshCw size={18} color={colors.foreground} />
+      </Animated.View>
     </Pressable>
   );
-
-  async function handleRefresh() {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: trpc.kiloclaw.listPairingRequests.queryKey() }),
-      queryClient.invalidateQueries({
-        queryKey: trpc.kiloclaw.listDevicePairingRequests.queryKey(),
-      }),
-    ]);
-  }
 
   if (isLoading) {
     return (
