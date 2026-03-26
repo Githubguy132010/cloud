@@ -558,6 +558,70 @@ describe('configureLinear', () => {
     warnSpy.mockRestore();
   });
 
+  it('warns when ~/.linear.toml removal fails', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { deps } = fakeDeps();
+    const env: Record<string, string | undefined> = {};
+
+    const origExec = deps.execFileSync;
+    deps.execFileSync = vi.fn((cmd: string, args: string[], opts?: Parameters<BootstrapDeps['execFileSync']>[2]) => {
+      if (cmd === 'rm' && args.includes('/root/.linear.toml')) {
+        throw new Error('read-only filesystem');
+      }
+      return origExec(cmd, args, opts);
+    }) as typeof deps.execFileSync;
+
+    configureLinear(env, deps);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'WARNING: failed to remove /root/.linear.toml: read-only filesystem'
+    );
+    expect(logSpy).toHaveBeenCalledWith('Linear: not configured (credentials cleared)');
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it('warns for both when both rm calls fail', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { deps } = fakeDeps();
+    const env: Record<string, string | undefined> = {};
+
+    deps.execFileSync = vi.fn((cmd: string) => {
+      if (cmd === 'rm') throw new Error('disk full');
+      return '';
+    }) as typeof deps.execFileSync;
+
+    configureLinear(env, deps);
+
+    expect(warnSpy).toHaveBeenCalledWith('WARNING: failed to remove /root/.config/linear: disk full');
+    expect(warnSpy).toHaveBeenCalledWith('WARNING: failed to remove /root/.linear.toml: disk full');
+    expect(logSpy).toHaveBeenCalledWith('Linear: not configured (credentials cleared)');
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it('formats non-Error thrown values in warning', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { deps } = fakeDeps();
+    const env: Record<string, string | undefined> = {};
+
+    deps.execFileSync = vi.fn((cmd: string) => {
+      if (cmd === 'rm') throw 'unexpected string error';
+      return '';
+    }) as typeof deps.execFileSync;
+
+    configureLinear(env, deps);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'WARNING: failed to remove /root/.config/linear: unexpected string error'
+    );
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   it('cleans up empty LINEAR_API_KEY', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const { deps } = fakeDeps();
