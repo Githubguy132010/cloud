@@ -24,8 +24,8 @@ function convertModel(
     description: model.description,
     context_length: model.context_length,
     architecture: {
-      modality: 'text-\u003Etext',
-      input_modalities: ['text'],
+      modality: model.flags.includes('vision') ? 'text+image-\u003Etext' : 'text-\u003Etext',
+      input_modalities: ['text'].concat(model.flags.includes('vision') ? ['image'] : []),
       output_modalities: ['text'],
       tokenizer: 'Other',
       instruct_type: null,
@@ -47,7 +47,7 @@ function convertModel(
     per_request_limits: null,
     supported_parameters: ['max_tokens', 'temperature', 'tools', 'reasoning', 'include_reasoning'],
     default_parameters: {},
-    preferredIndex: model.is_recommended ? preferredIndex : undefined,
+    preferredIndex: model.flags.includes('recommended') ? preferredIndex : undefined,
   };
 }
 

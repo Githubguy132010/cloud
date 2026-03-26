@@ -43,7 +43,7 @@ export type VercelUserByokInferenceProviderId = z.infer<
 >;
 
 export const DirectUserByokInferenceProviderIdSchema = z.enum([
-  'bytelabs-coding',
+  'byteplus-coding',
   'codestral',
   'zai-coding',
 ]);

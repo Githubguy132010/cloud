@@ -1,10 +1,12 @@
 import type { DirectUserByokInferenceProviderId } from '@/lib/providers/openrouter/inference-provider-id';
 import type { CustomLlmExtraBody, CustomLlmProvider } from '@kilocode/db';
 
+export type CodingPlanModelFlag = 'recommended' | 'vision';
+
 export type CodingPlanModel = {
   id: string;
   name: string;
-  is_recommended: boolean;
+  flags: ReadonlyArray<CodingPlanModelFlag>;
   description: string;
   context_length: number;
   max_completion_tokens: number;
