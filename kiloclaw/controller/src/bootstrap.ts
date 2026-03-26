@@ -566,11 +566,11 @@ ${LINEAR_MARKER_BEGIN}
 ## Linear
 
 Linear is configured as your project management tool. Use it  to track issues, plan projects, and manage product roadmaps.
-You can interact with Linear using the \`Linear MCP\` via \`mcporter\` — your MCP management tool.
+You can interact with Linear using the \`Linear MCP\` — via \`mcporter\`, your MCP management tool:
 
-Here's an example of how to list 3 issues:
 \`\`\`bash
-mcporter call linear.list_issues limit:3
+mcporter list linear --schema — list tools for a server
+mcporter call linear.<tool> — call a tool
 \`\`\`
   ${LINEAR_MARKER_END}`;
 
