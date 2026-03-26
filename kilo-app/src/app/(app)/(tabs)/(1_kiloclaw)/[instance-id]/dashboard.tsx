@@ -174,7 +174,9 @@ export default function DashboardScreen() {
               }}
             >
               {mutations.destroy.isPending ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <View className="h-4 w-4 items-center justify-center">
+                  <ActivityIndicator size="small" color="#ffffff" />
+                </View>
               ) : (
                 <Trash2 size={16} color="#ffffff" />
               )}
