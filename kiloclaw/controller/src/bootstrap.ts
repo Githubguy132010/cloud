@@ -336,6 +336,7 @@ export function configureGitHub(env: EnvLike, deps: BootstrapDeps = defaultDeps)
  * The CLI stores two files under ~/.config/linear/:
  *   - credentials.toml  — workspace list + inline API keys (plaintext mode)
  *   - linear.toml        — global config that can also carry an api_key field
+ * It may also create ~/.linear.toml (a project-level or legacy config file).
  * The system keyring is not available in this container (no libsecret-tools),
  * so these files are the only persistence locations.
  */
@@ -349,6 +350,7 @@ export function configureLinear(env: EnvLike, deps: BootstrapDeps = defaultDeps)
     // The CLI recreates ~/.config/linear/ via ensureDir on next auth login.
     try {
       deps.execFileSync('rm', ['-rf', '/root/.config/linear'], { stdio: 'pipe' });
+      deps.execFileSync('rm', ['-f', '/root/.linear.toml'], { stdio: 'pipe' });
     } catch {
       // ignore — directory may not exist
     }

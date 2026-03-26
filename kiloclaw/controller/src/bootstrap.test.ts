@@ -519,6 +519,11 @@ describe('configureLinear', () => {
       args: ['-rf', '/root/.config/linear'],
       input: undefined,
     });
+    expect(execCalls).toContainEqual({
+      cmd: 'rm',
+      args: ['-f', '/root/.linear.toml'],
+      input: undefined,
+    });
     expect(logSpy).toHaveBeenCalledWith('Linear: not configured (credentials cleared)');
     logSpy.mockRestore();
   });
