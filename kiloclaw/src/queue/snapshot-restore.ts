@@ -117,12 +117,17 @@ export async function handleSnapshotRestoreQueue(
         try {
           newVolume = await fly.getVolume(flyConfig, debugState.pendingRestoreVolumeId);
           console.log(`[queue] Reusing volume from prior attempt: ${newVolume.id}`);
-        } catch {
-          // Volume from prior attempt is gone — create a new one
-          console.warn(
-            `[queue] Prior pending volume ${debugState.pendingRestoreVolumeId} not found, creating new`
-          );
-          newVolume = await createRestoreVolume(flyConfig, previousVolumeId, snapshotId, region);
+        } catch (volErr) {
+          if (fly.isFlyNotFound(volErr)) {
+            // Volume from prior attempt was deleted — create a new one
+            console.warn(
+              `[queue] Prior pending volume ${debugState.pendingRestoreVolumeId} not found, creating new`
+            );
+            newVolume = await createRestoreVolume(flyConfig, previousVolumeId, snapshotId, region);
+          } else {
+            // Transient error (5xx, timeout) — rethrow to retry without creating a duplicate
+            throw volErr;
+          }
         }
       } else {
         newVolume = await createRestoreVolume(flyConfig, previousVolumeId, snapshotId, region);
