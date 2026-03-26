@@ -4,6 +4,7 @@ set -euo pipefail
 TARGET_PORT=${PORT:-3000}
 
 # Find an available port starting from TARGET_PORT (same behavior as Next.js auto-increment).
+# Tries TARGET_PORT through TARGET_PORT+9, then falls back to port 0 (OS-assigned).
 # Uses Node.js stdlib only — no external dependencies.
 PORT=$(node -e "
   const net = require('net');
@@ -11,14 +12,14 @@ PORT=$(node -e "
     return new Promise((resolve, reject) => {
       const server = net.createServer();
       server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE' && retries > 0) {
-          resolve(tryPort(port + 1, retries - 1));
+        if (err.code === 'EADDRINUSE') {
+          resolve(retries > 0 ? tryPort(port + 1, retries - 1) : tryPort(0, 0));
         } else {
           reject(err);
         }
       });
       server.once('listening', () => {
-        server.close(() => resolve(port));
+        server.close(() => resolve(server.address().port));
       });
       server.listen(port);
     });
