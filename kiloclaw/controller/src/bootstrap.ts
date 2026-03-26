@@ -569,6 +569,7 @@ The \`linear\` CLI is configured with your Linear API key. Use it to read and ma
 
 - Run \`linear --help\` for full command reference.
 - Run \`--help\` after any command for more details.
+- Run \`linear team list\` to find the team keys. If there are multiple teams and the user hasn't 
 
 ### Best practices
 - **Markdown content**: Use \`--description-file\` for \`issue create/update\` and \`--body-file\` for \`comment add/update\` — avoids shell escaping issues with newlines/special characters
@@ -582,7 +583,7 @@ The \`linear\` CLI is configured with your Linear API key. Use it to read and ma
 #### \`issue list\` Gotchas
 - Always requires \`--sort manual|priority\` (or set LINEAR_ISSUE_SORT env var), and \`--team <key>\`
 - Hidden defaults:
-  - Default: \`--status backlog\`. Override: \`--status <status>\` or \`--all-statuses\`
+  - Default: \`--state backlog\`. Override: \`--state <status>\` or \`--all-states\`
   - Default:\`--assignee me\`. Override: \`--assignee <user>\` or \`--all-assignees\`
 
 ### Advanced
