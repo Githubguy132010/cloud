@@ -145,12 +145,12 @@ export default function DashboardScreen() {
             </Pressable>
           </View>
 
-          <View className="rounded-lg bg-red-100 dark:bg-red-950 overflow-hidden">
-            <Text className="px-4 pt-3 pb-1 text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+          <View className="rounded-lg bg-red-100 dark:bg-red-950 overflow-hidden p-4 gap-3">
+            <Text className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
               Danger Zone
             </Text>
             <Pressable
-              className="flex-row items-center gap-3 px-4 py-3 active:opacity-70"
+              className="flex-row items-center justify-center gap-2 rounded-md bg-red-600 dark:bg-red-700 py-2.5 px-4 active:opacity-70"
               onPress={() => {
                 Alert.alert(
                   'Destroy Instance',
@@ -172,10 +172,8 @@ export default function DashboardScreen() {
                 );
               }}
             >
-              <Trash2 size={18} color="#dc2626" />
-              <Text className="flex-1 text-sm font-medium text-red-600 dark:text-red-400">
-                Destroy Instance
-              </Text>
+              <Trash2 size={16} color="#ffffff" />
+              <Text className="text-sm font-semibold text-white">Destroy Instance</Text>
             </Pressable>
           </View>
         </Animated.View>
