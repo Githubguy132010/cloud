@@ -352,6 +352,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
           pendingDestroyMachineId: null,
           pendingDestroyVolumeId: null,
           pendingPostgresMarkOnFinalize: false,
+          instanceReadyEmailSent: false,
         })
       : storageUpdate({
           ...configFields,
@@ -1252,6 +1253,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     previousVolumeId: string | null;
     restoreStartedAt: string | null;
     pendingRestoreVolumeId: string | null;
+    instanceReadyEmailSent: boolean;
   }> {
     await this.loadState();
     const alarmScheduledAt = await this.ctx.storage.getAlarm();
@@ -1296,6 +1298,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       previousVolumeId: this.s.previousVolumeId,
       restoreStartedAt: this.s.restoreStartedAt,
       pendingRestoreVolumeId: this.s.pendingRestoreVolumeId,
+      instanceReadyEmailSent: this.s.instanceReadyEmailSent,
     };
   }
 

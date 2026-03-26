@@ -172,6 +172,7 @@ export type PlatformDebugStatusResponse = PlatformStatusResponse & {
   previousVolumeId: string | null;
   restoreStartedAt: string | null;
   pendingRestoreVolumeId: string | null;
+  instanceReadyEmailSent: boolean;
 };
 
 /** A Fly volume snapshot. */

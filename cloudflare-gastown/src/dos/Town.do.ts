@@ -41,8 +41,7 @@ import {
   EscalationBeadRecord,
   ConvoyBeadRecord,
 } from '../db/tables/beads.table';
-import { agent_metadata, AgentMetadataRecord } from '../db/tables/agent-metadata.table';
-import { review_metadata } from '../db/tables/review-metadata.table';
+import { agent_metadata } from '../db/tables/agent-metadata.table';
 import { escalation_metadata } from '../db/tables/escalation-metadata.table';
 import { convoy_metadata } from '../db/tables/convoy-metadata.table';
 import { bead_dependencies } from '../db/tables/bead-dependencies.table';
@@ -278,8 +277,6 @@ export class TownDO extends DurableObject<Env> {
         let systemPromptOverride: string | undefined;
         if (agent.role === 'refinery' && bead.type === 'merge_request') {
           const reviewMeta = reviewQueue.getReviewMetadata(this.sql, beadId);
-          const sourceBeadId =
-            typeof bead.metadata?.source_bead_id === 'string' ? bead.metadata.source_bead_id : null;
           const townConfig = await this.getTownConfig();
           systemPromptOverride = buildRefinerySystemPrompt({
             identity: agent.identity,
@@ -2062,12 +2059,22 @@ export class TownDO extends DurableObject<Env> {
     const isAlive = containerStatus.status === 'running' || containerStatus.status === 'starting';
 
     if (isAlive) {
+      // Reconstruct conversation history so the new session retains context
+      // (same mechanism used for container restarts — see PR #1494).
+      const conversationHistory = await this.reconstructConversation(mayor.id);
+
+      // Attach fresh town config so the container can update process.env
+      // before restarting the SDK server (tokens, git identity, etc.).
+      const containerConfig = await config.buildContainerConfig(this.ctx.storage, this.env);
+
       const updated = await dispatch.updateAgentModelInContainer(
         this.env,
         townId,
         mayor.id,
         model,
-        smallModel
+        smallModel,
+        conversationHistory || undefined,
+        containerConfig
       );
       if (updated) {
         console.log(
