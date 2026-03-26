@@ -1375,7 +1375,7 @@ platform.post('/destroy-fly-machine', async c => {
   const startedAt = performance.now();
   const apiToken = c.env.FLY_API_TOKEN;
   if (!apiToken) {
-    return jsonError('FLY_API_TOKEN is not configured', 500);
+    return c.json({ error: 'FLY_API_TOKEN is not configured' }, 503);
   }
 
   const url = `https://api.machines.dev/v1/apps/${appName}/machines/${machineId}?force=true`;
@@ -1399,7 +1399,7 @@ platform.post('/destroy-fly-machine', async c => {
         error: `Fly API error (${resp.status})`,
         durationMs: performance.now() - startedAt,
       });
-      return jsonError(`Fly API error (${resp.status}): ${body}`, resp.status);
+      return jsonError(`Fly API error (${resp.status}): ${body}`, resp.status >= 500 ? 502 : resp.status);
     }
 
     console.log(`[platform] destroy-fly-machine ok: app=${appName} machine=${machineId}`);
@@ -1427,8 +1427,7 @@ platform.post('/destroy-fly-machine', async c => {
     });
     return c.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error(`[platform] destroy-fly-machine error app=${appName} machine=${machineId}:`, err);
+    const { message, status } = sanitizeError(err, 'destroy-fly-machine');
     writeEvent(c.env, {
       event: 'instance.destroy_fly_machine_failed',
       delivery: 'http',
@@ -1437,7 +1436,7 @@ platform.post('/destroy-fly-machine', async c => {
       error: message,
       durationMs: performance.now() - startedAt,
     });
-    return jsonError(`Failed to destroy machine: ${message}`, 500);
+    return jsonError(message, status);
   }
 });
 

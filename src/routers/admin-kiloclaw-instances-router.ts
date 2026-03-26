@@ -642,19 +642,19 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
       console.log(
         `[admin-kiloclaw] destroyFlyMachine triggered by admin ${ctx.user.id} (${ctx.user.google_user_email}) app=${input.appName} machine=${input.machineId}`
       );
+      const client = new KiloClawInternalClient();
+
+      // Verify the appName/machineId match the DO's actual state
+      const status = await client.getDebugStatus(input.userId);
+      if (status.flyAppName !== input.appName || status.flyMachineId !== input.machineId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Fly resource mismatch: expected app=${status.flyAppName} machine=${status.flyMachineId}, got app=${input.appName} machine=${input.machineId}`,
+        });
+      }
+
       const fallbackMessage = 'Failed to destroy Fly machine';
       try {
-        const client = new KiloClawInternalClient();
-
-        // Verify the appName/machineId match the DO's actual state
-        const status = await client.getDebugStatus(input.userId);
-        if (status.flyAppName !== input.appName || status.flyMachineId !== input.machineId) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: `Fly resource mismatch: expected app=${status.flyAppName} machine=${status.flyMachineId}, got app=${input.appName} machine=${input.machineId}`,
-          });
-        }
-
         const result = await client.destroyFlyMachine(input.userId, input.appName, input.machineId);
 
         try {

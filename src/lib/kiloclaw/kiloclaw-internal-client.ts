@@ -519,7 +519,7 @@ export class KiloClawInternalClient {
     return this.request('/api/platform/destroy-fly-machine', {
       method: 'POST',
       body: JSON.stringify({ userId, appName, machineId }),
-    });
+    }, { userId });
   }
 
   async getRegions(): Promise<RegionsResponse> {
