@@ -61,6 +61,4 @@ export function applyMistralProviderSettings(
   delete requestToMutate.body.prompt_cache_key;
   delete requestToMutate.body.user;
   delete requestToMutate.body.provider;
-
-  applyMistralModelSettings(requestToMutate);
 }
