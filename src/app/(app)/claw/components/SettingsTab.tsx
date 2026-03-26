@@ -908,6 +908,7 @@ export function SettingsTab({
                   mutations={mutations}
                   onSecretsChanged={onSecretsChanged}
                   isDirty={dirtySecrets.has(entry.id)}
+                  onRedeploy={onRedeploy}
                 />
               ))}
           </div>
