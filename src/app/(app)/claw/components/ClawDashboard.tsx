@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Check, Sparkles, TriangleAlert, X, Zap } from 'lucide-react';
 import type { KiloClawDashboardStatus } from '@/lib/kiloclaw/types';
@@ -73,6 +73,19 @@ export function ClawDashboard({
   const [channelTokens, setChannelTokens] = useState<Record<string, string> | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const hasPairingStep = selectedChannelId === 'telegram' || selectedChannelId === 'discord';
+
+  // Reset onboarding wizard to step 1 whenever we enter setup mode so that
+  // a destroy → re-provision cycle always starts fresh.
+  const prevIsNewSetup = useRef(isNewSetup);
+  useEffect(() => {
+    if (isNewSetup && !prevIsNewSetup.current) {
+      setOnboardingStep('permissions');
+      setSelectedPreset(null);
+      setChannelTokens(null);
+      setSelectedChannelId(null);
+    }
+    prevIsNewSetup.current = isNewSetup;
+  }, [isNewSetup]);
 
   const [dirtySecrets, setDirtySecrets] = useState<Set<string>>(new Set());
 
@@ -182,6 +195,7 @@ export function ClawDashboard({
           <CreateInstanceCard
             mutations={mutations}
             onProvisionStart={() => onNewSetupChange(true)}
+            onProvisionFailed={() => onNewSetupChange(false)}
           />
         ) : isNewSetup && onboardingStep === 'permissions' ? (
           <PermissionStep
