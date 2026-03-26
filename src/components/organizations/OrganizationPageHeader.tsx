@@ -29,13 +29,13 @@ export function OrganizationPageHeader({
   const finalTitle = title.replace('<org name>', organizationName);
 
   return (
-    <>
+    <div className="flex w-full flex-col gap-y-4">
       <SetPageTitle title={finalTitle}>{badge}</SetPageTitle>
       {showBackButton && (
         <div>
           <BackButton href={finalBackHref}>{backButtonText}</BackButton>
         </div>
       )}
-    </>
+    </div>
   );
 }
