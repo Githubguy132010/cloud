@@ -245,15 +245,28 @@ async function provisionInstance(
   const pinnedImageTag = pin?.image_tag;
 
   const client = new KiloClawInternalClient();
-  return client.provision(user.id, {
-    envVars: input.envVars,
-    encryptedSecrets,
-    channels: buildWorkerChannels(input.channels),
-    kilocodeApiKey,
-    kilocodeApiKeyExpiresAt,
-    kilocodeDefaultModel: input.kilocodeDefaultModel ?? undefined,
-    pinnedImageTag,
-  });
+  try {
+    return await client.provision(user.id, {
+      envVars: input.envVars,
+      encryptedSecrets,
+      channels: buildWorkerChannels(input.channels),
+      kilocodeApiKey,
+      kilocodeApiKeyExpiresAt,
+      kilocodeDefaultModel: input.kilocodeDefaultModel ?? undefined,
+      pinnedImageTag,
+    });
+  } catch (error) {
+    // Clean up the DB row that ensureActiveInstance created so that an
+    // orphaned active row (e.g. from "Cannot provision: instance is being
+    // destroyed") doesn't confuse subsequent getBillingStatus queries.
+    await markActiveInstanceDestroyed(user.id).catch(cleanupErr => {
+      console.error(
+        '[kiloclaw] Failed to clean up instance row after provision error:',
+        cleanupErr
+      );
+    });
+    throw error;
+  }
 }
 
 async function patchConfig(
