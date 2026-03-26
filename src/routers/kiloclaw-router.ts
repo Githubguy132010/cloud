@@ -1760,14 +1760,16 @@ export const kiloclawRouter = createTRPCRouter({
       }
     }
 
-    // Persist conversion intent BEFORE the Stripe API call so that if the
-    // process crashes after Stripe schedules cancellation, the
-    // subscription.deleted handler still sees pending_conversion = true
-    // and converts to pure credit instead of treating it as a plain cancel.
+    // Phase 1: Persist conversion intent and clear schedule fields before
+    // the Stripe API call. We intentionally do NOT set cancel_at_period_end
+    // here — that only happens after Stripe confirms (phase 2). This makes
+    // the operation retry-safe: on failure the guard (cancel_at_period_end
+    // === false) still allows re-entry, schedule release is idempotent, and
+    // pending_conversion is already durable so subscription.deleted converts
+    // correctly even if Stripe applied the change before the error was raised.
     await db
       .update(kiloclaw_subscriptions)
       .set({
-        cancel_at_period_end: true,
         pending_conversion: true,
         ...(scheduleIdToRelease
           ? { stripe_schedule_id: null, scheduled_plan: null, scheduled_by: null }
@@ -1775,56 +1777,18 @@ export const kiloclawRouter = createTRPCRouter({
       })
       .where(eq(kiloclaw_subscriptions.id, sub.id));
 
-    try {
-      await stripe.subscriptions.update(sub.stripe_subscription_id, {
-        cancel_at_period_end: true,
-      });
-    } catch (err) {
-      // The Stripe call may have succeeded before the error was raised
-      // (e.g. network timeout after Stripe committed). Re-fetch the
-      // subscription to decide whether to roll back local state.
-      let stripeApplied = false;
-      try {
-        const remoteSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
-        stripeApplied = remoteSub.cancel_at_period_end === true;
-      } catch {
-        // Retrieval failed — assume Stripe applied the change so we
-        // don't accidentally desync. The subscription.deleted handler
-        // will see pending_conversion = true and convert correctly.
-        stripeApplied = true;
-      }
+    // Phase 2: Tell Stripe to cancel at period end, then record locally.
+    // If this throws (including timeout-after-commit), the user can retry
+    // safely. If Stripe did commit despite the error, subscription.deleted
+    // will see pending_conversion=true and convert to pure credit.
+    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      cancel_at_period_end: true,
+    });
 
-      if (stripeApplied) {
-        // Stripe did apply cancel_at_period_end; local flags are
-        // already correct — let the conversion proceed normally.
-        console.error(
-          '[kiloclaw] acceptConversion: Stripe update threw but cancel_at_period_end is set remotely, proceeding with conversion',
-          { subscriptionId: sub.stripe_subscription_id, error: err }
-        );
-        return { success: true };
-      }
-
-      // Stripe confirmed cancellation was NOT applied — safe to roll back
-      await db
-        .update(kiloclaw_subscriptions)
-        .set({
-          cancel_at_period_end: false,
-          pending_conversion: false,
-          ...(scheduleIdToRelease
-            ? {
-                stripe_schedule_id: scheduleIdToRelease,
-                scheduled_plan: sub.scheduled_plan,
-                scheduled_by: sub.scheduled_by,
-              }
-            : {}),
-        })
-        .where(eq(kiloclaw_subscriptions.id, sub.id));
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to schedule Stripe cancellation. Please try again.',
-        cause: err,
-      });
-    }
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({ cancel_at_period_end: true })
+      .where(eq(kiloclaw_subscriptions.id, sub.id));
 
     return { success: true };
   }),
