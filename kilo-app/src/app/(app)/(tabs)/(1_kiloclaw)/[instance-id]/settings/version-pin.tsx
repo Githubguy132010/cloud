@@ -92,7 +92,9 @@ export default function VersionPinScreen() {
   }
 
   function scrollToPendingItem() {
-    if (!pendingItem) return;
+    if (!pendingItem) {
+      return;
+    }
     const index = versions.findIndex(v => v.image_tag === pendingItem.image_tag);
     if (index !== -1) {
       setTimeout(() => {
@@ -102,7 +104,9 @@ export default function VersionPinScreen() {
   }
 
   function confirmPin() {
-    if (!pendingItem) return;
+    if (!pendingItem) {
+      return;
+    }
     const reason = pendingReasonRef.current.trim() || undefined;
     mutations.setMyPin.mutate(
       { imageTag: pendingItem.image_tag, reason },
@@ -173,7 +177,9 @@ export default function VersionPinScreen() {
                 placeholderTextColor={colors.mutedForeground}
                 onFocus={scrollToPendingItem}
                 onChangeText={val => {
-                  if (val.length <= 500) pendingReasonRef.current = val;
+                  if (val.length <= 500) {
+                    pendingReasonRef.current = val;
+                  }
                 }}
                 autoCapitalize="sentences"
                 autoCorrect

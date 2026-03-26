@@ -3,9 +3,9 @@ import { View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import {
+  type ClawBillingStatus,
   deriveBannerState,
   formatBillingDate,
-  type ClawBillingStatus,
 } from '@/lib/hooks/use-kiloclaw-billing';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
@@ -13,10 +13,14 @@ export function BillingBanner({ billing }: Readonly<{ billing: ClawBillingStatus
   const colors = useThemeColors();
   const state = deriveBannerState(billing);
 
-  if (state === 'subscribed' || state === 'none') return;
+  if (state === 'subscribed' || state === 'none') {
+    return null;
+  }
 
   const config = getBannerConfig(billing, state);
-  if (!config) return;
+  if (!config) {
+    return null;
+  }
 
   const Icon = config.icon;
 

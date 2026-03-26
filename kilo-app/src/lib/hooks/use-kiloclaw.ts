@@ -186,7 +186,9 @@ export function useKiloClawMutations() {
           await invalidateStatus();
           await queryClient.invalidateQueries({ queryKey: trpc.kiloclaw.getConfig.queryKey() });
           // Small delay to let the worker process the secret before refetching catalog
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => {
+            setTimeout(resolve, 1000);
+          });
           await queryClient.invalidateQueries({
             queryKey: trpc.kiloclaw.getSecretCatalog.queryKey(),
           });
@@ -202,7 +204,9 @@ export function useKiloClawMutations() {
         onSuccess: async () => {
           await invalidateStatus();
           await queryClient.invalidateQueries({ queryKey: trpc.kiloclaw.getConfig.queryKey() });
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => {
+            setTimeout(resolve, 1000);
+          });
           await queryClient.invalidateQueries({
             queryKey: trpc.kiloclaw.getChannelCatalog.queryKey(),
           });

@@ -34,38 +34,58 @@ function deriveSubscriptionBannerState(
   if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
     return 'subscription_past_due';
   }
-  if (subscription.cancelAtPeriodEnd) return 'subscription_canceling';
-  if (subscription.status === 'active') return 'subscribed';
+  if (subscription.cancelAtPeriodEnd) {
+    return 'subscription_canceling';
+  }
+  if (subscription.status === 'active') {
+    return 'subscribed';
+  }
   return undefined;
 }
 
 function deriveTrialBannerState(
   trial: NonNullable<ClawBillingStatus['trial']>
 ): ClawBannerState | undefined {
-  if (trial.expired) return undefined;
+  if (trial.expired) {
+    return undefined;
+  }
   const d = trial.daysRemaining;
-  if (d === 0) return 'trial_expires_today';
-  if (d <= 1) return 'trial_ending_very_soon';
-  if (d <= 2) return 'trial_ending_soon';
+  if (d === 0) {
+    return 'trial_expires_today';
+  }
+  if (d <= 1) {
+    return 'trial_ending_very_soon';
+  }
+  if (d <= 2) {
+    return 'trial_ending_soon';
+  }
   return 'trial_active';
 }
 
 function deriveEarlybirdBannerState(
   earlybird: NonNullable<ClawBillingStatus['earlybird']>
 ): ClawBannerState {
-  if (earlybird.daysRemaining <= 0) return 'none';
-  if (earlybird.daysRemaining <= 30) return 'earlybird_ending_soon';
+  if (earlybird.daysRemaining <= 0) {
+    return 'none';
+  }
+  if (earlybird.daysRemaining <= 30) {
+    return 'earlybird_ending_soon';
+  }
   return 'earlybird_active';
 }
 
 export function deriveBannerState(billing: ClawBillingStatus): ClawBannerState {
   if (billing.subscription) {
     const state = deriveSubscriptionBannerState(billing.subscription);
-    if (state) return state;
+    if (state) {
+      return state;
+    }
   }
   if (billing.trial) {
     const state = deriveTrialBannerState(billing.trial);
-    if (state) return state;
+    if (state) {
+      return state;
+    }
   }
   if (billing.earlybird) {
     return deriveEarlybirdBannerState(billing.earlybird);
@@ -87,10 +107,14 @@ function deriveSubscriptionLockReason(billing: ClawBillingStatus): ClawLockReaso
 }
 
 export function deriveLockReason(billing: ClawBillingStatus): ClawLockReason {
-  if (billing.hasAccess) return undefined;
+  if (billing.hasAccess) {
+    return undefined;
+  }
 
   const subReason = deriveSubscriptionLockReason(billing);
-  if (subReason) return subReason;
+  if (subReason) {
+    return subReason;
+  }
 
   if (billing.trial?.expired) {
     return billing.instance?.destroyed

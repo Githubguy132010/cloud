@@ -94,7 +94,9 @@ export function useDeviceAuth(): DeviceAuthResult {
           }
           // 202 = still pending, continue polling
         } catch (error: unknown) {
-          if (error instanceof Error && error.name === 'AbortError') return;
+          if (error instanceof Error && error.name === 'AbortError') {
+            return;
+          }
           cleanup();
           setState(previous => ({
             status: 'error',

@@ -110,7 +110,9 @@ export function SettingsCard({
     const secrets: Record<string, string> = {};
     for (const f of item.fields) {
       const val = (fieldValuesRef.current[f.key] ?? '').trim();
-      if (val) secrets[f.key] = val;
+      if (val) {
+        secrets[f.key] = val;
+      }
     }
     setIsSaving(true);
     mutations.patchSecrets.mutate(

@@ -2,13 +2,13 @@ import {
   Activity,
   Cpu,
   Globe,
+  type LucideIcon,
   MapPin,
   MemoryStick,
   Pencil,
   RotateCcw,
   Server,
 } from 'lucide-react-native';
-import { type LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { StatusBadge } from '@/components/kiloclaw/status-badge';
@@ -34,8 +34,12 @@ type StatusCardProps = {
 };
 
 function formatUptime(seconds: number): string {
-  if (seconds < 60) return `${String(seconds)}s`;
-  if (seconds < 3600) return `${String(Math.floor(seconds / 60))}m`;
+  if (seconds < 60) {
+    return `${String(seconds)}s`;
+  }
+  if (seconds < 3600) {
+    return `${String(Math.floor(seconds / 60))}m`;
+  }
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return `${String(h)}h ${String(m)}m`;

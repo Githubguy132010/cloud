@@ -1,6 +1,13 @@
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronRight, Lock, MessageSquare, Monitor, Pin, Shield } from 'lucide-react-native';
-import { type LucideIcon } from 'lucide-react-native';
+import {
+  ChevronRight,
+  Lock,
+  type LucideIcon,
+  MessageSquare,
+  Monitor,
+  Pin,
+  Shield,
+} from 'lucide-react-native';
 import type React from 'react';
 import { Pressable, View } from 'react-native';
 

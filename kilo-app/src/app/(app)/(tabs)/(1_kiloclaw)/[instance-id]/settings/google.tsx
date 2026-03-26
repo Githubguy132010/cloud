@@ -11,9 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import {
-  useKiloClawStatus,
   useKiloClawGoogleSetup,
   useKiloClawMutations,
+  useKiloClawStatus,
 } from '@/lib/hooks/use-kiloclaw';
 import { cn } from '@/lib/utils';
 export default function GoogleScreen() {
@@ -58,7 +58,9 @@ export default function GoogleScreen() {
 
   async function handleCopy() {
     const command = setupQuery.data?.command;
-    if (!command) return;
+    if (!command) {
+      return;
+    }
     await Clipboard.setStringAsync(command);
     setCopied(true);
     setTimeout(() => {

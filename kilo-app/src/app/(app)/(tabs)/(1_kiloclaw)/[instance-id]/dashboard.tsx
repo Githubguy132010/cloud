@@ -141,7 +141,7 @@ export default function DashboardScreen() {
               }}
             >
               <Newspaper size={18} color={colors.foreground} />
-              <Text className="flex-1 text-sm font-medium">{"What's New"}</Text>
+              <Text className="flex-1 text-sm font-medium">What's New</Text>
             </Pressable>
           </View>
         </Animated.View>

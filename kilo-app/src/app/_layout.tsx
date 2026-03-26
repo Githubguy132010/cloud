@@ -12,7 +12,7 @@ import { Toaster } from 'sonner-native';
 import { AuthProvider, useAuth } from '@/lib/auth/auth-context';
 import { ContextProvider, useAppContext } from '@/lib/context/context-context';
 import { queryClient } from '@/lib/query-client';
-import { TRPCProvider, trpcClient } from '@/lib/trpc';
+import { trpcClient, TRPCProvider } from '@/lib/trpc';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -27,7 +27,9 @@ function RootLayoutNav() {
   const inContextGroup = segments[0] === '(context)';
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {
+      return;
+    }
 
     if (!token) {
       if (inAuthGroup) {
@@ -55,7 +57,7 @@ function RootLayoutNav() {
       (token != null && context != null && (inAuthGroup || inContextGroup)));
 
   if (isLoading || needsRedirect) {
-    return;
+    return null;
   }
 
   return (

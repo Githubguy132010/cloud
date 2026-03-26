@@ -46,8 +46,12 @@ function resolvePreset(
   execSecurity: string | null | undefined,
   execAsk: string | null | undefined
 ): ExecPreset | undefined {
-  if (execSecurity === 'ask' && execAsk === 'true') return 'always-ask';
-  if (execSecurity === 'open' && execAsk === 'false') return 'never-ask';
+  if (execSecurity === 'ask' && execAsk === 'true') {
+    return 'always-ask';
+  }
+  if (execSecurity === 'open' && execAsk === 'false') {
+    return 'never-ask';
+  }
   return undefined;
 }
 
