@@ -22,7 +22,7 @@ export function AppTopbar() {
 
       {title && (
         <div className="mx-auto h-full max-w-285 px-4 md:px-6">
-          <span className="inline-flex h-full items-center gap-2">
+          <div className="inline-flex h-full items-center gap-2">
             {icon}
             <Breadcrumb>
               <BreadcrumbList>
@@ -32,7 +32,7 @@ export function AppTopbar() {
               </BreadcrumbList>
             </Breadcrumb>
             {extras}
-          </span>
+          </div>
         </div>
       )}
     </header>
