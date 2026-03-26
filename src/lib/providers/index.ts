@@ -80,6 +80,7 @@ export async function getProvider(
             for (const [key, value] of Object.entries(customLlm.extra_headers ?? {})) {
               context.extraHeaders[key] = value;
             }
+            context.request.body.model = customLlm.internal_id;
           },
         },
         userByok: null,
