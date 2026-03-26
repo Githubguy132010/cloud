@@ -7,6 +7,7 @@ import {
   generateHooksToken,
   configureGitHub,
   configureLinear,
+  updateToolsMdLinearSection,
   runOnboardOrDoctor,
   updateToolsMdKiloCliSection,
   updateToolsMd1PasswordSection,
@@ -720,6 +721,79 @@ describe('updateToolsMd1PasswordSection', () => {
     const env: Record<string, string | undefined> = {};
 
     updateToolsMd1PasswordSection(env, harness.deps);
+
+    expect(harness.writeCalls).toHaveLength(0);
+  });
+});
+
+// ---- updateToolsMdLinearSection ----
+
+describe('updateToolsMdLinearSection', () => {
+  it('adds Linear section when LINEAR_API_KEY is set', () => {
+    const harness = fakeDeps();
+    (harness.deps.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue('# TOOLS\n');
+
+    const env: Record<string, string | undefined> = {
+      LINEAR_API_KEY: 'lin_api_test123',
+    };
+
+    updateToolsMdLinearSection(env, harness.deps);
+
+    expect(harness.writeCalls).toHaveLength(1);
+    expect(harness.writeCalls[0]!.data).toContain('<!-- BEGIN:linear -->');
+    expect(harness.writeCalls[0]!.data).toContain('linear issue list');
+    expect(harness.writeCalls[0]!.data).toContain('<!-- END:linear -->');
+  });
+
+  it('skips adding when section already present', () => {
+    const harness = fakeDeps();
+    (harness.deps.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+      '# TOOLS\n<!-- BEGIN:linear -->\nexisting\n<!-- END:linear -->'
+    );
+
+    const env: Record<string, string | undefined> = {
+      LINEAR_API_KEY: 'lin_api_test123',
+    };
+
+    updateToolsMdLinearSection(env, harness.deps);
+
+    expect(harness.writeCalls).toHaveLength(0);
+  });
+
+  it('removes stale section when key is absent', () => {
+    const harness = fakeDeps();
+    (harness.deps.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
+      '# TOOLS\n<!-- BEGIN:linear -->\nold section\n<!-- END:linear -->\n'
+    );
+
+    const env: Record<string, string | undefined> = {};
+
+    updateToolsMdLinearSection(env, harness.deps);
+
+    expect(harness.writeCalls).toHaveLength(1);
+    expect(harness.writeCalls[0]!.data).not.toContain('<!-- BEGIN:linear -->');
+  });
+
+  it('no-ops when TOOLS.md does not exist', () => {
+    const harness = fakeDeps();
+    (harness.deps.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+    const env: Record<string, string | undefined> = {
+      LINEAR_API_KEY: 'lin_api_test123',
+    };
+
+    updateToolsMdLinearSection(env, harness.deps);
+
+    expect(harness.writeCalls).toHaveLength(0);
+  });
+
+  it('no-ops when key absent and no stale section exists', () => {
+    const harness = fakeDeps();
+    (harness.deps.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue('# TOOLS\n');
+
+    const env: Record<string, string | undefined> = {};
+
+    updateToolsMdLinearSection(env, harness.deps);
 
     expect(harness.writeCalls).toHaveLength(0);
   });

@@ -137,7 +137,7 @@ const SECRET_CATALOG_RAW = [
     id: 'linear',
     label: 'Linear',
     category: 'tool',
-    icon: 'list-checks',
+    icon: 'linear',
     order: 2,
     fields: [
       {

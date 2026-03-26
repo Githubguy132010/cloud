@@ -43,7 +43,7 @@ describe('Secret Catalog', () => {
         'slack',
         'key',
         'github',
-        'list-checks',
+        'linear',
         'credit-card',
         'lock',
         'brave',

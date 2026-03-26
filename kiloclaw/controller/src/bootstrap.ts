@@ -556,7 +556,62 @@ export function updateToolsMd1PasswordSection(env: EnvLike, deps: BootstrapDeps)
   }
 }
 
-// ---- Step 10: Gateway args ----
+// ---- Step 10: TOOLS.md Linear section ----
+
+const LINEAR_MARKER_BEGIN = '<!-- BEGIN:linear -->';
+const LINEAR_MARKER_END = '<!-- END:linear -->';
+
+const LINEAR_TOOLS_SECTION = `
+${LINEAR_MARKER_BEGIN}
+## Linear
+
+The \`linear\` CLI is configured with your Linear API key. Use it to read and manage issues.
+
+- List your assigned issues: \`linear issue list --assignee me\`
+- View an issue: \`linear issue view <issue-id>\`
+- Run \`linear --help\` for all available commands.
+${LINEAR_MARKER_END}`;
+
+/**
+ * Manage the Linear section in TOOLS.md.
+ *
+ * When LINEAR_API_KEY is present, append a bounded section so the agent
+ * knows the linear CLI is available. When absent, remove any stale section.
+ * Idempotent: skips if the marker is already present.
+ */
+export function updateToolsMdLinearSection(env: EnvLike, deps: BootstrapDeps): void {
+  if (!deps.existsSync(TOOLS_MD_DEST)) return;
+
+  const content = deps.readFileSync(TOOLS_MD_DEST, 'utf8');
+
+  if (env.LINEAR_API_KEY) {
+    // Linear configured — add section if not already present
+    if (!content.includes(LINEAR_MARKER_BEGIN)) {
+      deps.writeFileSync(TOOLS_MD_DEST, content + LINEAR_TOOLS_SECTION);
+      console.log('TOOLS.md: added Linear section');
+    } else {
+      console.log('TOOLS.md: Linear section already present');
+    }
+  } else {
+    // Linear not configured — remove stale section if present
+    if (content.includes(LINEAR_MARKER_BEGIN)) {
+      const beginIdx = content.indexOf(LINEAR_MARKER_BEGIN);
+      const endIdx = content.indexOf(LINEAR_MARKER_END);
+      if (beginIdx !== -1 && endIdx !== -1) {
+        const before = content.slice(0, beginIdx).replace(/\n+$/, '\n');
+        const after = content.slice(endIdx + LINEAR_MARKER_END.length).replace(/^\n+/, '');
+        deps.writeFileSync(TOOLS_MD_DEST, before + after);
+        console.log('TOOLS.md: removed stale Linear section');
+      } else {
+        console.warn(
+          'TOOLS.md: Linear BEGIN marker found but END marker missing, skipping removal'
+        );
+      }
+    }
+  }
+}
+
+// ---- Step 11: Gateway args ----
 
 /**
  * Build the gateway CLI arguments array.
@@ -617,6 +672,7 @@ export async function bootstrap(
   updateToolsMdKiloCliSection(env, deps);
   updateToolsMdGoogleSection(env, deps);
   updateToolsMd1PasswordSection(env, deps);
+  updateToolsMdLinearSection(env, deps);
 
   // Write mcporter config for MCP servers (AgentCard, etc.)
   writeMcporterConfig(env);
