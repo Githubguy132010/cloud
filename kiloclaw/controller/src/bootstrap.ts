@@ -348,11 +348,17 @@ export function configureLinear(env: EnvLike, deps: BootstrapDeps = defaultDeps)
     delete env.LINEAR_API_KEY;
     // Remove any previously stored credentials from the persistent volume.
     // The CLI recreates ~/.config/linear/ via ensureDir on next auth login.
+    // rm -rf/-f exit 0 when the target is absent, so errors here are
+    // genuine failures (permissions, I/O) worth surfacing.
     try {
       deps.execFileSync('rm', ['-rf', '/root/.config/linear'], { stdio: 'pipe' });
+    } catch (err) {
+      console.warn(`WARNING: failed to remove /root/.config/linear: ${err instanceof Error ? err.message : err}`);
+    }
+    try {
       deps.execFileSync('rm', ['-f', '/root/.linear.toml'], { stdio: 'pipe' });
-    } catch {
-      // ignore — directory may not exist
+    } catch (err) {
+      console.warn(`WARNING: failed to remove /root/.linear.toml: ${err instanceof Error ? err.message : err}`);
     }
     console.log('Linear: not configured (credentials cleared)');
   }

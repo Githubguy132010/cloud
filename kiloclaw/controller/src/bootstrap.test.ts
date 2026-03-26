@@ -528,6 +528,36 @@ describe('configureLinear', () => {
     logSpy.mockRestore();
   });
 
+  it('still removes ~/.linear.toml when /root/.config/linear removal fails', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { deps } = fakeDeps();
+    const env: Record<string, string | undefined> = {};
+
+    // Make the first rm call throw, second should still succeed
+    const origExec = deps.execFileSync;
+    deps.execFileSync = vi.fn((cmd: string, args: string[], opts?: Parameters<BootstrapDeps['execFileSync']>[2]) => {
+      if (cmd === 'rm' && args.includes('/root/.config/linear')) {
+        throw new Error('permission denied');
+      }
+      return origExec(cmd, args, opts);
+    }) as typeof deps.execFileSync;
+
+    configureLinear(env, deps);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'WARNING: failed to remove /root/.config/linear: permission denied'
+    );
+    // Second rm should still have been attempted
+    expect(deps.execFileSync).toHaveBeenCalledWith(
+      'rm',
+      ['-f', '/root/.linear.toml'],
+      { stdio: 'pipe' }
+    );
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   it('cleans up empty LINEAR_API_KEY', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const { deps } = fakeDeps();
