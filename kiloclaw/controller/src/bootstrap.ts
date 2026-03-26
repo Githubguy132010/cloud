@@ -563,33 +563,44 @@ const LINEAR_MARKER_END = '<!-- END:linear -->';
 
 const LINEAR_TOOLS_SECTION = `
 ${LINEAR_MARKER_BEGIN}
-## Linear
+  ## Linear
 
-The \`linear\` CLI is configured with your Linear API key. Use it to read and manage issues. 
+  The \`linear\` CLI is configured with your Linear API key. Use it to read and manage issues.
 
-- Run \`linear --help\` for full command reference.
-- Run \`--help\` after any command for more details.
-- Run \`linear team list\` to find the team keys. If there are multiple teams and the user hasn't 
+  - Run \`linear --help\` for full command reference; \`--help\` after any subcommand for details.
+  - If you don't know the team key, run \`linear team list\`.
 
-### Best practices
-- **Markdown content**: Use \`--description-file\` for \`issue create/update\` and \`--body-file\` for \`comment add/update\` — avoids shell escaping issues with newlines/special characters
-- **Config file**: Create \`.linear.toml\` in project for defaults (team, sort order, etc.)
+  ### Listing issues
 
-### Gotchas
+  Example — list all issues by priority:
+  \`\`\`
+  linear issue list --team <key> --sort priority --all-states --all-assignees
+  \`\`\`
 
-- \`--no-pager\` only works on \`issue list\` — errors on other commands
-- GraphQL queries with non-null type markers (\`String!\`) must use heredoc: \`linear api --variable key=val <<'GRAPHQL'\`
+  **Flags that silently filter results when omitted:**
+  - \`--state\` defaults to \`backlog\`. Use \`--all-states\` for all, or \`--state <value>\` to filter to one: triage, backlog, unstarted, started, completed, canceled
+  - \`--assignee\` defaults to \`me\`. Use \`--all-assignees\` for all, or \`--assignee <user>\` to filter to one
 
-#### \`issue list\` Gotchas
-- Always requires \`--sort manual|priority\` (or set LINEAR_ISSUE_SORT env var), and \`--team <key>\`
-- Hidden defaults:
-  - Default: \`--state backlog\`. Override: \`--state <status>\` or \`--all-states\`
-  - Default:\`--assignee me\`. Override: \`--assignee <user>\` or \`--all-assignees\`
+  ### Writing issue content
+  Use file flags for markdown with newlines or special characters:
+  - \`--description-file <path>\` for \`issue create/update\`
+  - \`--body-file <path>\` for \`comment add/update\`
 
-### Advanced
-- Get API token: \`linear auth token\` (for direct curl requests)
-- Direct GraphQL: \`curl -s -X POST https://api.linear.app/graphql -H "Authorization: $(linear auth token)" -d '{"query":"..."}'\`
-${LINEAR_MARKER_END}`;
+  ### Config file
+  Avoid repeated \`--team\` and \`--sort\` flags with \`.linear.toml\` in the project directory:
+  \`\`\`toml
+  team = "TEAM_KEY"
+  sort = "priority"
+  \`\`\`
+
+  ### Gotchas
+  - \`--no-pager\` only works on \`issue list\` — errors on other commands
+  - GraphQL non-null types (\`String!\`) require heredoc: \`linear api --variable key=val <<'GRAPHQL'\`
+
+  ### Advanced
+  - Get API token: \`linear auth token\`
+  - Direct GraphQL: \`curl -s -X POST https://api.linear.app/graphql -H "Authorization: $(linear auth token)" -d '{"query":"..."}'\`
+  ${LINEAR_MARKER_END}`;
 
 /**
  * Manage the Linear section in TOOLS.md.
