@@ -20,12 +20,14 @@ import {
   kiloclaw_earlybird_purchases,
   kilocode_users,
   credit_transactions,
+  kilo_pass_subscriptions,
 } from '@kilocode/db/schema';
 import { eq } from 'drizzle-orm';
 import { sandboxIdFromUserId } from '@/lib/kiloclaw/sandbox-id';
 import { insertTestUser } from '@/tests/helpers/user.helper';
 import type { User } from '@kilocode/db/schema';
 import type Stripe from 'stripe';
+import { KiloPassTier, KiloPassCadence } from '@/lib/kilo-pass/enums';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyMock = jest.Mock<(...args: any[]) => any>;
@@ -2297,5 +2299,131 @@ describe('pure credit cancel/reactivate', () => {
 
     expect(row.scheduled_plan).toBeNull();
     expect(row.scheduled_by).toBeNull();
+  });
+});
+
+describe('acceptConversion', () => {
+  async function createActiveKiloPass(userId: string) {
+    await db.insert(kilo_pass_subscriptions).values({
+      kilo_user_id: userId,
+      stripe_subscription_id: `kp-stripe-sub-${crypto.randomUUID()}`,
+      tier: KiloPassTier.Tier19,
+      cadence: KiloPassCadence.Monthly,
+      status: 'active',
+      cancel_at_period_end: false,
+      started_at: new Date().toISOString(),
+      current_streak_months: 1,
+      next_yearly_issue_at: null,
+    });
+  }
+
+  it('sets cancel_at_period_end on Stripe-funded subscription when user has active Kilo Pass', async () => {
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_convert',
+      plan: 'standard',
+      status: 'active',
+    });
+    await createActiveKiloPass(user.id);
+
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ schedule: null });
+    stripeMock.subscriptions.update.mockResolvedValue({});
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.acceptConversion();
+
+    expect(result).toEqual({ success: true });
+    expect(stripeMock.subscriptions.update).toHaveBeenCalledWith('sub_convert', {
+      cancel_at_period_end: true,
+    });
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.cancel_at_period_end).toBe(true);
+  });
+
+  it('releases schedule before setting cancel_at_period_end', async () => {
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_convert_sched',
+      plan: 'commit',
+      status: 'active',
+      stripe_schedule_id: 'sched_conv',
+      scheduled_plan: 'standard',
+      scheduled_by: 'user',
+    });
+    await createActiveKiloPass(user.id);
+
+    stripeMock.subscriptions.retrieve.mockResolvedValue({ schedule: null });
+    stripeMock.subscriptionSchedules.release.mockResolvedValue({});
+    stripeMock.subscriptions.update.mockResolvedValue({});
+
+    const caller = await createCallerForUser(user.id);
+    const result = await caller.kiloclaw.acceptConversion();
+
+    expect(result).toEqual({ success: true });
+    expect(stripeMock.subscriptionSchedules.release).toHaveBeenCalledWith('sched_conv');
+
+    const [row] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, user.id))
+      .limit(1);
+
+    expect(row.cancel_at_period_end).toBe(true);
+    expect(row.stripe_schedule_id).toBeNull();
+    expect(row.scheduled_plan).toBeNull();
+  });
+
+  it('rejects when no active Kilo Pass', async () => {
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_no_kp',
+      plan: 'standard',
+      status: 'active',
+    });
+
+    const caller = await createCallerForUser(user.id);
+    await expect(caller.kiloclaw.acceptConversion()).rejects.toThrow('Active Kilo Pass required');
+  });
+
+  it('rejects when subscription is not Stripe-funded', async () => {
+    const [instance] = await db
+      .insert(kiloclaw_instances)
+      .values({ user_id: user.id, sandbox_id: `test-sandbox-${Math.random()}` })
+      .returning();
+
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      instance_id: instance.id,
+      payment_source: 'credits',
+      plan: 'standard',
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      credit_renewal_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+    });
+    await createActiveKiloPass(user.id);
+
+    const caller = await createCallerForUser(user.id);
+    await expect(caller.kiloclaw.acceptConversion()).rejects.toThrow('not Stripe-funded');
+  });
+
+  it('rejects when subscription is already set to cancel', async () => {
+    await db.insert(kiloclaw_subscriptions).values({
+      user_id: user.id,
+      stripe_subscription_id: 'sub_already_cancel',
+      plan: 'standard',
+      status: 'active',
+      cancel_at_period_end: true,
+    });
+    await createActiveKiloPass(user.id);
+
+    const caller = await createCallerForUser(user.id);
+    await expect(caller.kiloclaw.acceptConversion()).rejects.toThrow('already set to cancel');
   });
 });

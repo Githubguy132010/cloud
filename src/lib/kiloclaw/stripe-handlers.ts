@@ -15,6 +15,8 @@ import {
 } from '@/lib/kiloclaw/stripe-price-ids.server';
 import { applyStripeFundedKiloClawPeriod } from '@/lib/kiloclaw/credit-billing';
 import { autoResumeIfSuspended } from '@/lib/kiloclaw/instance-lifecycle';
+import { getKiloPassStateForUser } from '@/lib/kilo-pass/state';
+import { isStripeSubscriptionEnded } from '@/lib/kilo-pass/stripe-subscription-status';
 import { sentryLogger } from '@/lib/utils.server';
 import PostHogClient from '@/lib/posthog';
 import { after } from 'next/server';
@@ -738,28 +740,76 @@ export async function handleKiloClawSubscriptionDeleted(params: {
 
   const { kiloUserId } = metadata;
 
-  // Guard on stripe_subscription_id so a stale delete webhook for a
-  // superseded subscription doesn't cancel the replacement subscription.
-  await db
-    .update(kiloclaw_subscriptions)
-    .set({
-      status: 'canceled',
-      cancel_at_period_end: false,
-      scheduled_plan: null,
-      scheduled_by: null,
-      stripe_schedule_id: null,
+  // Pre-read the row so we can detect hybrid state for conversion.
+  const [preRead] = await db
+    .select({
+      id: kiloclaw_subscriptions.id,
+      payment_source: kiloclaw_subscriptions.payment_source,
+      current_period_end: kiloclaw_subscriptions.current_period_end,
     })
+    .from(kiloclaw_subscriptions)
     .where(
       and(
         eq(kiloclaw_subscriptions.user_id, kiloUserId),
         eq(kiloclaw_subscriptions.stripe_subscription_id, subscription.id)
       )
-    );
+    )
+    .limit(1);
 
-  logInfo('KiloClaw subscription.deleted processed', {
-    stripe_event_id: eventId,
-    user_id: kiloUserId,
-  });
+  if (!preRead) {
+    logWarning('KiloClaw subscription.deleted: no matching row found', {
+      stripe_event_id: eventId,
+      user_id: kiloUserId,
+      stripe_subscription_id: subscription.id,
+    });
+    return;
+  }
+
+  // Check if user has an active Kilo Pass — if so, convert to pure credit
+  // instead of canceling. See Standalone-to-Credit Conversion rule 4.
+  const kiloPassState = await getKiloPassStateForUser(db, kiloUserId);
+  const hasActiveKiloPass = !!kiloPassState && !isStripeSubscriptionEnded(kiloPassState.status);
+
+  if (hasActiveKiloPass) {
+    // Conversion path: clear Stripe subscription ID, set payment_source to
+    // credits, and set credit_renewal_at to the existing period end so the
+    // credit renewal sweep picks up the next renewal.
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({
+        stripe_subscription_id: null,
+        payment_source: 'credits',
+        credit_renewal_at: preRead.current_period_end,
+        cancel_at_period_end: false,
+        scheduled_plan: null,
+        scheduled_by: null,
+        stripe_schedule_id: null,
+      })
+      .where(eq(kiloclaw_subscriptions.id, preRead.id));
+
+    logInfo('KiloClaw subscription.deleted: converted to pure credit', {
+      stripe_event_id: eventId,
+      user_id: kiloUserId,
+      credit_renewal_at: preRead.current_period_end,
+    });
+  } else {
+    // Standard cancellation path
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({
+        status: 'canceled',
+        cancel_at_period_end: false,
+        scheduled_plan: null,
+        scheduled_by: null,
+        stripe_schedule_id: null,
+      })
+      .where(eq(kiloclaw_subscriptions.id, preRead.id));
+
+    logInfo('KiloClaw subscription.deleted processed', {
+      stripe_event_id: eventId,
+      user_id: kiloUserId,
+    });
+  }
 }
 
 /**

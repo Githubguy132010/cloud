@@ -303,12 +303,28 @@ if ! docker info &>/dev/null; then
   echo "Start Docker Desktop (or 'dockerd') and retry."
   exit 1
 fi
-if ! (cd "$MONOREPO_ROOT" && docker compose -f dev/docker-compose.yml up -d); then
+if ! (cd "$MONOREPO_ROOT" && docker compose -f dev/docker-compose.yml up -d --wait); then
   echo ""
   echo "ERROR: 'docker compose up' failed."
   echo "Check 'docker compose -f dev/docker-compose.yml logs' for details."
   exit 1
 fi
+
+# Extra safety: wait for Postgres to accept connections (handles first-run init)
+echo "==> Waiting for Postgres to accept connections..."
+for i in $(seq 1 30); do
+  if docker exec "$(docker compose -f "$MONOREPO_ROOT/dev/docker-compose.yml" ps -q postgres)" \
+    pg_isready -U postgres -q 2>/dev/null; then
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "ERROR: Postgres did not become ready within 30 seconds."
+    echo "Check: docker compose -f dev/docker-compose.yml logs postgres"
+    exit 1
+  fi
+  sleep 1
+done
+echo "    Postgres is ready."
 
 echo "==> Running database migrations..."
 if ! (cd "$MONOREPO_ROOT" && pnpm drizzle migrate); then
@@ -369,7 +385,7 @@ EOF
     osascript <<EOF
 tell application "Terminal"
   activate
-  do script "printf '\\e]0;$title\\a'; $cmd"
+  do script "printf '\\\\e]0;$title\\\\a'; $cmd"
 end tell
 EOF
   fi

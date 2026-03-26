@@ -490,7 +490,7 @@ export function PlanSelectionDialog({ open, onOpenChange }: PlanSelectionDialogP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={true} className="sm:max-w-2xl">
-        <div className="space-y-4">
+        <div className="max-h-[85vh] space-y-4 overflow-y-auto pr-1">
           <div className="text-center">
             <DialogTitle className="text-foreground text-2xl font-bold">
               Choose Your KiloClaw Subscription

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, CreditCard, Coins } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +50,8 @@ function ActiveSubscriptionCard({
   const switchPlanMutation = useMutation(trpc.kiloclaw.switchPlan.mutationOptions());
   const portalMutation = useMutation(trpc.kiloclaw.createBillingPortalSession.mutationOptions());
   const cancelSwitchMutation = useMutation(trpc.kiloclaw.cancelPlanSwitch.mutationOptions());
+  const acceptConversionMutation = useMutation(trpc.kiloclaw.acceptConversion.mutationOptions());
+  const [conversionDismissed, setConversionDismissed] = useState(false);
 
   const sub = billing.subscription;
   if (!sub) return null;
@@ -78,6 +81,15 @@ function ActiveSubscriptionCard({
       queryKey: trpc.kiloclaw.getBillingStatus.queryKey(),
     });
   }
+
+  async function handleAcceptConversion() {
+    await acceptConversionMutation.mutateAsync();
+    void queryClient.invalidateQueries({
+      queryKey: trpc.kiloclaw.getBillingStatus.queryKey(),
+    });
+  }
+
+  const showConversion = sub.showConversionPrompt && !conversionDismissed;
 
   // Credit-funded renewal info
   const isCreditFunded = !sub.hasStripeFunding && sub.paymentSource === 'credits';
@@ -130,6 +142,28 @@ function ActiveSubscriptionCard({
           </div>
         )}
       </div>
+
+      {showConversion && (
+        <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+          <p className="text-sm text-blue-300">
+            You have an active Kilo Pass. Switch hosting to credit-funded billing to stop the
+            separate Stripe charge — your current period continues as-is.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAcceptConversion}
+              disabled={acceptConversionMutation.isPending}
+            >
+              Switch to Credits
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setConversionDismissed(true)}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {hasUserRequestedSwitch ? (

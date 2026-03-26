@@ -1696,6 +1696,76 @@ export const kiloclawRouter = createTRPCRouter({
     return { success: true };
   }),
 
+  acceptConversion: baseProcedure.mutation(async ({ ctx }) => {
+    // Validate: user must have an active Stripe-funded subscription
+    const [sub] = await db
+      .select()
+      .from(kiloclaw_subscriptions)
+      .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id))
+      .limit(1);
+
+    if (!sub || sub.status !== 'active') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'No active subscription to convert.' });
+    }
+
+    if (!sub.stripe_subscription_id) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Subscription is not Stripe-funded — nothing to convert.',
+      });
+    }
+
+    if (sub.cancel_at_period_end) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Subscription is already set to cancel.',
+      });
+    }
+
+    // Validate: user must have an active Kilo Pass
+    const kiloPassState = await getKiloPassStateForUser(db, ctx.user.id);
+    if (!kiloPassState || isStripeSubscriptionEnded(kiloPassState.status)) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Active Kilo Pass required to convert to credit-funded billing.',
+      });
+    }
+
+    // Same Stripe operations as cancelSubscription: release schedule + cancel at period end
+    const liveSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+    const scheduleIdToRelease = sub.stripe_schedule_id ?? resolveScheduleId(liveSub.schedule);
+
+    if (scheduleIdToRelease) {
+      const released = await releaseScheduleIfActive(scheduleIdToRelease);
+      if (!released) {
+        logBillingError('Failed to release subscription schedule — aborting conversion', {
+          user_id: ctx.user.id,
+          schedule_id: scheduleIdToRelease,
+        });
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Unable to convert: failed to release pending plan schedule. Please try again.',
+        });
+      }
+    }
+
+    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    await db
+      .update(kiloclaw_subscriptions)
+      .set({
+        cancel_at_period_end: true,
+        ...(scheduleIdToRelease
+          ? { stripe_schedule_id: null, scheduled_plan: null, scheduled_by: null }
+          : {}),
+      })
+      .where(eq(kiloclaw_subscriptions.id, sub.id));
+
+    return { success: true };
+  }),
+
   reactivateSubscription: baseProcedure.mutation(async ({ ctx }) => {
     const [sub] = await db
       .select()
@@ -1703,7 +1773,7 @@ export const kiloclawRouter = createTRPCRouter({
       .where(eq(kiloclaw_subscriptions.user_id, ctx.user.id))
       .limit(1);
 
-    if (!sub?.cancel_at_period_end) {
+    if (!sub || sub.status !== 'active' || !sub.cancel_at_period_end) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'No pending cancellation to reactivate.',
