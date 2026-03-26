@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 import { captureException } from '@sentry/nextjs';
 import type { OpenRouterModelsResponse } from '@/lib/organizations/organization-types';
 import { getEnhancedOpenRouterModels } from '@/lib/providers/openrouter';
-
-export const revalidate = 60;
+import { getUserFromAuth } from '@/lib/user.server';
+import { getCodingPlanModelsForUser } from '@/lib/providers/coding-plans';
 
 /**
  * Test using:
@@ -15,7 +15,10 @@ export async function GET(
 ): Promise<NextResponse<{ error: string; message: string } | OpenRouterModelsResponse>> {
   try {
     const data = await getEnhancedOpenRouterModels();
-    return NextResponse.json(data);
+    const { user } = await getUserFromAuth({ adminOnly: false });
+    return NextResponse.json(
+      user ? { data: data.data.concat(await getCodingPlanModelsForUser(user.id)) } : data
+    );
   } catch (error) {
     captureException(error, {
       tags: { endpoint: 'openrouter/models' },

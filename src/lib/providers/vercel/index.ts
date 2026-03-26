@@ -8,7 +8,7 @@ import { isMoonshotModel } from '@/lib/providers/moonshotai';
 import { isOpenAiOssModel } from '@/lib/providers/openai';
 import type { VercelUserByokInferenceProviderId } from '@/lib/providers/openrouter/inference-provider-id';
 import {
-  AutocompleteUserByokProviderIdSchema,
+  DirectUserByokInferenceProviderIdSchema,
   AwsCredentialsSchema,
   openRouterToVercelInferenceProviderId,
   VercelUserByokInferenceProviderIdSchema,
@@ -135,9 +135,10 @@ export function getVercelInferenceProviderConfigForUserByok(
   provider: BYOKResult
 ): [VercelUserByokInferenceProviderId, VercelInferenceProviderConfig[]] {
   const key =
-    provider.providerId === AutocompleteUserByokProviderIdSchema.enum.codestral
+    provider.providerId === DirectUserByokInferenceProviderIdSchema.enum.codestral
       ? VercelUserByokInferenceProviderIdSchema.enum.mistral
-      : provider.providerId;
+      : VercelUserByokInferenceProviderIdSchema.parse(provider.providerId);
+
   const list = new Array<VercelInferenceProviderConfig>();
 
   if (key === VercelUserByokInferenceProviderIdSchema.enum.zai) {

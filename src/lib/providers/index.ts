@@ -34,6 +34,7 @@ import { isMinimaxModel } from '@/lib/providers/minimax';
 import { isXiaomiModel } from '@/lib/providers/xiaomi';
 import type { BYOKResult, Provider } from '@/lib/providers/types';
 import PROVIDERS from '@/lib/providers/provider-definitions';
+import { getCodingPlanModel } from '@/lib/providers/coding-plans';
 
 async function checkBYOK(
   user: User | AnonymousUserContext,
@@ -55,6 +56,28 @@ export async function getProvider(
   organizationId: string | undefined,
   taskId: string | undefined
 ): Promise<{ provider: Provider; userByok: BYOKResult[] | null; customLlm: CustomLlm | null }> {
+  const { provider: codingPlan, model: codingPlanModel } = getCodingPlanModel(requestedModel);
+  if (codingPlan && codingPlanModel) {
+    const userByok = organizationId
+      ? await getBYOKforOrganization(db, organizationId, [codingPlan.id])
+      : await getBYOKforUser(db, user.id, [codingPlan.id]);
+    if (userByok) {
+      return {
+        provider: {
+          id: 'coding-plan',
+          apiUrl: codingPlan.base_url,
+          apiKey: userByok[0].decryptedAPIKey,
+          transformRequest(context) {
+            Object.assign(context.request.body, codingPlanModel.extra_body);
+            context.request.body.model = codingPlanModel.id;
+          },
+        },
+        userByok,
+        customLlm: null,
+      };
+    }
+  }
+
   const userByokFromByokCheck = await checkBYOK(user, requestedModel, organizationId);
   if (userByokFromByokCheck) {
     return {

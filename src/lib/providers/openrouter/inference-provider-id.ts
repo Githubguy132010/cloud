@@ -42,12 +42,22 @@ export type VercelUserByokInferenceProviderId = z.infer<
   typeof VercelUserByokInferenceProviderIdSchema
 >;
 
-export const AutocompleteUserByokProviderIdSchema = z.enum(['codestral']);
+export const DirectUserByokInferenceProviderIdSchema = z.enum([
+  'bytelabs-coding',
+  'codestral',
+  'zai-coding',
+]);
 
-export type UserByokAutocompleteProviderId = z.infer<typeof AutocompleteUserByokProviderIdSchema>;
+export type DirectUserByokInferenceProviderId = z.infer<
+  typeof DirectUserByokInferenceProviderIdSchema
+>;
+
+export type UserByokAutocompleteProviderId = z.infer<
+  typeof DirectUserByokInferenceProviderIdSchema
+>;
 
 export const UserByokProviderIdSchema = VercelUserByokInferenceProviderIdSchema.or(
-  AutocompleteUserByokProviderIdSchema
+  DirectUserByokInferenceProviderIdSchema
 );
 
 export type UserByokProviderId = z.infer<typeof UserByokProviderIdSchema>;
@@ -62,7 +72,9 @@ export const UserByokTestModels = {
   [VercelUserByokInferenceProviderIdSchema.enum.openai]: 'openai/gpt-5-nano',
   [VercelUserByokInferenceProviderIdSchema.enum.xai]: 'xai/grok-4.1-fast-non-reasoning',
   [VercelUserByokInferenceProviderIdSchema.enum.zai]: 'zai/glm-4.7-flash',
-  [AutocompleteUserByokProviderIdSchema.enum.codestral]: 'mistral/codestral',
+  [DirectUserByokInferenceProviderIdSchema.enum['bytelabs-coding']]: 'bytedance-seed-code',
+  [DirectUserByokInferenceProviderIdSchema.enum.codestral]: 'mistral/codestral',
+  [DirectUserByokInferenceProviderIdSchema.enum['zai-coding']]: 'glm-4.7-flash',
 } satisfies Record<UserByokProviderId, string>;
 
 export const VercelNonUserByokInferenceProviderIdSchema = z.enum([
