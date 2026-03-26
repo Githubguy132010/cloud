@@ -274,3 +274,40 @@ export function getFieldKeysByCategory(category: SecretCategory): ReadonlySet<st
     SECRET_CATALOG.filter(e => e.category === category).flatMap(e => e.fields.map(f => f.key))
   );
 }
+
+// --- Custom (non-catalog) secret helpers ---
+
+/** Maximum number of custom secrets a single instance can store. */
+export const MAX_CUSTOM_SECRETS = 50;
+
+/** Maximum value length for custom secrets (covers JWTs, certificates). */
+export const MAX_CUSTOM_SECRET_VALUE_LENGTH = 8192;
+
+const CUSTOM_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * Check whether a key is a valid custom (non-catalog) secret env var name.
+ *
+ * Custom keys must:
+ * - Be a valid shell identifier
+ * - Not collide with a catalog field key or catalog env var name
+ * - Not use the reserved KILOCLAW_ prefix
+ * - Be at most 128 characters
+ */
+export function isValidCustomSecretKey(key: string): boolean {
+  if (ALL_SECRET_FIELD_KEYS.has(key)) return false;
+  if (ALL_SECRET_ENV_VARS.has(key)) return false;
+  if (key.length === 0 || key.length > 128) return false;
+  if (!CUSTOM_KEY_RE.test(key)) return false;
+  if (key.startsWith('KILOCLAW_')) return false;
+  return true;
+}
+
+/**
+ * Check whether an env var name stored in encryptedSecrets is a custom
+ * (non-catalog, non-internal) secret. Used to filter the custom secret
+ * list out of the full encryptedSecrets record.
+ */
+export function isCustomSecretEnvVar(envVarName: string): boolean {
+  return !ALL_SECRET_ENV_VARS.has(envVarName) && !INTERNAL_SENSITIVE_ENV_VARS.has(envVarName);
+}

@@ -10,6 +10,10 @@ import {
   INTERNAL_SENSITIVE_ENV_VARS,
   getEntriesByCategory,
   getFieldKeysByCategory,
+  isValidCustomSecretKey,
+  isCustomSecretEnvVar,
+  MAX_CUSTOM_SECRETS,
+  MAX_CUSTOM_SECRET_VALUE_LENGTH,
 } from '../catalog.js';
 import { validateFieldValue } from '../validation.js';
 import type { SecretIconKey, SecretCatalogEntry } from '../types.js';
@@ -486,6 +490,73 @@ describe('Secret Catalog', () => {
       expect(discord?.fields[0].maxLength).toBe(200);
       expect(slackBot?.fields.find(f => f.key === 'slackBotToken')?.maxLength).toBe(300);
       expect(slackBot?.fields.find(f => f.key === 'slackAppToken')?.maxLength).toBe(300);
+    });
+  });
+
+  describe('isValidCustomSecretKey', () => {
+    it('accepts valid custom env var names', () => {
+      expect(isValidCustomSecretKey('MY_API_KEY')).toBe(true);
+      expect(isValidCustomSecretKey('OPENAI_API_KEY')).toBe(true);
+      expect(isValidCustomSecretKey('_PRIVATE')).toBe(true);
+      expect(isValidCustomSecretKey('key123')).toBe(true);
+      expect(isValidCustomSecretKey('A')).toBe(true);
+    });
+
+    it('rejects catalog field keys', () => {
+      expect(isValidCustomSecretKey('telegramBotToken')).toBe(false);
+      expect(isValidCustomSecretKey('discordBotToken')).toBe(false);
+      expect(isValidCustomSecretKey('githubToken')).toBe(false);
+    });
+
+    it('rejects catalog env var names', () => {
+      expect(isValidCustomSecretKey('TELEGRAM_BOT_TOKEN')).toBe(false);
+      expect(isValidCustomSecretKey('DISCORD_BOT_TOKEN')).toBe(false);
+      expect(isValidCustomSecretKey('GITHUB_TOKEN')).toBe(false);
+      expect(isValidCustomSecretKey('BRAVE_API_KEY')).toBe(false);
+    });
+
+    it('rejects reserved KILOCLAW_ prefix', () => {
+      expect(isValidCustomSecretKey('KILOCLAW_SECRET')).toBe(false);
+      expect(isValidCustomSecretKey('KILOCLAW_ENC_FOO')).toBe(false);
+    });
+
+    it('rejects invalid shell identifiers', () => {
+      expect(isValidCustomSecretKey('123_START_WITH_NUM')).toBe(false);
+      expect(isValidCustomSecretKey('has spaces')).toBe(false);
+      expect(isValidCustomSecretKey('has-dashes')).toBe(false);
+      expect(isValidCustomSecretKey('has.dots')).toBe(false);
+      expect(isValidCustomSecretKey('')).toBe(false);
+    });
+
+    it('rejects keys exceeding 128 characters', () => {
+      expect(isValidCustomSecretKey('A'.repeat(128))).toBe(true);
+      expect(isValidCustomSecretKey('A'.repeat(129))).toBe(false);
+    });
+  });
+
+  describe('isCustomSecretEnvVar', () => {
+    it('returns true for non-catalog, non-internal env var names', () => {
+      expect(isCustomSecretEnvVar('MY_CUSTOM_KEY')).toBe(true);
+      expect(isCustomSecretEnvVar('OPENAI_API_KEY')).toBe(true);
+    });
+
+    it('returns false for catalog env var names', () => {
+      expect(isCustomSecretEnvVar('TELEGRAM_BOT_TOKEN')).toBe(false);
+      expect(isCustomSecretEnvVar('GITHUB_TOKEN')).toBe(false);
+    });
+
+    it('returns false for internal sensitive env vars', () => {
+      expect(isCustomSecretEnvVar('KILOCLAW_GOG_CONFIG_TARBALL')).toBe(false);
+    });
+  });
+
+  describe('custom secret constants', () => {
+    it('MAX_CUSTOM_SECRETS is a reasonable limit', () => {
+      expect(MAX_CUSTOM_SECRETS).toBe(50);
+    });
+
+    it('MAX_CUSTOM_SECRET_VALUE_LENGTH covers JWTs and certificates', () => {
+      expect(MAX_CUSTOM_SECRET_VALUE_LENGTH).toBe(8192);
     });
   });
 });

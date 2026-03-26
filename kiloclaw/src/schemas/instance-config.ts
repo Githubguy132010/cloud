@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ALL_SECRET_FIELD_KEYS } from '@kilocode/kiloclaw-secret-catalog';
+import { ALL_SECRET_FIELD_KEYS, isValidCustomSecretKey } from '@kilocode/kiloclaw-secret-catalog';
 import { IMAGE_TAG_RE, IMAGE_TAG_MAX_LENGTH } from '../lib/image-tag-validation';
 
 export const EncryptedEnvelopeSchema = z.object({
@@ -85,7 +85,9 @@ export const ChannelsPatchSchema = z.object({
 export const SecretsPatchSchema = z.object({
   userId: z.string().min(1),
   secrets: z.record(
-    z.string().refine(k => ALL_SECRET_FIELD_KEYS.has(k), { message: 'Unknown secret field key' }),
+    z.string().refine(k => ALL_SECRET_FIELD_KEYS.has(k) || isValidCustomSecretKey(k), {
+      message: 'Invalid secret key: must be a catalog field key or valid env var name',
+    }),
     EncryptedEnvelopeSchema.nullable()
   ),
 });
