@@ -32,6 +32,8 @@ type AutoModel = {
   max_completion_tokens: number;
   prompt_price: string;
   completion_price: string;
+  input_cache_read_price: string | undefined;
+  input_cache_write_price: string | undefined;
   supports_images: boolean;
   roocode_settings: ModelSettings | undefined;
   opencode_settings: OpenCodeSettings | undefined;
@@ -130,6 +132,8 @@ export const KILO_AUTO_FRONTIER_MODEL: AutoModel = {
   max_completion_tokens: 128_000,
   prompt_price: '0.000005',
   completion_price: '0.000025',
+  input_cache_read_price: '0.0000005',
+  input_cache_write_price: '0.00000625',
   supports_images: true,
   roocode_settings: undefined,
   opencode_settings: {
@@ -146,6 +150,8 @@ export const KILO_AUTO_FREE_MODEL: AutoModel = {
   max_completion_tokens: mimo_v2_pro_free_model.max_completion_tokens,
   prompt_price: '0',
   completion_price: '0',
+  input_cache_read_price: '0',
+  input_cache_write_price: '0',
   supports_images: false,
   roocode_settings: {
     included_tools: ['search_and_replace'],
@@ -162,6 +168,8 @@ export const KILO_AUTO_BALANCED_MODEL: AutoModel = {
   max_completion_tokens: 131072,
   prompt_price: '0.0000006',
   completion_price: '0.000003',
+  input_cache_read_price: '0.000000225',
+  input_cache_write_price: undefined,
   supports_images: true,
   roocode_settings: {
     included_tools: ['edit_file'],
@@ -178,6 +186,8 @@ export const KILO_AUTO_SMALL_MODEL: AutoModel = {
   max_completion_tokens: 32768,
   prompt_price: '0.00000005',
   completion_price: '0.0000004',
+  input_cache_read_price: '0.000000005',
+  input_cache_write_price: undefined,
   supports_images: false,
   roocode_settings: undefined,
   opencode_settings: undefined,
