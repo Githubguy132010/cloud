@@ -31,6 +31,8 @@ RUN apt-get update \
        | gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg \
     && apt-get update \
     && apt-get install -y --no-install-recommends gh 1password-cli \
+    && apt-get purge -y xz-utils \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && node --version \
     && npm --version
@@ -55,13 +57,6 @@ RUN npm install -g @steipete/summarize@0.12.0
 # Install Kilo CLI (agentic coding assistant for the terminal)
 RUN npm install -g @kilocode/cli@7.0.46
 
-# Install Linear CLI (issue tracker)
-RUN npm install -g @schpet/linear-cli@1.11.1
-
-# Clean up xz-utils now that Node.js and linear-cli are installed
-RUN apt-get purge -y xz-utils \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install Go (available at runtime for users to `go install` additional tools)
 ENV GO_VERSION=1.26.0
