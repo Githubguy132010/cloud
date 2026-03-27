@@ -20,11 +20,7 @@ export default function ForceUpdateScreen() {
       <Text className="mt-3 text-center text-base text-muted-foreground">
         A new version of Kilo is available. Please update to continue.
       </Text>
-      <Button
-        className="mt-8 w-full"
-        size="lg"
-        onPress={() => void Linking.openURL(STORE_URL)}
-      >
+      <Button className="mt-8 w-full" size="lg" onPress={() => void Linking.openURL(STORE_URL)}>
         <Text>Update Now</Text>
       </Button>
     </View>
