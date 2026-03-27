@@ -7,7 +7,7 @@ import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 
 const STORE_URL =
   Platform.OS === 'ios'
-    ? 'https://apps.apple.com/app/id<APP_STORE_ID>'
+    ? 'https://apps.apple.com/app/id6761193135'
     : 'https://play.google.com/store/apps/details?id=com.kilocode.kiloapp';
 
 export default function ForceUpdateScreen() {
