@@ -158,10 +158,12 @@ function HostingRadioGroup({
   hostingPlan,
   onSelect,
   commitDisabled,
+  creditIntroEligible,
 }: {
   hostingPlan: ClawPlan | null;
   onSelect: (plan: ClawPlan) => void;
   commitDisabled: boolean;
+  creditIntroEligible: boolean;
 }) {
   return (
     <div className="mb-4">
@@ -214,8 +216,21 @@ function HostingRadioGroup({
           {hostingPlan === 'standard' && <span className="h-2 w-2 rounded-full bg-blue-500" />}
         </span>
         <span className="text-[13px] font-medium">Standard Plan</span>
-        <span className="text-muted-foreground ml-auto text-xs">
-          ${PLAN_DISPLAY.standard.monthlyDollars}/mo (monthly)
+        <span className="ml-auto flex items-center gap-1.5 text-xs">
+          {creditIntroEligible ? (
+            <>
+              <span className="font-medium text-emerald-400">
+                ${STANDARD_FIRST_MONTH_DOLLARS} first month
+              </span>
+              <span className="text-muted-foreground">
+                then ${PLAN_DISPLAY.standard.monthlyDollars}/mo
+              </span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              ${PLAN_DISPLAY.standard.monthlyDollars}/mo (monthly)
+            </span>
+          )}
         </span>
       </button>
 
@@ -569,6 +584,7 @@ export function WelcomePage() {
               hostingPlan={hostingPlan}
               onSelect={handleHostingPlanSelect}
               commitDisabled={commitDisabled}
+              creditIntroEligible={creditIntroEligible}
             />
           )}
 
