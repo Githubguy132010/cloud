@@ -40,6 +40,7 @@ import {
   markInstanceDestroyedById,
   renameInstance,
   restoreDestroyedInstance,
+  type ActiveKiloClawInstance,
 } from '@/lib/kiloclaw/instance-registry';
 import { client as stripe } from '@/lib/stripe-client';
 import { APP_URL } from '@/lib/constants';
@@ -1542,21 +1543,44 @@ export const kiloclawRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const instance = await getActiveInstance(ctx.user.id);
-      if (!instance) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'No active instance found. Provision an instance first.',
-        });
-      }
-
       // When a specific instanceId is provided (e.g. from the Kilo Pass upsell
-      // callback URL), validate it matches the user's active instance.
-      if (input.instanceId && instance.id !== input.instanceId) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Instance not found or does not belong to you.',
-        });
+      // callback URL), look up that instance directly so enrollment targets the
+      // correct one even if the user reprovisioned since checkout started.
+      let instance: ActiveKiloClawInstance;
+      if (input.instanceId) {
+        const [row] = await db
+          .select({
+            id: kiloclaw_instances.id,
+            userId: kiloclaw_instances.user_id,
+            sandboxId: kiloclaw_instances.sandbox_id,
+            name: kiloclaw_instances.name,
+          })
+          .from(kiloclaw_instances)
+          .where(
+            and(
+              eq(kiloclaw_instances.id, input.instanceId),
+              eq(kiloclaw_instances.user_id, ctx.user.id),
+              isNull(kiloclaw_instances.destroyed_at)
+            )
+          )
+          .limit(1);
+
+        if (!row) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Instance not found or does not belong to you.',
+          });
+        }
+        instance = row;
+      } else {
+        const active = await getActiveInstance(ctx.user.id);
+        if (!active) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No active instance found. Provision an instance first.',
+          });
+        }
+        instance = active;
       }
 
       // Intro pricing eligibility (spec Credit Enrollment rule 3).
