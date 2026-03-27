@@ -5,6 +5,10 @@ on:
     - cron: '0 6 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: kilo-app-release
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -33,7 +37,7 @@ jobs:
           echo "Last release tag: $LAST_TAG"
 
           # Check for changes in kilo-app or trpc since that tag
-          CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD -- kilo-app/ packages/trpc/)
+          CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD -- kilo-app/ packages/trpc/ pnpm-lock.yaml)
 
           if [ -z "$CHANGES" ]; then
             echo "No changes since $LAST_TAG — skipping build"
@@ -48,6 +52,7 @@ jobs:
     needs: check-changes
     if: needs.check-changes.outputs.should_build == 'true'
     runs-on: ${{ vars.RUNNER_DEFAULT_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 60
     steps:
       - uses: useblacksmith/checkout@v1
         with:
@@ -69,7 +74,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install EAS CLI
-        run: pnpm install --global eas-cli
+        run: pnpm install --global eas-cli@latest
 
       - name: Build and submit
         working-directory: kilo-app
