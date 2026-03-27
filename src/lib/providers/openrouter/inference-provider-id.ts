@@ -52,10 +52,6 @@ export type DirectUserByokInferenceProviderId = z.infer<
   typeof DirectUserByokInferenceProviderIdSchema
 >;
 
-export type UserByokAutocompleteProviderId = z.infer<
-  typeof DirectUserByokInferenceProviderIdSchema
->;
-
 export const UserByokProviderIdSchema = VercelUserByokInferenceProviderIdSchema.or(
   DirectUserByokInferenceProviderIdSchema
 );
