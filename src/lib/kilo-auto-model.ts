@@ -52,15 +52,11 @@ const MODEL_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   [MINIMAX_CURRENT_MODEL_ID]: MINIMAX_CURRENT_MODEL_NAME,
 };
 
-const MODE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
-  kiloclaw: 'KiloClaw',
-};
-
 function describeRouting(modeToModel: Record<string, ResolvedAutoModel>): string {
   const modelToModes: Record<string, string[]> = {};
   for (const [mode, { model }] of Object.entries(modeToModel)) {
     const modes = modelToModes[model] ?? [];
-    modes.push(MODE_DISPLAY_NAMES[mode] ?? mode);
+    modes.push(mode);
     modelToModes[model] = modes;
   }
   const parts = Object.entries(modelToModes).map(
@@ -105,7 +101,7 @@ const FRONTIER_MODE_TO_MODEL: Record<string, ResolvedAutoModel> = {
     verbosity: 'medium',
   },
   code: FRONTIER_CODE_MODEL,
-  kiloclaw: { model: CLAUDE_OPUS_CURRENT_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' },
+  KiloClaw: { model: CLAUDE_OPUS_CURRENT_MODEL_ID, reasoning: { enabled: true }, verbosity: 'high' },
 };
 
 const BALANCED_CODE_MODEL: ResolvedAutoModel = {
@@ -127,7 +123,7 @@ const BALANCED_MODE_TO_MODEL: Record<string, ResolvedAutoModel> = {
   build: { model: MINIMAX_CURRENT_MODEL_ID },
   explore: { model: MINIMAX_CURRENT_MODEL_ID },
   code: BALANCED_CODE_MODEL,
-  kiloclaw: { model: KIMI_CURRENT_MODEL_ID, reasoning: { enabled: true } },
+  KiloClaw: { model: KIMI_CURRENT_MODEL_ID, reasoning: { enabled: true } },
 };
 
 export const KILO_AUTO_FRONTIER_MODEL: AutoModel = {
@@ -263,7 +259,7 @@ export async function applyResolvedAutoModel(
   const hasImages = requestContainsImages(request);
   const resolved = await resolveAutoModel(
     model,
-    featureHeader === 'kiloclaw' ? 'kiloclaw' : modeHeader,
+    featureHeader === 'kiloclaw' ? 'KiloClaw' : modeHeader,
     balancePromise,
     hasImages
   );
