@@ -52,11 +52,15 @@ const MODEL_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   [MINIMAX_CURRENT_MODEL_ID]: MINIMAX_CURRENT_MODEL_NAME,
 };
 
+const MODE_DISPLAY_NAMES: Readonly<Record<string, string>> = {
+  kiloclaw: 'KiloClaw',
+};
+
 function describeRouting(modeToModel: Record<string, ResolvedAutoModel>): string {
   const modelToModes: Record<string, string[]> = {};
   for (const [mode, { model }] of Object.entries(modeToModel)) {
     const modes = modelToModes[model] ?? [];
-    modes.push(mode);
+    modes.push(MODE_DISPLAY_NAMES[mode] ?? mode);
     modelToModes[model] = modes;
   }
   const parts = Object.entries(modelToModes).map(
