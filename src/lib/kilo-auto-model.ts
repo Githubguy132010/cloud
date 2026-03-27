@@ -223,13 +223,13 @@ export async function resolveAutoModel(
   }
   const mode = modeHeader?.trim().toLowerCase() ?? '';
   if (mappedModel === KILO_AUTO_BALANCED_MODEL.id) {
-    const resolved =
-      (Object.hasOwn(BALANCED_MODE_TO_MODEL, mode) ? BALANCED_MODE_TO_MODEL[mode] : null) ??
-      BALANCED_CODE_MODEL;
-    if (hasImages && resolved.model === MINIMAX_CURRENT_MODEL_ID) {
+    if (hasImages) {
       return BALANCED_IMAGE_MODEL;
     }
-    return resolved;
+    return (
+      (Object.hasOwn(BALANCED_MODE_TO_MODEL, mode) ? BALANCED_MODE_TO_MODEL[mode] : null) ??
+      BALANCED_CODE_MODEL
+    );
   }
   return (
     (Object.hasOwn(FRONTIER_MODE_TO_MODEL, mode) ? FRONTIER_MODE_TO_MODEL[mode] : null) ??
