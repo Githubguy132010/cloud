@@ -351,7 +351,7 @@ export function writeMcporterConfig(
 
   if (env.LINEAR_API_KEY) {
     existingServers['linear'] = {
-      baseUrl: 'https://mcp.linear.app/mcp',
+      url: 'https://mcp.linear.app/mcp',
       headers: { Authorization: 'Bearer ${LINEAR_API_KEY}' },
     };
     console.log('Linear MCP server configured (via mcporter)');
