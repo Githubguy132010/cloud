@@ -661,6 +661,30 @@ describe('setNestedValue', () => {
     setNestedValue(obj, 'a.b', 'new');
     expect((obj as any).a.b).toBe('new');
   });
+
+  it('refuses to patch __proto__ segments', () => {
+    const obj: Record<string, unknown> = {};
+    setNestedValue(obj, '__proto__.polluted', 'yes');
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  it('refuses to patch constructor segments', () => {
+    const obj: Record<string, unknown> = {};
+    setNestedValue(obj, 'constructor.prototype.polluted', 'yes');
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  it('refuses to patch prototype segments', () => {
+    const obj: Record<string, unknown> = {};
+    setNestedValue(obj, 'a.prototype.b', 'yes');
+    expect((obj as any).a).toBeUndefined();
+  });
+
+  it('skips when intermediate is a non-object primitive', () => {
+    const obj: Record<string, unknown> = { a: 'string-not-object' };
+    setNestedValue(obj, 'a.b.c', 'value');
+    expect(obj.a).toBe('string-not-object');
+  });
 });
 
 describe('backupConfigFile', () => {

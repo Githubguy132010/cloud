@@ -345,8 +345,16 @@ export function generateBaseConfig(
  * intermediate objects as needed.
  * e.g. setNestedValue(obj, "models.providers.openai.apiKey", "sk-...")
  */
+const BANNED_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function setNestedValue(obj: ConfigObject, path: string, value: string): void {
   const segments = path.split('.');
+  for (const seg of segments) {
+    if (BANNED_SEGMENTS.has(seg)) {
+      console.warn(`Refusing to patch ${path}: "${seg}" is a banned path segment`);
+      return;
+    }
+  }
   let current = obj;
   for (let i = 0; i < segments.length - 1; i++) {
     const existing = current[segments[i]];

@@ -370,7 +370,8 @@ const MAX_CONFIG_PATH_LENGTH = 256;
 const ALLOWED_CONFIG_PATH_PATTERNS: readonly string[] = [
   // Agents
   'agents.defaults.memorySearch.remote.apiKey',
-  'agents.list[].memorySearch.remote.apiKey',
+  // agents.list[].memorySearch.remote.apiKey omitted: array-indexed paths
+  // can't be expressed in dot notation and CONFIG_PATH_RE rejects brackets.
   // Channels — BlueBubbles
   'channels.bluebubbles.password',
   'channels.bluebubbles.accounts.*.password',
@@ -492,7 +493,7 @@ function matchesPattern(path: string, pattern: string): boolean {
   const pathParts = path.split('.');
   const patternParts = pattern.split('.');
   if (pathParts.length !== patternParts.length) return false;
-  return patternParts.every((part, i) => part === '*' || part === '[]' || part === pathParts[i]);
+  return patternParts.every((part, i) => part === '*' || part === pathParts[i]);
 }
 
 /**
