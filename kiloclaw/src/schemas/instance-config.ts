@@ -42,6 +42,19 @@ export const GoogleCredentialsSchema = z.object({
 
 export type GoogleCredentials = z.infer<typeof GoogleCredentialsSchema>;
 
+/** Metadata for a custom secret (e.g. config path for openclaw.json patching). */
+export const CustomSecretMetaSchema = z.object({
+  configPath: z
+    .string()
+    .refine(isValidConfigPath, {
+      message:
+        'Not a supported credential path. See https://docs.openclaw.ai/reference/secretref-credential-surface',
+    })
+    .optional(),
+});
+
+export type CustomSecretMeta = z.infer<typeof CustomSecretMetaSchema>;
+
 export const InstanceConfigSchema = z.object({
   envVars: z.record(envVarNameSchema, z.string()).optional(),
   encryptedSecrets: z.record(envVarNameSchema, EncryptedEnvelopeSchema).optional(),
@@ -68,6 +81,7 @@ export const InstanceConfigSchema = z.object({
   // If set, use this image tag instead of resolving latest from KV.
   // Set by the cloud app when the user has a version pin.
   pinnedImageTag: z.string().regex(IMAGE_TAG_RE).max(IMAGE_TAG_MAX_LENGTH).optional(),
+  customSecretMeta: z.record(z.string(), CustomSecretMetaSchema).nullable().optional(),
 });
 
 export type InstanceConfig = z.infer<typeof InstanceConfigSchema>;
@@ -86,19 +100,6 @@ export const ChannelsPatchSchema = z.object({
   }),
 });
 
-/** Metadata for a custom secret (e.g. config path for openclaw.json patching). */
-export const CustomSecretMetaSchema = z.object({
-  configPath: z
-    .string()
-    .refine(isValidConfigPath, {
-      message:
-        'Not a supported credential path. See https://docs.openclaw.ai/reference/secretref-credential-surface',
-    })
-    .optional(),
-});
-
-export type CustomSecretMeta = z.infer<typeof CustomSecretMetaSchema>;
-
 export const SecretsPatchSchema = z.object({
   userId: z.string().min(1),
   secrets: z.record(
@@ -107,7 +108,12 @@ export const SecretsPatchSchema = z.object({
     }),
     EncryptedEnvelopeSchema.nullable()
   ),
-  meta: z.record(z.string(), CustomSecretMetaSchema).optional(),
+  meta: z
+    .record(
+      z.string().refine(k => isValidCustomSecretKey(k), { message: 'Invalid meta key' }),
+      CustomSecretMetaSchema
+    )
+    .optional(),
 });
 
 export const ProvisionRequestSchema = z.object({

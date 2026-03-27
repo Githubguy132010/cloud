@@ -2237,44 +2237,6 @@ describe('updateSecrets', () => {
 });
 
 // ============================================================================
-// listCustomSecretKeys
-// ============================================================================
-
-describe('listCustomSecretKeys', () => {
-  const fakeEnvelope = {
-    encryptedData: 'data',
-    encryptedDEK: 'dek',
-    algorithm: 'rsa-aes-256-gcm' as const,
-    version: 1 as const,
-  };
-
-  it('returns empty array when no secrets exist', async () => {
-    const { instance, storage } = createInstance();
-    await seedProvisioned(storage);
-
-    const keys = await instance.listCustomSecretKeys();
-    expect(keys).toEqual([]);
-  });
-
-  it('returns only custom (non-catalog) secret keys', async () => {
-    const { instance, storage } = createInstance();
-    await seedProvisioned(storage, {
-      encryptedSecrets: {
-        TELEGRAM_BOT_TOKEN: fakeEnvelope, // catalog
-        MY_CUSTOM_KEY: fakeEnvelope, // custom
-        ANOTHER_KEY: fakeEnvelope, // custom
-      },
-    });
-
-    const keys = await instance.listCustomSecretKeys();
-    expect(keys).toContain('MY_CUSTOM_KEY');
-    expect(keys).toContain('ANOTHER_KEY');
-    expect(keys).not.toContain('TELEGRAM_BOT_TOKEN');
-    expect(keys).toHaveLength(2);
-  });
-});
-
-// ============================================================================
 // updateGoogleCredentials
 // ============================================================================
 

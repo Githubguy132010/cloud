@@ -37,7 +37,6 @@ import {
   ENV_VAR_TO_FIELD_KEY,
   ALL_SECRET_FIELD_KEYS,
   MAX_CUSTOM_SECRETS,
-  isCustomSecretEnvVar,
   type SecretFieldKey,
 } from '@kilocode/kiloclaw-secret-catalog';
 import { parseRegions, prepareRegions, resolveRegions } from '../regions';
@@ -645,16 +644,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     });
 
     return { configured };
-  }
-
-  /**
-   * Return the list of custom (non-catalog) secret env var names.
-   * Values are never exposed — this is for UI display only.
-   */
-  async listCustomSecretKeys(): Promise<string[]> {
-    await this.loadState();
-    if (!this.s.encryptedSecrets) return [];
-    return Object.keys(this.s.encryptedSecrets).filter(isCustomSecretEnvVar);
   }
 
   /**
@@ -1375,9 +1364,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     };
   }
 
-  async getConfig(): Promise<
-    InstanceConfig & { customSecretMeta?: Record<string, CustomSecretMeta> | null }
-  > {
+  async getConfig(): Promise<InstanceConfig> {
     await this.loadState();
     return {
       envVars: this.s.envVars ?? undefined,

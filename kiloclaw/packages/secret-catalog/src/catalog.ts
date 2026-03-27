@@ -374,8 +374,7 @@ const ALLOWED_CONFIG_PATH_PATTERNS: readonly string[] = [
   // Channels — BlueBubbles
   'channels.bluebubbles.password',
   'channels.bluebubbles.accounts.*.password',
-  // Channels — Discord
-  'channels.discord.token',
+  // Channels — Discord (channels.discord.token omitted: catalog-managed)
   'channels.discord.pluralkit.token',
   'channels.discord.voice.tts.providers.*.apiKey',
   'channels.discord.accounts.*.token',
@@ -407,17 +406,14 @@ const ALLOWED_CONFIG_PATH_PATTERNS: readonly string[] = [
   'channels.nextcloud_talk.apiPassword',
   'channels.nextcloud_talk.accounts.*.botSecret',
   'channels.nextcloud_talk.accounts.*.apiPassword',
-  // Channels — Slack
-  'channels.slack.botToken',
-  'channels.slack.appToken',
+  // Channels — Slack (botToken/appToken omitted: catalog-managed)
   'channels.slack.userToken',
   'channels.slack.signingSecret',
   'channels.slack.accounts.*.botToken',
   'channels.slack.accounts.*.appToken',
   'channels.slack.accounts.*.userToken',
   'channels.slack.accounts.*.signingSecret',
-  // Channels — Telegram
-  'channels.telegram.botToken',
+  // Channels — Telegram (channels.telegram.botToken omitted: catalog-managed)
   'channels.telegram.webhookSecret',
   'channels.telegram.accounts.*.botToken',
   'channels.telegram.accounts.*.webhookSecret',
@@ -428,11 +424,7 @@ const ALLOWED_CONFIG_PATH_PATTERNS: readonly string[] = [
   'channels.zalo.accounts.*.webhookSecret',
   // Cron
   'cron.webhookToken',
-  // Gateway
-  'gateway.auth.token',
-  'gateway.auth.password',
-  'gateway.remote.token',
-  'gateway.remote.password',
+  // Gateway — omitted: KiloClaw-managed (overwritten by generateBaseConfig on every boot)
   // Messages
   'messages.tts.providers.*.apiKey',
   // Models
@@ -527,10 +519,7 @@ export function isValidConfigPath(path: string): boolean {
 
 /**
  * Return all allowed config path patterns for UI display (e.g. autocomplete).
- * Excludes denied paths.
  */
 export function getAllowedConfigPathPatterns(): readonly string[] {
-  return ALLOWED_CONFIG_PATH_PATTERNS.filter(
-    p => !DENIED_CONFIG_PATHS.has(p) && !DENIED_CONFIG_PATH_PATTERNS.some(dp => p === dp)
-  );
+  return ALLOWED_CONFIG_PATH_PATTERNS;
 }

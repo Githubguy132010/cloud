@@ -325,7 +325,14 @@ export function setNestedValue(obj: ConfigObject, path: string, value: string): 
   const segments = path.split('.');
   let current = obj;
   for (let i = 0; i < segments.length - 1; i++) {
-    current[segments[i]] = current[segments[i]] ?? {};
+    const existing = current[segments[i]];
+    if (existing != null && (typeof existing !== 'object' || Array.isArray(existing))) {
+      console.warn(
+        `Cannot patch ${path}: "${segments.slice(0, i + 1).join('.')}" is not an object`
+      );
+      return;
+    }
+    current[segments[i]] = existing ?? {};
     current = current[segments[i]] as ConfigObject;
   }
   current[segments[segments.length - 1]] = value;
