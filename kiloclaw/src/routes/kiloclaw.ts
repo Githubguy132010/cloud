@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { SECRET_CATALOG, getFieldKeysByCategory } from '@kilocode/kiloclaw-secret-catalog';
+import {
+  SECRET_CATALOG,
+  getFieldKeysByCategory,
+  isCustomSecretEnvVar,
+} from '@kilocode/kiloclaw-secret-catalog';
 import { instrumented } from '../middleware/analytics';
 import { InstanceIdParam } from '../schemas/instance-config';
 
@@ -52,6 +56,10 @@ kiloclaw.get('/config', c =>
       hasKiloCodeApiKey: !!config.kilocodeApiKey,
       kilocodeApiKeyExpiresAt: config.kilocodeApiKeyExpiresAt ?? null,
       configuredSecrets: buildConfiguredSecrets(config),
+      customSecretKeys: config.encryptedSecrets
+        ? Object.keys(config.encryptedSecrets).filter(isCustomSecretEnvVar)
+        : [],
+      customSecretMeta: config.customSecretMeta ?? {},
     });
   })
 );
