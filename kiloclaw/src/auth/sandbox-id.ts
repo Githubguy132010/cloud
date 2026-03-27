@@ -44,7 +44,7 @@ export function userIdFromSandboxId(sandboxId: string): string {
 }
 
 // ─── Instance-scoped identity ───────────────────────────────────────
-// Canonical implementation lives in @kilocode/worker-utils; re-exported here
-// so existing imports within the worker package continue to work.
+// Canonical implementation lives in @kilocode/worker-utils/instance-id;
+// re-exported here so existing imports within the worker package continue to work.
 
-export { isValidInstanceId, sandboxIdFromInstanceId } from '@kilocode/worker-utils';
+export { isValidInstanceId, sandboxIdFromInstanceId } from '@kilocode/worker-utils/instance-id';

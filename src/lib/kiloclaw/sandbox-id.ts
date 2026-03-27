@@ -27,7 +27,9 @@ export function sandboxIdFromUserId(userId: string): string {
 }
 
 // ─── Instance-scoped identity ───────────────────────────────────────
-// Canonical implementation lives in @kilocode/worker-utils; re-exported here
-// so existing imports within the Next.js app continue to work.
+// Canonical implementation lives in @kilocode/worker-utils/instance-id;
+// re-exported here so existing imports within the Next.js app continue to work.
+// Uses the subpath export to avoid pulling in the full worker-utils barrel
+// (which has .js extension imports that Next.js can't resolve).
 
-export { isValidInstanceId, sandboxIdFromInstanceId } from '@kilocode/worker-utils';
+export { isValidInstanceId, sandboxIdFromInstanceId } from '@kilocode/worker-utils/instance-id';
