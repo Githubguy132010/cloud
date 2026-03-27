@@ -1,5 +1,5 @@
 {
-  "id": "bacfeb1d-a1f2-4b0f-b8aa-34203966c797",
+  "id": "8549692e-0544-402d-87e7-a05230a4ee33",
   "prevId": "1939c85c-a8df-42d5-a17b-eeda39905369",
   "version": "7",
   "dialect": "postgresql",
@@ -5933,6 +5933,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_free_model_usage_user_created_at": {
+          "name": "idx_free_model_usage_user_created_at",
+          "columns": [
+            {
+              "expression": "kilo_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"free_model_usage\".\"kilo_user_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -7641,12 +7663,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "name": {
           "name": "name",
           "type": "text",
@@ -7703,19 +7719,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "kiloclaw_instances_organization_id_organizations_id_fk": {
-          "name": "kiloclaw_instances_organization_id_organizations_id_fk",
-          "tableFrom": "kiloclaw_instances",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
