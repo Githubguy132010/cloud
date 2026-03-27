@@ -90,22 +90,14 @@ export const SecretsPatchSchema = z.object({
   ),
 });
 
-export const ProvisionRequestSchema = z
-  .object({
-    userId: z.string().min(1),
-    /** Optional 32-char hex instance identity for multi-instance support. */
-    instanceId: z
-      .string()
-      .regex(/^[0-9a-f]{32}$/)
-      .optional(),
-    /** Optional org ID — null/absent means personal instance. Requires instanceId. */
-    orgId: z.string().uuid().nullable().optional(),
-    ...InstanceConfigSchema.omit({ googleCredentials: true }).shape,
-  })
-  .refine(d => !d.orgId || d.instanceId, {
-    message: 'orgId requires instanceId',
-    path: ['orgId'],
-  });
+export const ProvisionRequestSchema = z.object({
+  userId: z.string().min(1),
+  /** Optional DB row UUID used as the DO key for multi-instance support. */
+  instanceId: z.string().uuid().optional(),
+  /** Optional org ID — null/absent means personal instance. */
+  orgId: z.string().uuid().nullable().optional(),
+  ...InstanceConfigSchema.omit({ googleCredentials: true }).shape,
+});
 
 export type ProvisionRequest = z.infer<typeof ProvisionRequestSchema>;
 

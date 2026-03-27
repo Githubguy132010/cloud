@@ -3309,9 +3309,6 @@ export const kiloclaw_instances = pgTable(
       .notNull()
       .references(() => kilocode_users.id, { onDelete: 'cascade' }),
     sandbox_id: text().notNull(),
-    // 12-char hex routing identity for multi-instance support.
-    // Nullable initially for backward compat; backfilled for existing rows.
-    instance_id: text(),
     // Null = personal instance. Non-null = org-owned instance.
     organization_id: uuid().references(() => organizations.id),
     name: text(),
@@ -3319,13 +3316,9 @@ export const kiloclaw_instances = pgTable(
     destroyed_at: timestamp({ withTimezone: true, mode: 'string' }),
   },
   table => [
-    // One active instance per user+sandbox combination (legacy constraint).
+    // One active instance per user+sandbox combination.
     uniqueIndex('UQ_kiloclaw_instances_active')
       .on(table.user_id, table.sandbox_id)
-      .where(isNull(table.destroyed_at)),
-    // One active instance per instance_id (multi-instance constraint).
-    uniqueIndex('UQ_kiloclaw_instances_instance_id_active')
-      .on(table.instance_id)
       .where(isNull(table.destroyed_at)),
   ]
 );

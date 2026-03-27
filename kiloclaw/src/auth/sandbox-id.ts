@@ -45,34 +45,29 @@ export function userIdFromSandboxId(sandboxId: string): string {
 
 // ─── Instance-scoped identity ───────────────────────────────────────
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /**
- * 32-char lowercase hex string (full UUID without dashes) used as the
- * primary instance identity. 128 bits of entropy — effectively zero
- * collision risk at any scale.
+ * Validate that a string is a lowercase UUID with dashes.
+ * Used to validate instanceId params (which are kiloclaw_instances.id UUIDs).
  */
-export const INSTANCE_ID_LENGTH = 32;
-const INSTANCE_ID_RE = /^[0-9a-f]{32}$/;
-
-export function generateInstanceId(): string {
-  return crypto.randomUUID().replace(/-/g, '');
-}
-
 export function isValidInstanceId(id: string): boolean {
-  return INSTANCE_ID_RE.test(id);
+  return UUID_RE.test(id);
 }
 
 /**
- * Derive a sandboxId from an instanceId (for new multi-instance instances).
+ * Derive a sandboxId from an instanceId (the DB row UUID).
  *
  * Uses a `ki_` prefix to distinguish from legacy userId-derived sandboxIds
- * (which are raw base64url). The prefix makes it trivial to tell which
- * derivation produced a given sandboxId without a DB lookup.
+ * (which are raw base64url). Dashes are stripped — the result is
+ * `ki_{32-char-hex}` (35 chars, within the 63-char limit).
  */
 export function sandboxIdFromInstanceId(instanceId: string): string {
   if (!isValidInstanceId(instanceId)) {
-    throw new Error(`Invalid instanceId: must be ${INSTANCE_ID_LENGTH}-char hex`);
+    throw new Error('Invalid instanceId: must be a UUID');
   }
-  const prefixed = `ki_${instanceId}`;
+  const hex = instanceId.replace(/-/g, '');
+  const prefixed = `ki_${hex}`;
   if (prefixed.length > MAX_SANDBOX_ID_LENGTH) {
     throw new Error(
       `instanceId too long: prefixed sandboxId would be ${prefixed.length} chars (max ${MAX_SANDBOX_ID_LENGTH})`

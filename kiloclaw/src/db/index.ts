@@ -66,7 +66,6 @@ export async function getActiveInstance(db: WorkerDb, userId: string) {
     .select({
       id: kiloclaw_instances.id,
       sandbox_id: kiloclaw_instances.sandbox_id,
-      instance_id: kiloclaw_instances.instance_id,
     })
     .from(kiloclaw_instances)
     .where(and(eq(kiloclaw_instances.user_id, userId), isNull(kiloclaw_instances.destroyed_at)))
@@ -74,7 +73,7 @@ export async function getActiveInstance(db: WorkerDb, userId: string) {
     .then(rows => rows[0] ?? null);
 
   if (!row) return null;
-  return { id: row.id, sandboxId: row.sandbox_id, instanceId: row.instance_id };
+  return { id: row.id, sandboxId: row.sandbox_id };
 }
 
 /**
@@ -86,7 +85,6 @@ export async function getInstanceBySandboxId(db: WorkerDb, sandboxId: string) {
     .select({
       id: kiloclaw_instances.id,
       sandbox_id: kiloclaw_instances.sandbox_id,
-      instance_id: kiloclaw_instances.instance_id,
       user_id: kiloclaw_instances.user_id,
     })
     .from(kiloclaw_instances)
@@ -100,27 +98,23 @@ export async function getInstanceBySandboxId(db: WorkerDb, sandboxId: string) {
   return {
     id: row.id,
     sandboxId: row.sandbox_id,
-    instanceId: row.instance_id,
     userId: row.user_id,
   };
 }
 
 /**
- * Look up an active instance by its instance_id (12-char hex).
- * Used for DO restore when the DO has lost all state but the caller knows the instanceId.
+ * Look up an active instance by its primary key UUID.
+ * Used for DO restore when the caller knows the instanceId (= DB row id).
  */
-export async function getInstanceByInstanceId(db: WorkerDb, instanceId: string) {
+export async function getInstanceById(db: WorkerDb, instanceId: string) {
   const row = await db
     .select({
       id: kiloclaw_instances.id,
       sandbox_id: kiloclaw_instances.sandbox_id,
-      instance_id: kiloclaw_instances.instance_id,
       user_id: kiloclaw_instances.user_id,
     })
     .from(kiloclaw_instances)
-    .where(
-      and(eq(kiloclaw_instances.instance_id, instanceId), isNull(kiloclaw_instances.destroyed_at))
-    )
+    .where(and(eq(kiloclaw_instances.id, instanceId), isNull(kiloclaw_instances.destroyed_at)))
     .limit(1)
     .then(rows => rows[0] ?? null);
 
@@ -128,7 +122,6 @@ export async function getInstanceByInstanceId(db: WorkerDb, instanceId: string) 
   return {
     id: row.id,
     sandboxId: row.sandbox_id,
-    instanceId: row.instance_id,
     userId: row.user_id,
   };
 }
