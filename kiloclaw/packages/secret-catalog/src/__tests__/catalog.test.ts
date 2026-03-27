@@ -43,6 +43,7 @@ describe('Secret Catalog', () => {
         'slack',
         'key',
         'github',
+        'linear',
         'credit-card',
         'lock',
         'brave',
@@ -121,6 +122,7 @@ describe('Secret Catalog', () => {
         'GITHUB_USERNAME',
         'GITHUB_EMAIL',
         'BRAVE_API_KEY',
+        'LINEAR_API_KEY',
       ]);
 
       const catalogEnvVars = new Set(FIELD_KEY_TO_ENV_VAR.values());
@@ -198,11 +200,12 @@ describe('Secret Catalog', () => {
 
     it('returns all tool entries sorted by order', () => {
       const tools = getEntriesByCategory('tool');
-      expect(tools.length).toBe(4);
+      expect(tools.length).toBe(5);
       expect(tools[0].id).toBe('github');
       expect(tools[1].id).toBe('agentcard');
       expect(tools[2].id).toBe('onepassword');
       expect(tools[3].id).toBe('brave-search');
+      expect(tools[4].id).toBe('linear');
     });
 
     it('returns empty array for categories with no entries', () => {
@@ -226,10 +229,11 @@ describe('Secret Catalog', () => {
       expect(keys).toContain('githubToken');
       expect(keys).toContain('githubUsername');
       expect(keys).toContain('githubEmail');
+      expect(keys).toContain('linearApiKey');
       expect(keys).toContain('agentcardApiKey');
       expect(keys).toContain('onepasswordServiceAccountToken');
       expect(keys).toContain('braveSearchApiKey');
-      expect(keys.size).toBe(6);
+      expect(keys.size).toBe(7);
     });
 
     it('returns empty set for categories with no entries', () => {
