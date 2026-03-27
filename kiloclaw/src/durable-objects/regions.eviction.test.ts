@@ -74,11 +74,11 @@ describe('evictCapacityRegionFromKV', () => {
     expect(store.get(FLY_REGIONS_KV_KEY)).toBe('dfw,ord');
   });
 
-  it('deduplicates before writing when evicting from a list with duplicates', async () => {
-    const { kv, putMock } = makeKv('iad,dfw,iad,ord');
+  it('preserves duplicate entries when evicting (duplicates are intentional weighting)', async () => {
+    const { kv, putMock } = makeKv('dfw,dfw,ord,iad');
     await evictCapacityRegionFromKV(kv, noopEnv, 'iad');
-    // remaining after evicting both iad occurrences: dfw,ord (deduplicated)
-    expect(putMock).toHaveBeenCalledWith(FLY_REGIONS_KV_KEY, 'dfw,ord');
+    // all iad occurrences removed, duplicates of other regions preserved
+    expect(putMock).toHaveBeenCalledWith(FLY_REGIONS_KV_KEY, 'dfw,dfw,ord');
   });
 
   it('writes "lastRegion,eu,us" when evicting the second-to-last named region', async () => {
@@ -88,18 +88,18 @@ describe('evictCapacityRegionFromKV', () => {
     expect(store.get(FLY_REGIONS_KV_KEY)).toBe('dfw,eu,us');
   });
 
-  it('writes "failedRegion,eu,us" when evicting the only named region', async () => {
+  it('writes "eu,us" when evicting the only named region', async () => {
     const { kv, putMock, store } = makeKv('iad');
     await evictCapacityRegionFromKV(kv, noopEnv, 'iad');
-    expect(putMock).toHaveBeenCalledWith(FLY_REGIONS_KV_KEY, 'iad,eu,us');
-    expect(store.get(FLY_REGIONS_KV_KEY)).toBe('iad,eu,us');
+    expect(putMock).toHaveBeenCalledWith(FLY_REGIONS_KV_KEY, 'eu,us');
+    expect(store.get(FLY_REGIONS_KV_KEY)).toBe('eu,us');
   });
 
-  it('writes "failedRegion,eu,us" when evicting the only named region mixed with meta-regions', async () => {
+  it('writes "eu,us" when evicting the only named region mixed with meta-regions', async () => {
     // iad is the only named region, eu is meta — after evicting iad, no named regions remain
     const { kv, putMock } = makeKv('iad,eu');
     await evictCapacityRegionFromKV(kv, noopEnv, 'iad');
-    expect(putMock).toHaveBeenCalledWith(FLY_REGIONS_KV_KEY, 'iad,eu,us');
+    expect(putMock).toHaveBeenCalledWith(FLY_REGIONS_KV_KEY, 'eu,us');
   });
 
   it('logs a warning after a successful eviction', async () => {

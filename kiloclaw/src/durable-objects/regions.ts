@@ -122,18 +122,17 @@ export async function evictCapacityRegionFromKV(
   if (!wasPresent) return;
 
   const remaining = regions.filter(r => r !== failedRegion);
-  const deduplicated = [...new Set(remaining)];
-  const namedRemaining = deduplicated.filter(r => !isMetaRegion(r));
+  const namedRemaining = remaining.filter(r => !isMetaRegion(r));
 
   let newKvValue: string;
   let revertedToMeta: boolean;
 
   if (namedRemaining.length > 1) {
-    newKvValue = deduplicated.join(',');
+    newKvValue = remaining.join(',');
     revertedToMeta = false;
   } else {
-    const lastRegion = namedRemaining[0] ?? failedRegion;
-    newKvValue = `${lastRegion},eu,us`;
+    const lastRegion = namedRemaining[0];
+    newKvValue = lastRegion ? `${lastRegion},eu,us` : 'eu,us';
     revertedToMeta = true;
   }
 
