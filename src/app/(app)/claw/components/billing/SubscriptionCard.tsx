@@ -6,8 +6,14 @@ import { ExternalLink, CreditCard, Coins } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/lib/trpc/utils';
 import { Button } from '@/components/ui/button';
-import { formatBillingDate, formatMicrodollars } from './billing-types';
-import type { ClawBillingStatus } from './billing-types';
+import {
+  COMMIT_PERIOD_MONTHS,
+  formatBillingDate,
+  formatMicrodollars,
+  PLAN_DISPLAY,
+  planLabel,
+  type ClawBillingStatus,
+} from './billing-types';
 
 type SubscriptionCardProps = {
   billing: ClawBillingStatus;
@@ -61,8 +67,10 @@ function ActiveSubscriptionCard({
   if (!sub) return null;
 
   const isCommit = sub.plan === 'commit';
-  const planLabel = isCommit ? 'Commit ($8/mo)' : 'Standard ($9/mo)';
-  const otherPlan = isCommit ? 'Standard ($9/mo)' : 'Commit ($8/mo · 6-mo term)';
+  const currentPlanLabel = planLabel(sub.plan);
+  const otherPlanLabel = isCommit
+    ? `Standard ($${PLAN_DISPLAY.standard.monthlyDollars}/mo)`
+    : `Commit ($${PLAN_DISPLAY.commit.monthlyDollars}/mo · ${COMMIT_PERIOD_MONTHS}-mo term)`;
 
   const hasUserRequestedSwitch = sub.scheduledBy === 'user';
 
@@ -121,7 +129,7 @@ function ActiveSubscriptionCard({
 
       <div className="text-muted-foreground space-y-1 text-sm">
         <div>
-          <span>Plan:</span> <span className="text-foreground">{planLabel}</span>
+          <span>Plan:</span> <span className="text-foreground">{currentPlanLabel}</span>
         </div>
         <div>
           <span>Status:</span> <span className="text-emerald-400">Active</span>
@@ -132,7 +140,7 @@ function ActiveSubscriptionCard({
               <span>Commit period ends:</span>{' '}
               <span className="text-foreground">{formatBillingDate(sub.commitEndsAt)}</span>
             </div>
-            <div className="text-xs">(Auto-renews for another 6 months)</div>
+            <div className="text-xs">(Auto-renews for another {COMMIT_PERIOD_MONTHS} months)</div>
           </>
         ) : (
           <div>
@@ -202,7 +210,7 @@ function ActiveSubscriptionCard({
             onClick={handleSwitchPlan}
             disabled={switchPlanMutation.isPending}
           >
-            Switch to {otherPlan}
+            Switch to {otherPlanLabel}
           </Button>
         )}
         <Button variant="outline" size="sm" onClick={onCancelClick}>
@@ -228,8 +236,6 @@ function ConvertingSubscriptionCard({
   const sub = billing.subscription;
   if (!sub) return null;
 
-  const planLabel = sub.plan === 'commit' ? 'Commit ($8/mo)' : 'Standard ($9/mo)';
-
   return (
     <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -245,7 +251,7 @@ function ConvertingSubscriptionCard({
 
       <div className="text-muted-foreground space-y-1 text-sm">
         <div>
-          <span>Plan:</span> <span className="text-foreground">{planLabel}</span>
+          <span>Plan:</span> <span className="text-foreground">{planLabel(sub.plan)}</span>
         </div>
         <div>
           <span>Status:</span>{' '}
@@ -278,8 +284,6 @@ function CancelingSubscriptionCard({
   const sub = billing.subscription;
   if (!sub) return null;
 
-  const planLabel = sub.plan === 'commit' ? 'Commit ($8/mo)' : 'Standard ($9/mo)';
-
   return (
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -292,7 +296,7 @@ function CancelingSubscriptionCard({
 
       <div className="text-muted-foreground space-y-1 text-sm">
         <div>
-          <span>Plan:</span> <span className="text-foreground">{planLabel}</span>
+          <span>Plan:</span> <span className="text-foreground">{planLabel(sub.plan)}</span>
         </div>
         <div>
           <span>Status:</span>{' '}

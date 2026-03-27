@@ -19,6 +19,36 @@ export const PLAN_COST_MICRODOLLARS: Record<ClawPlan, number> = {
   commit: 48_000_000,
 };
 
+export const COMMIT_PERIOD_MONTHS = 6;
+
+// Display prices derived from PLAN_COST_MICRODOLLARS
+export const PLAN_DISPLAY = {
+  commit: {
+    totalDollars: PLAN_COST_MICRODOLLARS.commit / 1_000_000,
+    monthlyDollars: PLAN_COST_MICRODOLLARS.commit / 1_000_000 / COMMIT_PERIOD_MONTHS,
+  },
+  standard: {
+    monthlyDollars: PLAN_COST_MICRODOLLARS.standard / 1_000_000,
+  },
+};
+
+// Must match the Stripe-configured first-month coupon for the standard plan.
+export const STANDARD_FIRST_MONTH_DOLLARS = 4;
+
+/** e.g. "Commit ($8/mo)" or "Standard ($9/mo)" */
+export function planLabel(plan: ClawPlan): string {
+  return plan === 'commit'
+    ? `Commit ($${PLAN_DISPLAY.commit.monthlyDollars}/mo)`
+    : `Standard ($${PLAN_DISPLAY.standard.monthlyDollars}/mo)`;
+}
+
+/** e.g. "$48.00 for 6 months" or "$9.00/month" */
+export function planPriceLabel(plan: ClawPlan): string {
+  return plan === 'commit'
+    ? `$${PLAN_DISPLAY.commit.totalDollars.toFixed(2)} for ${COMMIT_PERIOD_MONTHS} months`
+    : `$${PLAN_DISPLAY.standard.monthlyDollars.toFixed(2)}/month`;
+}
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export type ClawBillingStatus = {

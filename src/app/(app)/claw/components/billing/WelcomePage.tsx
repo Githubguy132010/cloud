@@ -9,7 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useTRPC } from '@/lib/trpc/utils';
-import { formatMicrodollars, PLAN_COST_MICRODOLLARS, type ClawPlan } from './billing-types';
+import {
+  COMMIT_PERIOD_MONTHS,
+  formatMicrodollars,
+  PLAN_COST_MICRODOLLARS,
+  PLAN_DISPLAY,
+  planPriceLabel,
+  STANDARD_FIRST_MONTH_DOLLARS,
+  type ClawPlan,
+} from './billing-types';
 
 type Cadence = 'monthly' | 'yearly';
 type Tier = '19' | '49' | '199';
@@ -181,7 +189,9 @@ function HostingRadioGroup({
           {hostingPlan === 'commit' && <span className="h-2 w-2 rounded-full bg-blue-500" />}
         </span>
         <span className="text-[13px] font-medium">Commit Plan</span>
-        <span className="text-muted-foreground ml-auto text-xs">$8/mo (6 months)</span>
+        <span className="text-muted-foreground ml-auto text-xs">
+          ${PLAN_DISPLAY.commit.monthlyDollars}/mo ({COMMIT_PERIOD_MONTHS} months)
+        </span>
       </button>
 
       <button
@@ -203,12 +213,15 @@ function HostingRadioGroup({
           {hostingPlan === 'standard' && <span className="h-2 w-2 rounded-full bg-blue-500" />}
         </span>
         <span className="text-[13px] font-medium">Standard Plan</span>
-        <span className="text-muted-foreground ml-auto text-xs">$9/mo (monthly)</span>
+        <span className="text-muted-foreground ml-auto text-xs">
+          ${PLAN_DISPLAY.standard.monthlyDollars}/mo (monthly)
+        </span>
       </button>
 
       {commitDisabled && (
         <p className="text-muted-foreground mt-1 pl-0.5 text-[11px]">
-          Commit plan requires $48 in credits. Available with Pro, Expert, or any yearly tier.
+          Commit plan requires ${PLAN_DISPLAY.commit.totalDollars} in credits. Available with Pro,
+          Expert, or any yearly tier.
         </p>
       )}
     </div>
@@ -237,13 +250,17 @@ function HostingOnlyPlanCard({
     >
       <div className="text-sm font-semibold">{isCommit ? 'Commit' : 'Standard'}</div>
       <div className="mt-1 text-[22px] font-bold">
-        {isCommit ? '$8' : '$9'}
+        ${isCommit ? PLAN_DISPLAY.commit.monthlyDollars : PLAN_DISPLAY.standard.monthlyDollars}
         <span className="text-muted-foreground text-xs font-normal">/mo</span>
       </div>
       {isCommit ? (
-        <div className="text-muted-foreground mt-0.5 text-[11px]">$48 billed every 6 months</div>
+        <div className="text-muted-foreground mt-0.5 text-[11px]">
+          ${PLAN_DISPLAY.commit.totalDollars} billed every {COMMIT_PERIOD_MONTHS} months
+        </div>
       ) : (
-        <div className="mt-0.5 text-[11px] font-medium text-emerald-400">$4 first month</div>
+        <div className="mt-0.5 text-[11px] font-medium text-emerald-400">
+          ${STANDARD_FIRST_MONTH_DOLLARS} first month
+        </div>
       )}
     </button>
   );
@@ -305,7 +322,7 @@ function CreditEnrollmentBanner({
   const hasSufficientBalance = creditBalanceMicrodollars >= planCost;
   const shortfall = planCost - creditBalanceMicrodollars;
   const planLabel = selectedPlan === 'commit' ? 'Commit' : 'Standard';
-  const planPriceLabel = selectedPlan === 'commit' ? '$48.00 for 6 months' : '$9.00/month';
+  const priceLabel = planPriceLabel(selectedPlan);
 
   if (hasSufficientBalance) {
     return (
@@ -315,7 +332,7 @@ function CreditEnrollmentBanner({
           <span className="text-sm font-semibold text-emerald-300">Pay with credits</span>
         </div>
         <p className="text-muted-foreground mb-1 text-sm">
-          {planLabel} Plan — {planPriceLabel} from your credit balance
+          {planLabel} Plan — {priceLabel} from your credit balance
         </p>
         <p className="mb-3 text-xs text-emerald-400/80">
           Balance: {formatMicrodollars(creditBalanceMicrodollars)}
@@ -475,7 +492,7 @@ export function WelcomePage() {
     : 'Select a tier and hosting plan';
 
   const hostingOnlyLabel = hostingOnlyPlan
-    ? `Subscribe to ${hostingOnlyPlan === 'commit' ? 'Commit' : 'Standard'} Plan – ${hostingOnlyPlan === 'commit' ? '$48' : '$9'}`
+    ? `Subscribe to ${hostingOnlyPlan === 'commit' ? 'Commit' : 'Standard'} Plan – $${hostingOnlyPlan === 'commit' ? PLAN_DISPLAY.commit.totalDollars : PLAN_DISPLAY.standard.monthlyDollars}`
     : 'Select a plan above';
 
   return (
