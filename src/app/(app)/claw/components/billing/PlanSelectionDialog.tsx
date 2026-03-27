@@ -255,12 +255,15 @@ function HostingOnlyPlanCard({
   plan,
   isSelected,
   onSelect,
+  creditIntroEligible,
 }: {
   plan: ClawPlan;
   isSelected: boolean;
   onSelect: () => void;
+  creditIntroEligible: boolean;
 }) {
   const isCommit = plan === 'commit';
+  const showIntro = !isCommit && creditIntroEligible;
 
   return (
     <button
@@ -280,10 +283,12 @@ function HostingOnlyPlanCard({
         <div className="text-muted-foreground mt-0.5 text-[11px]">
           ${PLAN_DISPLAY.commit.totalDollars} billed every {COMMIT_PERIOD_MONTHS} months
         </div>
-      ) : (
+      ) : showIntro ? (
         <div className="mt-0.5 text-[11px] font-medium text-emerald-400">
           ${STANDARD_FIRST_MONTH_DOLLARS} first month
         </div>
+      ) : (
+        <div className="text-muted-foreground mt-0.5 text-[11px]">Billed monthly</div>
       )}
     </button>
   );
@@ -645,11 +650,13 @@ export function PlanSelectionDialog({ open, onOpenChange }: PlanSelectionDialogP
                 plan="commit"
                 isSelected={hostingOnlyPlan === 'commit'}
                 onSelect={() => handleHostingOnlySelect('commit')}
+                creditIntroEligible={creditIntroEligible}
               />
               <HostingOnlyPlanCard
                 plan="standard"
                 isSelected={hostingOnlyPlan === 'standard'}
                 onSelect={() => handleHostingOnlySelect('standard')}
+                creditIntroEligible={creditIntroEligible}
               />
             </div>
 

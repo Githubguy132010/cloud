@@ -30,7 +30,7 @@ import {
   kiloclaw_instances,
   kiloclaw_email_log,
 } from '@kilocode/db/schema';
-import { and, eq, desc, isNotNull, isNull, inArray, sql } from 'drizzle-orm';
+import { and, eq, ne, desc, isNotNull, isNull, inArray, sql } from 'drizzle-orm';
 import { sentryLogger } from '@/lib/utils.server';
 import type { KiloClawDashboardStatus, KiloCodeConfigResponse } from '@/lib/kiloclaw/types';
 import {
@@ -137,6 +137,25 @@ function getKiloClawApiErrorPayload(err: KiloClawApiError): { message?: string; 
   } catch {
     return {};
   }
+}
+
+/**
+ * True when the user has ever had a paid (non-trial) subscription that is now
+ * canceled. Used to gate intro pricing eligibility (spec Credit Enrollment rule 3).
+ */
+async function hadPriorPaidSubscription(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: kiloclaw_subscriptions.id })
+    .from(kiloclaw_subscriptions)
+    .where(
+      and(
+        eq(kiloclaw_subscriptions.user_id, userId),
+        eq(kiloclaw_subscriptions.status, 'canceled'),
+        ne(kiloclaw_subscriptions.plan, 'trial')
+      )
+    )
+    .limit(1);
+  return !!row;
 }
 
 const kilocodeDefaultModelSchema = z
@@ -1423,10 +1442,8 @@ export const kiloclawRouter = createTRPCRouter({
     const creditBalanceMicrodollars =
       ctx.user.total_microdollars_acquired - ctx.user.microdollars_used;
 
-    // First-month credit discount eligibility: true when no prior paid
-    // (non-trial) subscription exists. Mirrors Stripe checkout logic
-    // (see spec Credit Enrollment rule 3).
-    const creditIntroEligible = !sub || sub.plan === 'trial' || sub.status === 'trialing';
+    // First-month credit discount eligibility (spec Credit Enrollment rule 3).
+    const creditIntroEligible = !(await hadPriorPaidSubscription(ctx.user.id));
 
     return {
       hasAccess,
@@ -1488,10 +1505,8 @@ export const kiloclawRouter = createTRPCRouter({
         staleKiloClawSessions.map(s => stripe.checkout.sessions.expire(s.id).catch(() => {}))
       );
 
-      // New standard subscribers get the intro price; returning subscribers who
-      // previously had a paid subscription get the regular price. A canceled trial
-      // (plan === 'trial') does not count as a prior paid subscription.
-      const hadPaidSubscription = existing?.status === 'canceled' && existing.plan !== 'trial';
+      // Intro pricing eligibility (spec Credit Enrollment rule 3).
+      const hadPaidSubscription = await hadPriorPaidSubscription(ctx.user.id);
       const priceId =
         input.plan === 'standard' && !hadPaidSubscription
           ? getStripePriceIdForClawPlanIntro('standard')
@@ -1544,18 +1559,8 @@ export const kiloclawRouter = createTRPCRouter({
         });
       }
 
-      // Determine first-month discount eligibility (spec Credit Enrollment rule 3).
-      // Same logic as Stripe checkout: a canceled trial doesn't count as paid.
-      const [existing] = await db
-        .select({
-          status: kiloclaw_subscriptions.status,
-          plan: kiloclaw_subscriptions.plan,
-        })
-        .from(kiloclaw_subscriptions)
-        .where(eq(kiloclaw_subscriptions.instance_id, instance.id))
-        .limit(1);
-
-      const hadPaidSubscription = existing?.status === 'canceled' && existing.plan !== 'trial';
+      // Intro pricing eligibility (spec Credit Enrollment rule 3).
+      const hadPaidSubscription = await hadPriorPaidSubscription(ctx.user.id);
 
       await enrollWithCreditsImpl({
         userId: ctx.user.id,
