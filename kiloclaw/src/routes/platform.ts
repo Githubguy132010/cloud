@@ -127,12 +127,19 @@ function instanceStubFactory(env: AppEnv['Bindings'], userId: string, instanceId
   return () => env.KILOCLAW_INSTANCE.get(env.KILOCLAW_INSTANCE.idFromName(doKey));
 }
 
-/** Parse optional ?instanceId= query param, returning undefined if absent or invalid. */
-function parseInstanceIdQuery(c: Context<AppEnv>): string | undefined {
+/** Parse and validate optional ?instanceId= query param. Returns 400 on invalid format. */
+function parseInstanceIdQuery(
+  c: Context<AppEnv>
+): { instanceId: string | undefined } | { error: Response } {
   const raw = c.req.query('instanceId');
-  if (!raw) return undefined;
+  if (!raw) return { instanceId: undefined };
   const result = InstanceIdParam.safeParse(raw);
-  return result.success ? result.data : undefined;
+  if (!result.success) {
+    return {
+      error: c.json({ error: 'Invalid instance ID' }, 400) as unknown as Response,
+    };
+  }
+  return { instanceId: result.data };
 }
 
 function statusCodeFromError(err: unknown): number {
@@ -964,7 +971,9 @@ platform.post('/start', async c => {
   if ('error' in result) return result.error;
   const startedAt = performance.now();
 
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   try {
     const options = result.data.skipCooldown ? { skipCooldown: true } : undefined;
@@ -1036,7 +1045,9 @@ platform.post('/stop', async c => {
   const result = await parseBody(c, UserIdRequestSchema);
   if ('error' in result) return result.error;
 
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   try {
     await withDORetry(
@@ -1056,7 +1067,9 @@ platform.post('/destroy', async c => {
   const result = await parseBody(c, DestroyRequestSchema);
   if ('error' in result) return result.error;
 
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   try {
     await withDORetry(
@@ -1077,7 +1090,9 @@ platform.get('/status', async c => {
   if (!userId) {
     return c.json({ error: 'userId query parameter is required' }, 400);
   }
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   try {
     const status = await withDORetry(
@@ -1098,7 +1113,9 @@ platform.get('/stream-chat-credentials', async c => {
   if (!userId) {
     return c.json({ error: 'userId query parameter is required' }, 400);
   }
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   try {
     const creds = await withDORetry(
@@ -1120,7 +1137,9 @@ platform.get('/debug-status', async c => {
   if (!userId) {
     return c.json({ error: 'userId query parameter is required' }, 400);
   }
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   try {
     const status = await withDORetry(
@@ -1143,7 +1162,9 @@ platform.get('/gateway-token', async c => {
   if (!userId) {
     return c.json({ error: 'userId query parameter is required' }, 400);
   }
-  const instanceId = parseInstanceIdQuery(c);
+  const iidResult = parseInstanceIdQuery(c);
+  if ('error' in iidResult) return iidResult.error;
+  const { instanceId } = iidResult;
 
   if (!c.env.GATEWAY_TOKEN_SECRET) {
     return c.json({ error: 'GATEWAY_TOKEN_SECRET is not configured' }, 503);
