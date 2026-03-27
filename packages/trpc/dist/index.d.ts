@@ -89,8 +89,8 @@ declare const KiloClawSubscriptionStatus: {
 type KiloClawSubscriptionStatus = (typeof KiloClawSubscriptionStatus)[keyof typeof KiloClawSubscriptionStatus];
 type OrganizationRole = 'owner' | 'member' | 'billing_manager';
 declare const OrganizationPlanSchema: z.ZodEnum<{
-    teams: "teams";
     enterprise: "enterprise";
+    teams: "teams";
 }>;
 type OrganizationPlan = z.infer<typeof OrganizationPlanSchema>;
 type AuthProviderId = 'email' | 'google' | 'github' | 'gitlab' | 'linkedin' | 'discord' | 'fake-login' | 'workos';
@@ -102,12 +102,12 @@ type PlatformRepository = {
     private: boolean;
 };
 declare const buildStatusSchema: z.ZodEnum<{
+    building: "building";
+    cancelled: "cancelled";
+    deployed: "deployed";
+    deploying: "deploying";
     failed: "failed";
     queued: "queued";
-    building: "building";
-    deploying: "deploying";
-    deployed: "deployed";
-    cancelled: "cancelled";
 }>;
 type BuildStatus = z.infer<typeof buildStatusSchema>;
 declare const DependabotAlertState: {
@@ -873,7 +873,7 @@ declare const organizations: drizzle_orm_pg_core.PgTableWithColumns<{
                 minimum_balance_alert_email?: string[] | undefined;
                 suppress_trial_messaging?: boolean | undefined;
                 oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                github_app_type?: "standard" | "lite" | null | undefined;
+                github_app_type?: "lite" | "standard" | null | undefined;
                 oss_monthly_credit_amount_microdollars?: number | null | undefined;
                 oss_credits_last_reset_at?: string | null | undefined;
                 oss_github_url?: string | null | undefined;
@@ -903,7 +903,7 @@ declare const organizations: drizzle_orm_pg_core.PgTableWithColumns<{
                 minimum_balance_alert_email?: string[] | undefined;
                 suppress_trial_messaging?: boolean | undefined;
                 oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                github_app_type?: "standard" | "lite" | null | undefined;
+                github_app_type?: "lite" | "standard" | null | undefined;
                 oss_monthly_credit_amount_microdollars?: number | null | undefined;
                 oss_credits_last_reset_at?: string | null | undefined;
                 oss_github_url?: string | null | undefined;
@@ -999,7 +999,7 @@ declare const organizations: drizzle_orm_pg_core.PgTableWithColumns<{
             tableName: "organizations";
             dataType: "string";
             columnType: "PgText";
-            data: "teams" | "enterprise";
+            data: "enterprise" | "teams";
             driverParam: string;
             notNull: true;
             hasDefault: true;
@@ -1011,7 +1011,7 @@ declare const organizations: drizzle_orm_pg_core.PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: "teams" | "enterprise";
+            $type: "enterprise" | "teams";
         }>;
         free_trial_end_at: drizzle_orm_pg_core.PgColumn<{
             name: "free_trial_end_at";
@@ -2090,7 +2090,7 @@ declare const auto_triage_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             tableName: "auto_triage_tickets";
             dataType: "string";
             columnType: "PgText";
-            data: "feature" | "bug" | "question" | "duplicate" | "unclear";
+            data: "bug" | "duplicate" | "feature" | "question" | "unclear";
             driverParam: string;
             notNull: false;
             hasDefault: false;
@@ -2102,7 +2102,7 @@ declare const auto_triage_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: "feature" | "bug" | "question" | "duplicate" | "unclear";
+            $type: "bug" | "duplicate" | "feature" | "question" | "unclear";
         }>;
         confidence: drizzle_orm_pg_core.PgColumn<{
             name: "confidence";
@@ -2288,7 +2288,7 @@ declare const auto_triage_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             tableName: "auto_triage_tickets";
             dataType: "string";
             columnType: "PgText";
-            data: "failed" | "pending" | "analyzing" | "actioned" | "skipped";
+            data: "actioned" | "analyzing" | "failed" | "pending" | "skipped";
             driverParam: string;
             notNull: true;
             hasDefault: true;
@@ -2300,14 +2300,14 @@ declare const auto_triage_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: "failed" | "pending" | "analyzing" | "actioned" | "skipped";
+            $type: "actioned" | "analyzing" | "failed" | "pending" | "skipped";
         }>;
         action_taken: drizzle_orm_pg_core.PgColumn<{
             name: "action_taken";
             tableName: "auto_triage_tickets";
             dataType: "string";
             columnType: "PgText";
-            data: "pr_created" | "comment_posted" | "closed_duplicate" | "needs_clarification";
+            data: "closed_duplicate" | "comment_posted" | "needs_clarification" | "pr_created";
             driverParam: string;
             notNull: false;
             hasDefault: false;
@@ -2319,7 +2319,7 @@ declare const auto_triage_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: "pr_created" | "comment_posted" | "closed_duplicate" | "needs_clarification";
+            $type: "closed_duplicate" | "comment_posted" | "needs_clarification" | "pr_created";
         }>;
         action_metadata: drizzle_orm_pg_core.PgColumn<{
             name: "action_metadata";
@@ -2804,7 +2804,7 @@ declare const auto_fix_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             tableName: "auto_fix_tickets";
             dataType: "string";
             columnType: "PgText";
-            data: "feature" | "bug" | "question" | "unclear";
+            data: "bug" | "feature" | "question" | "unclear";
             driverParam: string;
             notNull: false;
             hasDefault: false;
@@ -2816,7 +2816,7 @@ declare const auto_fix_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: "feature" | "bug" | "question" | "unclear";
+            $type: "bug" | "feature" | "question" | "unclear";
         }>;
         confidence: drizzle_orm_pg_core.PgColumn<{
             name: "confidence";
@@ -2985,7 +2985,7 @@ declare const auto_fix_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             tableName: "auto_fix_tickets";
             dataType: "string";
             columnType: "PgText";
-            data: "failed" | "completed" | "cancelled" | "pending" | "running";
+            data: "cancelled" | "completed" | "failed" | "pending" | "running";
             driverParam: string;
             notNull: true;
             hasDefault: true;
@@ -2997,7 +2997,7 @@ declare const auto_fix_tickets: drizzle_orm_pg_core.PgTableWithColumns<{
             identity: undefined;
             generated: undefined;
         }, {}, {
-            $type: "failed" | "completed" | "cancelled" | "pending" | "running";
+            $type: "cancelled" | "completed" | "failed" | "pending" | "running";
         }>;
         error_message: drizzle_orm_pg_core.PgColumn<{
             name: "error_message";
@@ -3278,11 +3278,16 @@ type MachineSize = {
     memory_mb: number;
     cpu_kind?: 'shared' | 'performance';
 };
+/** Response from POST /api/platform/restore-volume-snapshot */
+type RestoreVolumeSnapshotResponse = {
+    acknowledged: boolean;
+    previousVolumeId: string;
+};
 /** Response from GET /api/platform/status and GET /api/kiloclaw/status */
 type PlatformStatusResponse = {
     userId: string | null;
     sandboxId: string | null;
-    status: 'provisioned' | 'starting' | 'restarting' | 'running' | 'stopped' | 'destroying' | null;
+    status: 'provisioned' | 'starting' | 'restarting' | 'running' | 'stopped' | 'destroying' | 'restoring' | null;
     provisionedAt: number | null;
     lastStartedAt: number | null;
     lastStoppedAt: number | null;
@@ -3317,6 +3322,10 @@ type PlatformDebugStatusResponse = PlatformStatusResponse & {
     lastDestroyErrorAt: number | null;
     lastRestartErrorMessage: string | null;
     lastRestartErrorAt: number | null;
+    previousVolumeId: string | null;
+    restoreStartedAt: string | null;
+    pendingRestoreVolumeId: string | null;
+    instanceReadyEmailSent: boolean;
 };
 /** A Fly volume snapshot. */
 type VolumeSnapshot = {
@@ -3647,8 +3656,8 @@ declare const OrganizationSchema: z.ZodObject<{
         suppress_trial_messaging: z.ZodOptional<z.ZodBoolean>;
         oss_sponsorship_tier: z.ZodOptional<z.ZodNullable<z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
         github_app_type: z.ZodOptional<z.ZodNullable<z.ZodEnum<{
-            standard: "standard";
             lite: "lite";
+            standard: "standard";
         }>>>;
         oss_monthly_credit_amount_microdollars: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         oss_credits_last_reset_at: z.ZodOptional<z.ZodNullable<z.ZodString>>;
@@ -3660,8 +3669,8 @@ declare const OrganizationSchema: z.ZodObject<{
     deleted_at: z.ZodNullable<z.ZodString>;
     sso_domain: z.ZodNullable<z.ZodString>;
     plan: z.ZodEnum<{
-        teams: "teams";
         enterprise: "enterprise";
+        teams: "teams";
     }>;
     free_trial_end_at: z.ZodNullable<z.ZodString>;
     company_domain: z.ZodNullable<z.ZodString>;
@@ -4053,19 +4062,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
     ctx: TRPCContext;
     meta: object;
     errorShape: {
+        message: string;
+        code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         data: {
+            code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+            httpStatus: number;
+            path?: string | undefined;
+            stack?: string | undefined;
             zodError: {
                 formErrors: string[];
                 fieldErrors: {};
             } | null;
             upstreamCode: string | undefined;
-            code: _trpc_server.TRPC_ERROR_CODE_KEY;
-            httpStatus: number;
-            path?: string;
-            stack?: string;
         };
-        message: string;
-        code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
     };
     transformer: false;
 }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4073,19 +4082,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4110,19 +4119,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4130,19 +4139,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4150,7 +4159,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     organizationId: string;
                     memberId: string;
-                    role?: "owner" | "member" | "billing_manager" | undefined;
+                    role?: "billing_manager" | "member" | "owner" | undefined;
                     dailyUsageLimitUsd?: number | null | undefined;
                 };
                 output: SuccessResult<{
@@ -4172,7 +4181,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     organizationId: string;
                     email: string;
-                    role: "owner" | "member" | "billing_manager";
+                    role: "billing_manager" | "member" | "owner";
                 };
                 output: {
                     acceptInviteUrl: string;
@@ -4194,19 +4203,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4235,7 +4244,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     seats: number;
                     cancelUrl: string;
-                    plan?: "teams" | "enterprise" | undefined;
+                    plan?: "enterprise" | "teams" | undefined;
                 };
                 output: {
                     url: string | null;
@@ -4290,19 +4299,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4312,6 +4321,28 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     data: {
+                        preferredIndex?: number | undefined;
+                        isFree?: boolean | undefined;
+                        settings?: {
+                            included_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_and_replace" | "search_replace" | "write_file" | "write_to_file")[];
+                            excluded_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_and_replace" | "search_replace" | "write_file" | "write_to_file")[];
+                        } | undefined;
+                        versioned_settings?: Record<string, {
+                            included_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_and_replace" | "search_replace" | "write_file" | "write_to_file")[];
+                            excluded_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_and_replace" | "search_replace" | "write_file" | "write_to_file")[];
+                        }> | undefined;
+                        opencode?: {
+                            ai_sdk_provider?: "anthropic" | "openai" | "openai-compatible" | "openrouter" | undefined;
+                            family?: "claude" | "gemini" | "gpt" | "llama" | "mistral" | undefined;
+                            prompt?: "anthropic" | "anthropic_without_todo" | "beast" | "codex" | "gemini" | "trinity" | undefined;
+                            variants?: Record<string, {
+                                verbosity?: "high" | "low" | "max" | "medium" | undefined;
+                                reasoning?: {
+                                    enabled?: boolean | undefined;
+                                    effort?: "high" | "low" | "medium" | "none" | "xhigh" | undefined;
+                                } | undefined;
+                            }> | undefined;
+                        } | undefined;
                         id: string;
                         name: string;
                         created: number;
@@ -4337,28 +4368,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             internal_reasoning?: string | undefined;
                         };
                         context_length: number;
-                        preferredIndex?: number | undefined;
-                        isFree?: boolean | undefined;
-                        settings?: {
-                            included_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_replace" | "search_and_replace" | "write_file" | "write_to_file")[];
-                            excluded_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_replace" | "search_and_replace" | "write_file" | "write_to_file")[];
-                        } | undefined;
-                        versioned_settings?: Record<string, {
-                            included_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_replace" | "search_and_replace" | "write_file" | "write_to_file")[];
-                            excluded_tools: ("apply_diff" | "apply_patch" | "delete_file" | "edit_file" | "search_replace" | "search_and_replace" | "write_file" | "write_to_file")[];
-                        }> | undefined;
-                        opencode?: {
-                            ai_sdk_provider?: "anthropic" | "openai" | "openai-compatible" | "openrouter" | undefined;
-                            family?: "gemini" | "claude" | "gpt" | "llama" | "mistral" | undefined;
-                            prompt?: "codex" | "gemini" | "beast" | "anthropic" | "trinity" | "anthropic_without_todo" | undefined;
-                            variants?: Record<string, {
-                                verbosity?: "high" | "medium" | "low" | "max" | undefined;
-                                reasoning?: {
-                                    enabled?: boolean | undefined;
-                                    effort?: "high" | "medium" | "low" | "none" | "xhigh" | undefined;
-                                } | undefined;
-                            }> | undefined;
-                        } | undefined;
                         per_request_limits?: Record<string, unknown> | null | undefined;
                         supported_parameters?: string[] | undefined;
                     }[];
@@ -4386,7 +4395,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
@@ -4414,7 +4423,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
@@ -4442,7 +4451,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
@@ -4470,7 +4479,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
@@ -4498,7 +4507,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
@@ -4528,7 +4537,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
@@ -4541,19 +4550,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4582,7 +4591,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             get: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     organizationId: string;
-                    period?: "all" | "year" | "month" | "week" | undefined;
+                    period?: "all" | "month" | "week" | "year" | undefined;
                     userFilter?: "all" | "me" | undefined;
                     groupByModel?: boolean | undefined;
                 };
@@ -4593,12 +4602,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             name: string;
                             email: string;
                         };
+                        model?: string | undefined;
                         microdollarCost: string | null;
                         tokenCount: number;
                         inputTokens: number;
                         outputTokens: number;
                         requestCount: number;
-                        model?: string | undefined;
                     }[];
                 };
                 meta: object;
@@ -4606,7 +4615,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             getAutocomplete: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     organizationId: string;
-                    period?: "all" | "year" | "month" | "week" | undefined;
+                    period?: "all" | "month" | "week" | "year" | undefined;
                 };
                 output: {
                     cost: number;
@@ -4631,19 +4640,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     weeklyTrends: {
                         frequency: {
                             change: number;
-                            trend: "up" | "down" | "neutral";
+                            trend: "down" | "neutral" | "up";
                         };
                         depth: {
                             change: number;
-                            trend: "up" | "down" | "neutral";
+                            trend: "down" | "neutral" | "up";
                         };
                         coverage: {
                             change: number;
-                            trend: "up" | "down" | "neutral";
+                            trend: "down" | "neutral" | "up";
                         };
                         total: {
                             change: number;
-                            trend: "up" | "down" | "neutral";
+                            trend: "down" | "neutral" | "up";
                         };
                     } | null;
                     userScores: {
@@ -4661,19 +4670,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4689,18 +4698,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                 };
                 output: false | {
-                    isDomainVerified: boolean;
-                    hasConnection: boolean;
                     object: "organization";
                     id: string;
                     name: string;
                     allowProfilesOutsideOrganization: boolean;
                     domains: _workos_inc_node.OrganizationDomain[];
-                    stripeCustomerId?: string;
+                    stripeCustomerId?: string | undefined;
                     createdAt: string;
                     updatedAt: string;
                     externalId: string | null;
                     metadata: Record<string, string>;
+                    isDomainVerified: boolean;
+                    hasConnection: boolean;
                 };
                 meta: object;
             }>;
@@ -4716,7 +4725,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             generateAdminPortalLink: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    linkType: "sso" | "domain-verification";
+                    linkType: "domain-verification" | "sso";
                 };
                 output: {
                     link: string;
@@ -4747,19 +4756,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4768,7 +4777,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     before?: string | undefined;
                     after?: string | undefined;
-                    action?: ("organization.user.login" | "organization.user.logout" | "organization.user.accept_invite" | "organization.user.send_invite" | "organization.user.revoke_invite" | "organization.settings.change" | "organization.purchase_credits" | "organization.promo_credit_granted" | "organization.member.remove" | "organization.member.change_role" | "organization.sso.auto_provision" | "organization.sso.set_domain" | "organization.sso.remove_domain" | "organization.mode.create" | "organization.mode.update" | "organization.mode.delete" | "organization.created" | "organization.token.generate")[] | undefined;
+                    action?: ("organization.created" | "organization.member.change_role" | "organization.member.remove" | "organization.mode.create" | "organization.mode.delete" | "organization.mode.update" | "organization.promo_credit_granted" | "organization.purchase_credits" | "organization.settings.change" | "organization.sso.auto_provision" | "organization.sso.remove_domain" | "organization.sso.set_domain" | "organization.token.generate" | "organization.user.accept_invite" | "organization.user.login" | "organization.user.logout" | "organization.user.revoke_invite" | "organization.user.send_invite")[] | undefined;
                     actorEmail?: string | undefined;
                     fuzzySearch?: string | undefined;
                     startTime?: string | undefined;
@@ -4795,7 +4804,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     organizationId: string;
                 };
-                output: ("organization.user.login" | "organization.user.logout" | "organization.user.accept_invite" | "organization.user.send_invite" | "organization.user.revoke_invite" | "organization.settings.change" | "organization.purchase_credits" | "organization.promo_credit_granted" | "organization.member.remove" | "organization.member.change_role" | "organization.sso.auto_provision" | "organization.sso.set_domain" | "organization.sso.remove_domain" | "organization.mode.create" | "organization.mode.update" | "organization.mode.delete" | "organization.created" | "organization.token.generate")[];
+                output: ("organization.created" | "organization.member.change_role" | "organization.member.remove" | "organization.mode.create" | "organization.mode.delete" | "organization.mode.update" | "organization.promo_credit_granted" | "organization.purchase_credits" | "organization.settings.change" | "organization.sso.auto_provision" | "organization.sso.remove_domain" | "organization.sso.set_domain" | "organization.token.generate" | "organization.user.accept_invite" | "organization.user.login" | "organization.user.logout" | "organization.user.revoke_invite" | "organization.user.send_invite")[];
                 meta: object;
             }>;
             getSummary: _trpc_server.TRPCQueryProcedure<{
@@ -4814,19 +4823,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -4836,17 +4845,20 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     organization: {
-                        id: string;
-                        name: string;
-                        updated_at: string;
-                        created_at: string;
-                        microdollars_used: number;
-                        stripe_customer_id: string | null;
-                        total_microdollars_acquired: number;
-                        next_credit_expiration_at: string | null;
                         auto_top_up_enabled: boolean;
+                        company_domain: string | null;
+                        created_at: string;
+                        created_by_kilo_user_id: string | null;
                         deleted_at: string | null;
+                        free_trial_end_at: string | null;
+                        id: string;
                         microdollars_balance: number;
+                        microdollars_used: number;
+                        name: string;
+                        next_credit_expiration_at: string | null;
+                        plan: "enterprise" | "teams";
+                        require_seats: boolean;
+                        seat_count: number;
                         settings: {
                             model_allow_list?: string[] | undefined;
                             provider_allow_list?: string[] | undefined;
@@ -4861,18 +4873,15 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             minimum_balance_alert_email?: string[] | undefined;
                             suppress_trial_messaging?: boolean | undefined;
                             oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                            github_app_type?: "standard" | "lite" | null | undefined;
+                            github_app_type?: "lite" | "standard" | null | undefined;
                             oss_monthly_credit_amount_microdollars?: number | null | undefined;
                             oss_credits_last_reset_at?: string | null | undefined;
                             oss_github_url?: string | null | undefined;
                         };
-                        seat_count: number;
-                        require_seats: boolean;
-                        created_by_kilo_user_id: string | null;
                         sso_domain: string | null;
-                        plan: "teams" | "enterprise";
-                        free_trial_end_at: string | null;
-                        company_domain: string | null;
+                        stripe_customer_id: string | null;
+                        total_microdollars_acquired: number;
+                        updated_at: string;
                     };
                 };
                 meta: object;
@@ -4967,7 +4976,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     organizationId: string;
                     userId: string;
-                    role: "owner" | "member" | "billing_manager";
+                    role: "billing_manager" | "member" | "owner";
                 };
                 output: {
                     success: true;
@@ -4987,13 +4996,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     page?: number | undefined;
                     limit?: number | undefined;
-                    sortBy?: "name" | "created_at" | "microdollars_used" | "balance" | "member_count" | undefined;
+                    sortBy?: "balance" | "created_at" | "member_count" | "microdollars_used" | "name" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                     search?: string | undefined;
-                    seatsRequired?: "" | "true" | "false" | undefined;
-                    hasBalance?: "" | "true" | "false" | undefined;
-                    status?: "active" | "all" | "incomplete" | "deleted" | undefined;
-                    plan?: "" | "teams" | "enterprise" | undefined;
+                    seatsRequired?: "" | "false" | "true" | undefined;
+                    hasBalance?: "" | "false" | "true" | undefined;
+                    status?: "active" | "all" | "deleted" | "incomplete" | undefined;
+                    plan?: "" | "enterprise" | "teams" | undefined;
                 };
                 output: {
                     organizations: {
@@ -5020,7 +5029,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             minimum_balance_alert_email?: string[] | undefined;
                             suppress_trial_messaging?: boolean | undefined;
                             oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                            github_app_type?: "standard" | "lite" | null | undefined;
+                            github_app_type?: "lite" | "standard" | null | undefined;
                             oss_monthly_credit_amount_microdollars?: number | null | undefined;
                             oss_credits_last_reset_at?: string | null | undefined;
                             oss_github_url?: string | null | undefined;
@@ -5030,7 +5039,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         created_by_kilo_user_id: string | null;
                         deleted_at: string | null;
                         sso_domain: string | null;
-                        plan: "teams" | "enterprise";
+                        plan: "enterprise" | "teams";
                         free_trial_end_at: string | null;
                         company_domain: string | null;
                         member_count: number;
@@ -5063,19 +5072,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -5089,7 +5098,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         whenToUse?: string | undefined;
                         description?: string | undefined;
                         customInstructions?: string | undefined;
-                        groups?: ("read" | "edit" | "browser" | "command" | "mcp" | ["edit", {
+                        groups?: ("browser" | "command" | "edit" | "mcp" | "read" | ["edit", {
                             fileRegex: string;
                             description?: string | undefined;
                         }])[] | undefined;
@@ -5097,23 +5106,23 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     mode: {
-                        id: string;
-                        name: string;
-                        slug: string;
-                        updated_at: string;
-                        created_at: string;
-                        organization_id: string;
-                        created_by: string;
                         config: Partial<{
                             roleDefinition: string;
-                            groups: ("read" | "edit" | "browser" | "command" | "mcp" | ["edit", {
-                                fileRegex: string;
-                                description?: string | undefined;
-                            }])[];
                             whenToUse?: string | undefined;
                             description?: string | undefined;
                             customInstructions?: string | undefined;
+                            groups: ("browser" | "command" | "edit" | "mcp" | "read" | ["edit", {
+                                fileRegex: string;
+                                description?: string | undefined;
+                            }])[];
                         }>;
+                        created_at: string;
+                        created_by: string;
+                        id: string;
+                        name: string;
+                        organization_id: string;
+                        slug: string;
+                        updated_at: string;
                     };
                 };
                 meta: object;
@@ -5124,23 +5133,23 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     modes: {
-                        id: string;
-                        name: string;
-                        slug: string;
-                        updated_at: string;
-                        created_at: string;
-                        organization_id: string;
-                        created_by: string;
                         config: Partial<{
                             roleDefinition: string;
-                            groups: ("read" | "edit" | "browser" | "command" | "mcp" | ["edit", {
-                                fileRegex: string;
-                                description?: string | undefined;
-                            }])[];
                             whenToUse?: string | undefined;
                             description?: string | undefined;
                             customInstructions?: string | undefined;
+                            groups: ("browser" | "command" | "edit" | "mcp" | "read" | ["edit", {
+                                fileRegex: string;
+                                description?: string | undefined;
+                            }])[];
                         }>;
+                        created_at: string;
+                        created_by: string;
+                        id: string;
+                        name: string;
+                        organization_id: string;
+                        slug: string;
+                        updated_at: string;
                     }[];
                 };
                 meta: object;
@@ -5152,23 +5161,23 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     mode: {
-                        id: string;
-                        name: string;
-                        slug: string;
-                        updated_at: string;
-                        created_at: string;
-                        organization_id: string;
-                        created_by: string;
                         config: Partial<{
                             roleDefinition: string;
-                            groups: ("read" | "edit" | "browser" | "command" | "mcp" | ["edit", {
-                                fileRegex: string;
-                                description?: string | undefined;
-                            }])[];
                             whenToUse?: string | undefined;
                             description?: string | undefined;
                             customInstructions?: string | undefined;
+                            groups: ("browser" | "command" | "edit" | "mcp" | "read" | ["edit", {
+                                fileRegex: string;
+                                description?: string | undefined;
+                            }])[];
                         }>;
+                        created_at: string;
+                        created_by: string;
+                        id: string;
+                        name: string;
+                        organization_id: string;
+                        slug: string;
+                        updated_at: string;
                     };
                 };
                 meta: object;
@@ -5184,7 +5193,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         whenToUse?: string | undefined;
                         description?: string | undefined;
                         customInstructions?: string | undefined;
-                        groups?: ("read" | "edit" | "browser" | "command" | "mcp" | ["edit", {
+                        groups?: ("browser" | "command" | "edit" | "mcp" | "read" | ["edit", {
                             fileRegex: string;
                             description?: string | undefined;
                         }])[] | undefined;
@@ -5192,23 +5201,23 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     mode: {
-                        id: string;
-                        name: string;
-                        slug: string;
-                        updated_at: string;
-                        created_at: string;
-                        organization_id: string;
-                        created_by: string;
                         config: Partial<{
                             roleDefinition: string;
-                            groups: ("read" | "edit" | "browser" | "command" | "mcp" | ["edit", {
-                                fileRegex: string;
-                                description?: string | undefined;
-                            }])[];
                             whenToUse?: string | undefined;
                             description?: string | undefined;
                             customInstructions?: string | undefined;
+                            groups: ("browser" | "command" | "edit" | "mcp" | "read" | ["edit", {
+                                fileRegex: string;
+                                description?: string | undefined;
+                            }])[];
                         }>;
+                        created_at: string;
+                        created_by: string;
+                        id: string;
+                        name: string;
+                        organization_id: string;
+                        slug: string;
+                        updated_at: string;
                     };
                 };
                 meta: object;
@@ -5228,19 +5237,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -5271,18 +5280,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             branch: string;
                             deployment_url: string;
                             platform_integration_id: string | null;
-                            source_type: "github" | "git" | "app-builder";
+                            source_type: "app-builder" | "git" | "github";
                             git_auth_token: string | null;
                             created_at: string;
                             last_deployed_at: string | null;
                             last_build_id: string;
-                            threat_status: "pending_scan" | "safe" | "flagged" | null;
+                            threat_status: "flagged" | "pending_scan" | "safe" | null;
                             created_from: "app-builder" | "deploy" | null;
                         };
                         latestBuild: {
                             id: string;
                             deployment_id: string;
-                            status: "failed" | "queued" | "building" | "deploying" | "deployed" | "cancelled";
+                            status: "building" | "cancelled" | "deployed" | "deploying" | "failed" | "queued";
                             started_at: string | null;
                             completed_at: string | null;
                             created_at: string;
@@ -5310,18 +5319,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         branch: string;
                         deployment_url: string;
                         platform_integration_id: string | null;
-                        source_type: "github" | "git" | "app-builder";
+                        source_type: "app-builder" | "git" | "github";
                         git_auth_token: string | null;
                         created_at: string;
                         last_deployed_at: string | null;
                         last_build_id: string;
-                        threat_status: "pending_scan" | "safe" | "flagged" | null;
+                        threat_status: "flagged" | "pending_scan" | "safe" | null;
                         created_from: "app-builder" | "deploy" | null;
                     };
                     latestBuild: {
                         id: string;
                         deployment_id: string;
-                        status: "failed" | "queued" | "building" | "deploying" | "deployed" | "cancelled";
+                        status: "building" | "cancelled" | "deployed" | "deploying" | "failed" | "queued";
                         started_at: string | null;
                         completed_at: string | null;
                         created_at: string;
@@ -5350,7 +5359,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     ts: string;
                     type: "status_change";
                     payload: {
-                        status: "failed" | "queued" | "building" | "deploying" | "deployed" | "cancelled";
+                        status: "building" | "cancelled" | "deployed" | "deploying" | "failed" | "queued";
                     };
                 })[];
                 meta: object;
@@ -5500,19 +5509,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -5547,8 +5556,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    syncedAt?: string | null;
-                    errorMessage?: string;
+                    syncedAt?: string | null | undefined;
+                    errorMessage?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -5585,9 +5594,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    syncedAt?: string | null;
-                    errorMessage?: string;
-                    instanceUrl?: string;
+                    syncedAt?: string | null | undefined;
+                    errorMessage?: string | undefined;
+                    instanceUrl?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -5603,7 +5612,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    errorMessage?: string;
+                    errorMessage?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -5614,13 +5623,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     isEnabled: boolean;
-                    reviewStyle: "strict" | "balanced" | "lenient" | "roast";
+                    reviewStyle: "balanced" | "lenient" | "roast" | "strict";
                     focusAreas: string[];
                     customInstructions: string | null;
                     maxReviewTimeMinutes: number;
                     modelSlug: string;
                     thinkingEffort: string | null;
-                    gateThreshold: "all" | "off" | "warning" | "critical";
+                    gateThreshold: "all" | "critical" | "off" | "warning";
                     repositorySelectionMode: "all" | "selected";
                     selectedRepositoryIds: number[];
                     manuallyAddedRepositories: {
@@ -5637,12 +5646,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             saveReviewConfig: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    reviewStyle: "strict" | "balanced" | "lenient" | "roast";
+                    platform?: "github" | "gitlab" | undefined;
+                    reviewStyle: "balanced" | "lenient" | "roast" | "strict";
                     focusAreas: string[];
+                    customInstructions?: string | undefined;
                     maxReviewTimeMinutes: number;
                     modelSlug: string;
-                    platform?: "github" | "gitlab" | undefined;
-                    customInstructions?: string | undefined;
                     thinkingEffort?: string | null | undefined;
                     repositorySelectionMode?: "all" | "selected" | undefined;
                     selectedRepositoryIds?: number[] | undefined;
@@ -5652,7 +5661,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         full_name: string;
                         private: boolean;
                     }[] | undefined;
-                    gateThreshold?: "all" | "off" | "warning" | "critical" | undefined;
+                    gateThreshold?: "all" | "critical" | "off" | "warning" | undefined;
                     autoConfigureWebhooks?: boolean | undefined;
                 };
                 output: {
@@ -5664,7 +5673,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         errors: {
                             projectId: number;
                             error: string;
-                            operation: "create" | "update" | "delete";
+                            operation: "create" | "delete" | "update";
                         }[];
                     } | {
                         created: number;
@@ -5682,8 +5691,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             toggleReviewAgent: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    isEnabled: boolean;
                     platform?: "github" | "gitlab" | undefined;
+                    isEnabled: boolean;
                 };
                 output: {
                     success: boolean;
@@ -5696,19 +5705,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -5717,39 +5726,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     githubRepo: string;
                     prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                     model: string;
                     variant?: string | undefined;
                     envVars?: Record<string, string> | undefined;
                     setupCommands?: string[] | undefined;
                     mcpServers?: Record<string, {
-                        command: string;
                         disabled?: boolean | undefined;
                         timeout?: number | undefined;
                         alwaysAllow?: string[] | undefined;
                         watchPaths?: string[] | undefined;
                         disabledTools?: string[] | undefined;
                         type?: "stdio" | undefined;
+                        command: string;
                         args?: string[] | undefined;
                         cwd?: string | undefined;
                         env?: Record<string, string> | undefined;
                     } | {
+                        disabled?: boolean | undefined;
+                        timeout?: number | undefined;
+                        alwaysAllow?: string[] | undefined;
+                        watchPaths?: string[] | undefined;
+                        disabledTools?: string[] | undefined;
                         type: "sse";
                         url: string;
-                        disabled?: boolean | undefined;
-                        timeout?: number | undefined;
-                        alwaysAllow?: string[] | undefined;
-                        watchPaths?: string[] | undefined;
-                        disabledTools?: string[] | undefined;
                         headers?: Record<string, string> | undefined;
                     } | {
-                        type: "streamable-http";
-                        url: string;
                         disabled?: boolean | undefined;
                         timeout?: number | undefined;
                         alwaysAllow?: string[] | undefined;
                         watchPaths?: string[] | undefined;
                         disabledTools?: string[] | undefined;
+                        type: "streamable-http";
+                        url: string;
                         headers?: Record<string, string> | undefined;
                     }> | undefined;
                     upstreamBranch?: string | undefined;
@@ -5764,7 +5773,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     kiloSessionId: string;
                     githubRepo: string;
                     prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                     model: string;
                     envVars?: Record<string, string> | undefined;
                     setupCommands?: string[] | undefined;
@@ -5779,43 +5788,43 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             prepareSession: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
-                    model: string;
                     githubRepo?: string | undefined;
                     gitlabProject?: string | undefined;
+                    prompt: string;
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
+                    model: string;
                     variant?: string | undefined;
                     profileName?: string | undefined;
                     envVars?: Record<string, string> | undefined;
                     setupCommands?: string[] | undefined;
                     mcpServers?: Record<string, {
-                        command: string;
                         disabled?: boolean | undefined;
                         timeout?: number | undefined;
                         alwaysAllow?: string[] | undefined;
                         watchPaths?: string[] | undefined;
                         disabledTools?: string[] | undefined;
                         type?: "stdio" | undefined;
+                        command: string;
                         args?: string[] | undefined;
                         cwd?: string | undefined;
                         env?: Record<string, string> | undefined;
                     } | {
+                        disabled?: boolean | undefined;
+                        timeout?: number | undefined;
+                        alwaysAllow?: string[] | undefined;
+                        watchPaths?: string[] | undefined;
+                        disabledTools?: string[] | undefined;
                         type: "sse";
                         url: string;
-                        disabled?: boolean | undefined;
-                        timeout?: number | undefined;
-                        alwaysAllow?: string[] | undefined;
-                        watchPaths?: string[] | undefined;
-                        disabledTools?: string[] | undefined;
                         headers?: Record<string, string> | undefined;
                     } | {
-                        type: "streamable-http";
-                        url: string;
                         disabled?: boolean | undefined;
                         timeout?: number | undefined;
                         alwaysAllow?: string[] | undefined;
                         watchPaths?: string[] | undefined;
                         disabledTools?: string[] | undefined;
+                        type: "streamable-http";
+                        url: string;
                         headers?: Record<string, string> | undefined;
                     }> | undefined;
                     upstreamBranch?: string | undefined;
@@ -5830,49 +5839,49 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             prepareLegacySession: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
-                    model: string;
-                    cloudAgentSessionId: string;
-                    kiloSessionId: string;
                     githubRepo?: string | undefined;
                     gitlabProject?: string | undefined;
+                    prompt: string;
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
+                    model: string;
                     variant?: string | undefined;
                     profileName?: string | undefined;
                     envVars?: Record<string, string> | undefined;
                     setupCommands?: string[] | undefined;
                     mcpServers?: Record<string, {
-                        command: string;
                         disabled?: boolean | undefined;
                         timeout?: number | undefined;
                         alwaysAllow?: string[] | undefined;
                         watchPaths?: string[] | undefined;
                         disabledTools?: string[] | undefined;
                         type?: "stdio" | undefined;
+                        command: string;
                         args?: string[] | undefined;
                         cwd?: string | undefined;
                         env?: Record<string, string> | undefined;
                     } | {
+                        disabled?: boolean | undefined;
+                        timeout?: number | undefined;
+                        alwaysAllow?: string[] | undefined;
+                        watchPaths?: string[] | undefined;
+                        disabledTools?: string[] | undefined;
                         type: "sse";
                         url: string;
-                        disabled?: boolean | undefined;
-                        timeout?: number | undefined;
-                        alwaysAllow?: string[] | undefined;
-                        watchPaths?: string[] | undefined;
-                        disabledTools?: string[] | undefined;
                         headers?: Record<string, string> | undefined;
                     } | {
-                        type: "streamable-http";
-                        url: string;
                         disabled?: boolean | undefined;
                         timeout?: number | undefined;
                         alwaysAllow?: string[] | undefined;
                         watchPaths?: string[] | undefined;
                         disabledTools?: string[] | undefined;
+                        type: "streamable-http";
+                        url: string;
                         headers?: Record<string, string> | undefined;
                     }> | undefined;
                     upstreamBranch?: string | undefined;
                     autoCommit?: boolean | undefined;
+                    cloudAgentSessionId: string;
+                    kiloSessionId: string;
                 };
                 output: {
                     kiloSessionId: string;
@@ -5885,7 +5894,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     sessionId: string;
                     prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                     model: string;
                     variant?: string | undefined;
                     autoCommit?: boolean | undefined;
@@ -5906,8 +5915,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    syncedAt?: string | null;
-                    errorMessage?: string;
+                    syncedAt?: string | null | undefined;
+                    errorMessage?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -5924,9 +5933,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    syncedAt?: string | null;
-                    errorMessage?: string;
-                    instanceUrl?: string;
+                    syncedAt?: string | null | undefined;
+                    errorMessage?: string | undefined;
+                    instanceUrl?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -5955,16 +5964,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     sessionId: string;
-                    userId: string;
-                    timestamp: number;
-                    version: number;
                     kiloSessionId?: string | undefined;
+                    userId: string;
                     orgId?: string | undefined;
                     sandboxId?: string | undefined;
                     githubRepo?: string | undefined;
                     gitUrl?: string | undefined;
                     prompt?: string | undefined;
-                    mode?: "code" | "architect" | "ask" | "debug" | "orchestrator" | undefined;
+                    mode?: "architect" | "ask" | "code" | "debug" | "orchestrator" | undefined;
                     model?: string | undefined;
                     autoCommit?: boolean | undefined;
                     condenseOnComplete?: boolean | undefined;
@@ -5974,16 +5981,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     mcpServerCount?: number | undefined;
                     execution?: {
                         id: string;
-                        status: "failed" | "completed" | "interrupted" | "pending" | "running";
+                        status: "completed" | "failed" | "interrupted" | "pending" | "running";
                         startedAt?: number | undefined;
                         lastHeartbeat?: number | null | undefined;
                         processId?: string | null | undefined;
                         error?: string | null | undefined;
-                        health?: "unknown" | "stale" | "healthy" | undefined;
+                        health?: "healthy" | "stale" | "unknown" | undefined;
                     } | null | undefined;
                     queuedCount?: number | undefined;
                     preparedAt?: number | undefined;
                     initiatedAt?: number | undefined;
+                    timestamp: number;
+                    version: number;
                 };
                 meta: object;
             }>;
@@ -6004,7 +6013,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     kiloSessionId: string;
                     githubRepo: string;
                     prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                     model: string;
                     envVars?: Record<string, string> | undefined;
                     setupCommands?: string[] | undefined;
@@ -6026,7 +6035,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     cloudAgentSessionId: string;
                     prompt: string;
-                    mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                    mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                     model: string;
                     variant?: string | undefined;
                     autoCommit?: boolean | undefined;
@@ -6044,30 +6053,30 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
             prepareSession: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    prompt: string;
-                    mode: "custom" | "plan" | "code" | "architect" | "ask" | "debug" | "orchestrator" | "build";
-                    model: string;
                     githubRepo?: string | undefined;
                     gitlabProject?: string | undefined;
+                    prompt: string;
+                    mode: "architect" | "ask" | "build" | "code" | "custom" | "debug" | "orchestrator" | "plan";
+                    model: string;
                     variant?: string | undefined;
                     profileName?: string | undefined;
                     envVars?: Record<string, string> | undefined;
@@ -6113,7 +6122,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     cloudAgentSessionId: string;
                     prompt: string;
-                    mode: "plan" | "code" | "ask" | "debug" | "orchestrator";
+                    mode: "ask" | "code" | "debug" | "orchestrator" | "plan";
                     model: string;
                     variant?: string | undefined;
                     autoCommit?: boolean | undefined;
@@ -6161,6 +6170,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 meta: object;
             }>;
+            answerPermission: _trpc_server.TRPCMutationProcedure<{
+                input: {
+                    organizationId: string;
+                    sessionId: string;
+                    permissionId: string;
+                    response: "always" | "once" | "reject";
+                };
+                output: {
+                    success: boolean;
+                };
+                meta: object;
+            }>;
             getSession: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     organizationId: string;
@@ -6168,38 +6189,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     sessionId: string;
-                    userId: string;
-                    execution: {
-                        id: string;
-                        status: "failed" | "completed" | "interrupted" | "pending" | "running";
-                        startedAt: number;
-                        lastHeartbeat: number | null;
-                        processId: string | null;
-                        error: string | null;
-                        health: "unknown" | "stale" | "healthy";
-                    } | null;
-                    timestamp: number;
-                    version: number;
                     kiloSessionId?: string | undefined;
+                    userId: string;
                     orgId?: string | undefined;
                     sandboxId?: string | undefined;
                     githubRepo?: string | undefined;
                     gitUrl?: string | undefined;
                     platform?: "github" | "gitlab" | undefined;
                     prompt?: string | undefined;
-                    mode?: "custom" | "plan" | "code" | "architect" | "ask" | "debug" | "orchestrator" | "build" | undefined;
+                    mode?: "architect" | "ask" | "build" | "code" | "custom" | "debug" | "orchestrator" | "plan" | undefined;
                     model?: string | undefined;
+                    variant?: string | undefined;
                     autoCommit?: boolean | undefined;
                     upstreamBranch?: string | undefined;
                     envVarCount?: number | undefined;
                     setupCommandCount?: number | undefined;
                     mcpServerCount?: number | undefined;
+                    execution: {
+                        id: string;
+                        status: "completed" | "failed" | "interrupted" | "pending" | "running";
+                        startedAt: number;
+                        lastHeartbeat: number | null;
+                        processId: string | null;
+                        error: string | null;
+                        health: "healthy" | "stale" | "unknown";
+                    } | null;
                     preparedAt?: number | undefined;
                     initiatedAt?: number | undefined;
                     callbackTarget?: {
                         url: string;
                         headers?: Record<string, string> | undefined;
                     } | undefined;
+                    timestamp: number;
+                    version: number;
                 };
                 meta: object;
             }>;
@@ -6245,19 +6267,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -6272,7 +6294,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         files: string[];
                     } | undefined;
                     template?: "resume" | "startup-landing-page" | undefined;
-                    mode?: "code" | "ask" | undefined;
+                    mode?: "ask" | "code" | undefined;
                 };
                 output: CreateProjectResult;
                 meta: object;
@@ -6311,21 +6333,21 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                 };
                 output: {
-                    id: string;
-                    updated_at: string;
                     created_at: string;
-                    owned_by_user_id: string | null;
-                    owned_by_organization_id: string | null;
                     created_by_user_id: string | null;
-                    session_id: string | null;
                     deployment_id: string | null;
-                    title: string;
-                    model_id: string;
-                    template: string | null;
-                    last_message_at: string | null;
-                    git_repo_full_name: string | null;
                     git_platform_integration_id: string | null;
+                    git_repo_full_name: string | null;
+                    id: string;
+                    last_message_at: string | null;
                     migrated_at: string | null;
+                    model_id: string;
+                    owned_by_organization_id: string | null;
+                    owned_by_user_id: string | null;
+                    session_id: string | null;
+                    template: string | null;
+                    title: string;
+                    updated_at: string;
                 }[];
                 meta: object;
             }>;
@@ -6334,21 +6356,21 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                 };
                 output: {
-                    id: string;
-                    updated_at: string;
                     created_at: string;
-                    owned_by_user_id: string | null;
-                    owned_by_organization_id: string | null;
                     created_by_user_id: string | null;
-                    session_id: string | null;
                     deployment_id: string | null;
-                    title: string;
-                    model_id: string;
-                    template: string | null;
-                    last_message_at: string | null;
-                    git_repo_full_name: string | null;
                     git_platform_integration_id: string | null;
+                    git_repo_full_name: string | null;
+                    id: string;
+                    last_message_at: string | null;
                     migrated_at: string | null;
+                    model_id: string;
+                    owned_by_organization_id: string | null;
+                    owned_by_user_id: string | null;
+                    session_id: string | null;
+                    template: string | null;
+                    title: string;
+                    updated_at: string;
                 }[];
                 meta: object;
             }>;
@@ -6409,7 +6431,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     messageUuid: string;
                     imageId: string;
-                    contentType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+                    contentType: "image/gif" | "image/jpeg" | "image/png" | "image/webp";
                     contentLength: number;
                 };
                 output: GenerateImageUploadUrlResult;
@@ -6476,19 +6498,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -6521,7 +6543,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     analysisModelSlug: string;
                     analysisMode: "auto" | "deep" | "shallow";
                     autoDismissEnabled: boolean;
-                    autoDismissConfidenceThreshold: "high" | "medium" | "low";
+                    autoDismissConfidenceThreshold: "high" | "low" | "medium";
                     autoAnalysisEnabled: boolean;
                     autoAnalysisMinSeverity: "all" | "critical" | "high" | "medium";
                     autoAnalysisIncludeExisting: boolean;
@@ -6543,7 +6565,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     analysisModelSlug?: string | undefined;
                     analysisMode?: "auto" | "deep" | "shallow" | undefined;
                     autoDismissEnabled?: boolean | undefined;
-                    autoDismissConfidenceThreshold?: "high" | "medium" | "low" | undefined;
+                    autoDismissConfidenceThreshold?: "high" | "low" | "medium" | undefined;
                     autoAnalysisEnabled?: boolean | undefined;
                     autoAnalysisMinSeverity?: "all" | "critical" | "high" | "medium" | undefined;
                     autoAnalysisIncludeExisting?: boolean | undefined;
@@ -6567,8 +6589,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         errors: number;
                     };
                 } | {
-                    success: boolean;
                     syncResult?: undefined;
+                    success: boolean;
                 };
                 meta: object;
             }>;
@@ -6588,54 +6610,54 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     organizationId: string;
                     repoFullName?: string | undefined;
-                    status?: "open" | "fixed" | "closed" | "ignored" | undefined;
-                    severity?: "critical" | "high" | "medium" | "low" | undefined;
-                    outcomeFilter?: "failed" | "all" | "fixed" | "dismissed" | "analyzing" | "not_analyzed" | "exploitable" | "not_exploitable" | "safe_to_dismiss" | "needs_review" | "triage_complete" | undefined;
+                    status?: "closed" | "fixed" | "ignored" | "open" | undefined;
+                    severity?: "critical" | "high" | "low" | "medium" | undefined;
+                    outcomeFilter?: "all" | "analyzing" | "dismissed" | "exploitable" | "failed" | "fixed" | "needs_review" | "not_analyzed" | "not_exploitable" | "safe_to_dismiss" | "triage_complete" | undefined;
                     overdue?: boolean | undefined;
-                    sortBy?: "severity_desc" | "severity_asc" | "sla_due_at_asc" | undefined;
+                    sortBy?: "severity_asc" | "severity_desc" | "sla_due_at_asc" | undefined;
                     limit?: number | undefined;
                     offset?: number | undefined;
                 };
                 output: {
                     findings: {
-                        description: string | null;
-                        id: string;
-                        updated_at: string;
-                        created_at: string;
-                        status: string;
-                        source: string;
-                        owned_by_user_id: string | null;
-                        owned_by_organization_id: string | null;
-                        session_id: string | null;
-                        platform_integration_id: string | null;
-                        repo_full_name: string;
-                        cli_session_id: string | null;
-                        title: string;
-                        source_id: string;
-                        severity: string;
-                        ghsa_id: string | null;
-                        cve_id: string | null;
-                        package_name: string;
-                        package_ecosystem: string;
-                        vulnerable_version_range: string | null;
-                        patched_version: string | null;
-                        manifest_path: string | null;
-                        ignored_reason: string | null;
-                        ignored_by: string | null;
-                        fixed_at: string | null;
-                        sla_due_at: string | null;
-                        dependabot_html_url: string | null;
-                        cwe_ids: string[] | null;
-                        cvss_score: string | null;
-                        dependency_scope: string | null;
-                        analysis_status: string | null;
-                        analysis_started_at: string | null;
+                        analysis: SecurityFindingAnalysis | null;
                         analysis_completed_at: string | null;
                         analysis_error: string | null;
-                        analysis: SecurityFindingAnalysis | null;
-                        raw_data: DependabotAlertRaw | null;
+                        analysis_started_at: string | null;
+                        analysis_status: string | null;
+                        cli_session_id: string | null;
+                        created_at: string;
+                        cve_id: string | null;
+                        cvss_score: string | null;
+                        cwe_ids: string[] | null;
+                        dependabot_html_url: string | null;
+                        dependency_scope: string | null;
+                        description: string | null;
                         first_detected_at: string;
+                        fixed_at: string | null;
+                        ghsa_id: string | null;
+                        id: string;
+                        ignored_by: string | null;
+                        ignored_reason: string | null;
                         last_synced_at: string;
+                        manifest_path: string | null;
+                        owned_by_organization_id: string | null;
+                        owned_by_user_id: string | null;
+                        package_ecosystem: string;
+                        package_name: string;
+                        patched_version: string | null;
+                        platform_integration_id: string | null;
+                        raw_data: DependabotAlertRaw | null;
+                        repo_full_name: string;
+                        session_id: string | null;
+                        severity: string;
+                        sla_due_at: string | null;
+                        source: string;
+                        source_id: string;
+                        status: string;
+                        title: string;
+                        updated_at: string;
+                        vulnerable_version_range: string | null;
                     }[];
                     totalCount: number;
                     runningCount: number;
@@ -6649,44 +6671,44 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     id: string;
                 };
                 output: {
-                    description: string | null;
-                    id: string;
-                    updated_at: string;
-                    created_at: string;
-                    status: string;
-                    source: string;
-                    owned_by_user_id: string | null;
-                    owned_by_organization_id: string | null;
-                    session_id: string | null;
-                    platform_integration_id: string | null;
-                    repo_full_name: string;
-                    cli_session_id: string | null;
-                    title: string;
-                    source_id: string;
-                    severity: string;
-                    ghsa_id: string | null;
-                    cve_id: string | null;
-                    package_name: string;
-                    package_ecosystem: string;
-                    vulnerable_version_range: string | null;
-                    patched_version: string | null;
-                    manifest_path: string | null;
-                    ignored_reason: string | null;
-                    ignored_by: string | null;
-                    fixed_at: string | null;
-                    sla_due_at: string | null;
-                    dependabot_html_url: string | null;
-                    cwe_ids: string[] | null;
-                    cvss_score: string | null;
-                    dependency_scope: string | null;
-                    analysis_status: string | null;
-                    analysis_started_at: string | null;
+                    analysis: SecurityFindingAnalysis | null;
                     analysis_completed_at: string | null;
                     analysis_error: string | null;
-                    analysis: SecurityFindingAnalysis | null;
-                    raw_data: DependabotAlertRaw | null;
+                    analysis_started_at: string | null;
+                    analysis_status: string | null;
+                    cli_session_id: string | null;
+                    created_at: string;
+                    cve_id: string | null;
+                    cvss_score: string | null;
+                    cwe_ids: string[] | null;
+                    dependabot_html_url: string | null;
+                    dependency_scope: string | null;
+                    description: string | null;
                     first_detected_at: string;
+                    fixed_at: string | null;
+                    ghsa_id: string | null;
+                    id: string;
+                    ignored_by: string | null;
+                    ignored_reason: string | null;
                     last_synced_at: string;
+                    manifest_path: string | null;
+                    owned_by_organization_id: string | null;
+                    owned_by_user_id: string | null;
+                    package_ecosystem: string;
+                    package_name: string;
+                    patched_version: string | null;
+                    platform_integration_id: string | null;
+                    raw_data: DependabotAlertRaw | null;
+                    repo_full_name: string;
+                    session_id: string | null;
+                    severity: string;
+                    sla_due_at: string | null;
+                    source: string;
+                    source_id: string;
+                    status: string;
+                    title: string;
+                    updated_at: string;
+                    vulnerable_version_range: string | null;
                 };
                 meta: object;
             }>;
@@ -6830,19 +6852,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -6901,7 +6923,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             export: _trpc_server.TRPCMutationProcedure<{
                 input: {
                     organizationId: string;
-                    format?: "json" | "csv" | undefined;
+                    format?: "csv" | "json" | undefined;
                     startTime?: string | undefined;
                     endTime?: string | undefined;
                     action?: SecurityAuditLogAction[] | undefined;
@@ -6922,19 +6944,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -6968,7 +6990,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    errorMessage?: string;
+                    errorMessage?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -7056,43 +7078,43 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     limit?: number | undefined;
                     offset?: number | undefined;
-                    status?: "failed" | "pending" | "analyzing" | "actioned" | "skipped" | undefined;
-                    classification?: "feature" | "bug" | "question" | "duplicate" | "unclear" | undefined;
+                    status?: "actioned" | "analyzing" | "failed" | "pending" | "skipped" | undefined;
+                    classification?: "bug" | "duplicate" | "feature" | "question" | "unclear" | undefined;
                     repoFullName?: string | undefined;
                 };
                 output: FailureResult<string> | SuccessResult<{
                     tickets: {
-                        id: string;
-                        updated_at: string;
+                        action_metadata: unknown;
+                        action_taken: "closed_duplicate" | "comment_posted" | "needs_clarification" | "pr_created" | null;
+                        classification: "bug" | "duplicate" | "feature" | "question" | "unclear" | null;
+                        completed_at: string | null;
+                        confidence: string | null;
                         created_at: string;
-                        status: "failed" | "pending" | "analyzing" | "actioned" | "skipped";
-                        started_at: string | null;
-                        owned_by_user_id: string | null;
+                        duplicate_of_ticket_id: string | null;
+                        error_message: string | null;
+                        id: string;
+                        intent_summary: string | null;
+                        is_duplicate: boolean | null;
+                        issue_author: string;
+                        issue_body: string | null;
+                        issue_labels: string[] | null;
+                        issue_number: number;
+                        issue_title: string;
+                        issue_type: "issue" | "pull_request";
+                        issue_url: string;
                         owned_by_organization_id: string | null;
-                        session_id: string | null;
+                        owned_by_user_id: string | null;
                         platform: string;
                         platform_integration_id: string | null;
-                        completed_at: string | null;
-                        repo_full_name: string;
-                        error_message: string | null;
-                        issue_number: number;
-                        issue_url: string;
-                        issue_title: string;
-                        issue_body: string | null;
-                        issue_author: string;
-                        issue_type: "issue" | "pull_request";
-                        issue_labels: string[] | null;
-                        classification: "feature" | "bug" | "question" | "duplicate" | "unclear" | null;
-                        confidence: string | null;
-                        intent_summary: string | null;
-                        related_files: string[] | null;
-                        is_duplicate: boolean | null;
-                        duplicate_of_ticket_id: string | null;
-                        similarity_score: string | null;
                         qdrant_point_id: string | null;
+                        related_files: string[] | null;
+                        repo_full_name: string;
+                        session_id: string | null;
                         should_auto_fix: boolean | null;
-                        action_taken: "pr_created" | "comment_posted" | "closed_duplicate" | "needs_clarification" | null;
-                        action_metadata: unknown;
+                        similarity_score: string | null;
+                        started_at: string | null;
+                        status: "actioned" | "analyzing" | "failed" | "pending" | "skipped";
+                        updated_at: string;
                     }[];
                     total: number;
                     hasMore: boolean;
@@ -7104,19 +7126,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7132,8 +7154,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         fullName: string;
                         private: boolean;
                     }[];
-                    syncedAt?: string | null;
-                    errorMessage?: string;
+                    syncedAt?: string | null | undefined;
+                    errorMessage?: string | undefined;
                 };
                 meta: object;
             }>;
@@ -7149,12 +7171,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     skip_labels: string[];
                     required_labels: string[];
                     model_slug: string;
+                    custom_instructions?: string | null | undefined;
                     pr_title_template: string;
+                    pr_body_template?: string | null | undefined;
                     pr_base_branch: string;
                     max_pr_creation_time_minutes: number;
                     max_concurrent_per_owner: number;
-                    custom_instructions?: string | null | undefined;
-                    pr_body_template?: string | null | undefined;
                     isEnabled: boolean;
                 };
                 meta: object;
@@ -7164,8 +7186,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     [x: string]: unknown;
                     organizationId: string;
                     enabled_for_issues: boolean;
-                    repository_selection_mode: "all" | "selected";
                     enabled_for_review_comments?: boolean | undefined;
+                    repository_selection_mode: "all" | "selected";
                     selected_repository_ids?: number[] | undefined;
                     skip_labels?: string[] | undefined;
                     required_labels?: string[] | undefined;
@@ -7200,8 +7222,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                     limit?: number | undefined;
                     offset?: number | undefined;
-                    status?: "failed" | "completed" | "cancelled" | "pending" | "running" | undefined;
-                    classification?: "feature" | "bug" | "question" | "unclear" | undefined;
+                    status?: "cancelled" | "completed" | "failed" | "pending" | "running" | undefined;
+                    classification?: "bug" | "feature" | "question" | "unclear" | undefined;
                     repoFullName?: string | undefined;
                 };
                 output: FailureResult<string> | SuccessResult<ListFixTicketsResponse>;
@@ -7232,19 +7254,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7322,22 +7344,25 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 name: string;
                 autoAddCreator?: boolean | undefined;
-                plan?: "teams" | "enterprise" | undefined;
+                plan?: "enterprise" | "teams" | undefined;
                 company_domain?: string | undefined;
             };
             output: {
                 organization: {
-                    id: string;
-                    name: string;
-                    updated_at: string;
-                    created_at: string;
-                    microdollars_used: number;
-                    stripe_customer_id: string | null;
-                    total_microdollars_acquired: number;
-                    next_credit_expiration_at: string | null;
                     auto_top_up_enabled: boolean;
+                    company_domain: string | null;
+                    created_at: string;
+                    created_by_kilo_user_id: string | null;
                     deleted_at: string | null;
+                    free_trial_end_at: string | null;
+                    id: string;
                     microdollars_balance: number;
+                    microdollars_used: number;
+                    name: string;
+                    next_credit_expiration_at: string | null;
+                    plan: "enterprise" | "teams";
+                    require_seats: boolean;
+                    seat_count: number;
                     settings: {
                         model_allow_list?: string[] | undefined;
                         provider_allow_list?: string[] | undefined;
@@ -7352,18 +7377,15 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         minimum_balance_alert_email?: string[] | undefined;
                         suppress_trial_messaging?: boolean | undefined;
                         oss_sponsorship_tier?: 1 | 2 | 3 | null | undefined;
-                        github_app_type?: "standard" | "lite" | null | undefined;
+                        github_app_type?: "lite" | "standard" | null | undefined;
                         oss_monthly_credit_amount_microdollars?: number | null | undefined;
                         oss_credits_last_reset_at?: string | null | undefined;
                         oss_github_url?: string | null | undefined;
                     };
-                    seat_count: number;
-                    require_seats: boolean;
-                    created_by_kilo_user_id: string | null;
                     sso_domain: string | null;
-                    plan: "teams" | "enterprise";
-                    free_trial_end_at: string | null;
-                    company_domain: string | null;
+                    stripe_customer_id: string | null;
+                    total_microdollars_acquired: number;
+                    updated_at: string;
                 };
             };
             meta: object;
@@ -7401,12 +7423,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         updatePlan: _trpc_server.TRPCMutationProcedure<{
             input: {
                 organizationId: string;
-                plan: "teams" | "enterprise";
+                plan: "enterprise" | "teams";
             };
             output: {
                 organization: {
                     id: string;
-                    plan: "teams" | "enterprise";
+                    plan: "enterprise" | "teams";
                 };
             };
             meta: object;
@@ -7441,21 +7463,21 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 organizationId: string;
             };
             output: {
-                description: string | null;
-                id: string;
+                amount_microdollars: number;
+                check_category_uniqueness: boolean;
+                coinbase_credit_block_id: string | null;
                 created_at: string;
+                credit_category: string | null;
+                description: string | null;
+                expiration_baseline_microdollars_used: number | null;
+                expiry_date: string | null;
+                id: string;
                 is_free: boolean;
                 kilo_user_id: string;
-                amount_microdollars: number;
-                expiration_baseline_microdollars_used: number | null;
+                organization_id: string | null;
                 original_baseline_microdollars_used: number | null;
                 original_transaction_id: string | null;
                 stripe_payment_id: string | null;
-                coinbase_credit_block_id: string | null;
-                credit_category: string | null;
-                expiry_date: string | null;
-                organization_id: string | null;
-                check_category_uniqueness: boolean;
             }[];
             meta: object;
         }>;
@@ -7501,7 +7523,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     created_at: string;
                     expires_at: string;
                     updated_at: string;
-                    subscription_status: "active" | "pending_cancel" | "ended";
+                    subscription_status: "active" | "ended" | "pending_cancel";
                     idempotency_key: string;
                     starts_at: string;
                     billing_cycle: BillingCycle;
@@ -7512,7 +7534,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         invoices: _trpc_server.TRPCQueryProcedure<{
             input: {
                 organizationId: string;
-                period?: "all" | "year" | "month" | "week" | undefined;
+                period?: "all" | "month" | "week" | "year" | undefined;
             };
             output: UnifiedInvoice[];
             meta: object;
@@ -7522,19 +7544,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7566,19 +7588,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7597,7 +7619,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         linkAuthProvider: _trpc_server.TRPCMutationProcedure<{
             input: {
-                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "discord" | "fake-login" | "workos";
+                provider: "discord" | "email" | "fake-login" | "github" | "gitlab" | "google" | "linkedin" | "workos";
             };
             output: {
                 success: true;
@@ -7606,7 +7628,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         unlinkAuthProvider: _trpc_server.TRPCMutationProcedure<{
             input: {
-                provider: "email" | "google" | "github" | "gitlab" | "linkedin" | "discord" | "fake-login" | "workos";
+                provider: "discord" | "email" | "fake-login" | "github" | "gitlab" | "google" | "linkedin" | "workos";
             };
             output: {
                 success: true;
@@ -7658,7 +7680,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         getAutocompleteMetrics: _trpc_server.TRPCQueryProcedure<{
             input: {
                 viewType?: string | undefined;
-                period?: "all" | "year" | "month" | "week" | undefined;
+                period?: "all" | "month" | "week" | "year" | undefined;
             };
             output: {
                 cost: number;
@@ -7670,14 +7692,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         toggleAutoTopUp: _trpc_server.TRPCMutationProcedure<{
             input: {
                 currentEnabled: boolean;
-                amountCents?: 5000 | 10000 | 2000 | undefined;
+                amountCents?: 2000 | 5000 | 10000 | undefined;
             };
             output: {
+                readonly redirectUrl?: undefined;
                 readonly enabled: false;
-                readonly redirectUrl?: undefined;
             } | {
-                readonly enabled: true;
                 readonly redirectUrl?: undefined;
+                readonly enabled: true;
             } | {
                 readonly enabled: false;
                 readonly redirectUrl: string;
@@ -7697,7 +7719,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: void;
             output: {
                 enabled: boolean;
-                amountCents: 5000 | 10000 | 2000;
+                amountCents: 2000 | 5000 | 10000;
                 paymentMethod: {
                     type: stripe.Stripe.PaymentMethod.Type;
                     last4: string | null;
@@ -7710,7 +7732,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         updateAutoTopUpAmount: _trpc_server.TRPCMutationProcedure<{
             input: {
-                amountCents: 5000 | 10000 | 2000;
+                amountCents: 2000 | 5000 | 10000;
             };
             output: {
                 success: true;
@@ -7779,19 +7801,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7799,19 +7821,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7824,13 +7846,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     organizationId: string;
                 };
                 output: {
-                    inboundUrl: string;
                     id: string;
                     triggerId: string;
                     githubRepo: string;
                     isActive: boolean;
                     createdAt: string;
                     updatedAt: string;
+                    inboundUrl: string;
                 }[];
                 meta: object;
             }>;
@@ -7845,7 +7867,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     triggerId: string;
                 };
                 output: {
-                    inboundUrl: string;
                     triggerId: string;
                     namespace: string;
                     userId: string | null;
@@ -7856,11 +7877,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     mode: string;
                     model: string;
                     promptTemplate: string;
-                    profileId?: string | null;
-                    autoCommit?: boolean;
-                    condenseOnComplete?: boolean;
-                    webhookAuthHeader?: string;
+                    profileId?: string | null | undefined;
+                    autoCommit?: boolean | undefined;
+                    condenseOnComplete?: boolean | undefined;
+                    webhookAuthHeader?: string | undefined;
                     webhookAuthConfigured: boolean;
+                    inboundUrl: string;
                 };
                 meta: object;
             }>;
@@ -7884,19 +7906,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7908,7 +7930,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             getKilocodeOpenPullRequestsSummary: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     includeDrafts?: boolean | undefined;
-                    repos?: ("cloud" | "kilocode" | "kilo-marketplace" | "kilocode-legacy")[] | undefined;
+                    repos?: ("cloud" | "kilo-marketplace" | "kilocode" | "kilocode-legacy")[] | undefined;
                 } | undefined;
                 output: OpenPullRequestsSummary;
                 meta: object;
@@ -7920,7 +7942,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             }>;
             getKilocodeRecentlyClosedExternalPRs: _trpc_server.TRPCQueryProcedure<{
                 input: {
-                    repos?: ("cloud" | "kilocode" | "kilo-marketplace" | "kilocode-legacy")[] | undefined;
+                    repos?: ("cloud" | "kilo-marketplace" | "kilocode" | "kilocode-legacy")[] | undefined;
                 } | undefined;
                 output: ExternalClosedPullRequestsWithWeekStats;
                 meta: object;
@@ -7930,19 +7952,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -7953,39 +7975,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     admin_kilo_user: {
-                        default_model: string | null;
-                        id: string;
-                        updated_at: string;
-                        created_at: string;
-                        google_user_email: string;
-                        google_user_name: string;
-                        google_user_image_url: string;
-                        hosted_domain: string | null;
-                        microdollars_used: number;
-                        kilo_pass_threshold: number | null;
-                        stripe_customer_id: string;
-                        is_admin: boolean;
-                        total_microdollars_acquired: number;
-                        next_credit_expiration_at: string | null;
-                        has_validation_stytch: boolean | null;
-                        has_validation_novel_card_with_hold: boolean;
-                        blocked_reason: string | null;
                         api_token_pepper: string | null;
                         auto_top_up_enabled: boolean;
-                        is_bot: boolean;
+                        blocked_reason: string | null;
                         cohorts: Record<string, number>;
                         completed_welcome_form: boolean;
-                        linkedin_url: string | null;
-                        github_url: string | null;
-                        discord_server_membership_verified_at: string | null;
-                        openrouter_upstream_safety_identifier: string | null;
+                        created_at: string;
                         customer_source: string | null;
+                        default_model: string | null;
+                        discord_server_membership_verified_at: string | null;
+                        github_url: string | null;
+                        google_user_email: string;
+                        google_user_image_url: string;
+                        google_user_name: string;
+                        has_validation_novel_card_with_hold: boolean;
+                        has_validation_stytch: boolean | null;
+                        hosted_domain: string | null;
+                        id: string;
+                        is_admin: boolean;
+                        is_bot: boolean;
+                        kilo_pass_threshold: number | null;
+                        linkedin_url: string | null;
+                        microdollars_used: number;
+                        next_credit_expiration_at: string | null;
+                        openrouter_upstream_safety_identifier: string | null;
+                        stripe_customer_id: string;
+                        total_microdollars_acquired: number;
+                        updated_at: string;
                     };
-                    id: string;
+                    admin_kilo_user_id: string | null;
                     created_at: string;
+                    id: string;
                     kilo_user_id: string;
                     note_content: string;
-                    admin_kilo_user_id: string | null;
                 };
                 meta: object;
             }>;
@@ -8013,12 +8035,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     before: {
-                        microdollars_used: number;
                         kilo_pass_threshold: number | null;
+                        microdollars_used: number;
                     };
                     after: {
-                        microdollars_used: number;
                         kilo_pass_threshold: number | null;
+                        microdollars_used: number;
                     } | undefined;
                 };
                 meta: object;
@@ -8045,7 +8067,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             getStytchFingerprints: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     kilo_user_id: string;
-                    fingerprint_type?: "visitor_fingerprint" | "browser_fingerprint" | "hardware_fingerprint" | "network_fingerprint" | undefined;
+                    fingerprint_type?: "browser_fingerprint" | "hardware_fingerprint" | "network_fingerprint" | "visitor_fingerprint" | undefined;
                 };
                 output: {
                     fingerprints: {
@@ -8061,11 +8083,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         reasons: string[];
                     }[];
                     relatedUsers: {
-                        google_user_email: string;
-                        google_user_name: string;
-                        google_user_image_url: string;
-                        has_validation_stytch: boolean | null;
-                        user_created_at: string;
                         id: string;
                         visitor_fingerprint: string;
                         browser_fingerprint: string;
@@ -8076,8 +8093,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         kilo_free_tier_allowed: boolean;
                         created_at: string;
                         reasons: string[];
+                        google_user_email: string;
+                        google_user_name: string;
+                        google_user_image_url: string;
+                        has_validation_stytch: boolean | null;
+                        user_created_at: string;
                     }[];
-                    fingerprintType: "visitor_fingerprint" | "browser_fingerprint" | "hardware_fingerprint" | "network_fingerprint";
+                    fingerprintType: "browser_fingerprint" | "hardware_fingerprint" | "network_fingerprint" | "visitor_fingerprint";
                 };
                 meta: object;
             }>;
@@ -8127,28 +8149,28 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     subscription: {
-                        id: string;
-                        updated_at: string;
-                        created_at: string;
-                        stripe_subscription_id: string | null;
-                        status: KiloClawSubscriptionStatus;
                         cancel_at_period_end: boolean;
-                        stripe_schedule_id: string | null;
-                        plan: KiloClawPlan;
-                        user_id: string;
-                        suspended_at: string | null;
-                        scheduled_plan: KiloClawScheduledPlan | null;
-                        scheduled_by: KiloClawScheduledBy | null;
-                        trial_started_at: string | null;
-                        trial_ends_at: string | null;
-                        current_period_start: string | null;
-                        current_period_end: string | null;
                         commit_ends_at: string | null;
-                        past_due_since: string | null;
+                        created_at: string;
+                        current_period_end: string | null;
+                        current_period_start: string | null;
                         destruction_deadline: string | null;
+                        id: string;
+                        past_due_since: string | null;
+                        plan: KiloClawPlan;
+                        scheduled_by: KiloClawScheduledBy | null;
+                        scheduled_plan: KiloClawScheduledPlan | null;
+                        status: KiloClawSubscriptionStatus;
+                        stripe_schedule_id: string | null;
+                        stripe_subscription_id: string | null;
+                        suspended_at: string | null;
+                        trial_ends_at: string | null;
+                        trial_started_at: string | null;
+                        updated_at: string;
+                        user_id: string;
                     } | null;
                     hasAccess: boolean;
-                    accessReason: "trial" | "subscription" | "earlybird" | null;
+                    accessReason: "earlybird" | "subscription" | "trial" | null;
                     earlybird: {
                         purchased: boolean;
                         expiresAt: string;
@@ -8212,19 +8234,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -8238,12 +8260,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 output: SuccessResult<{
                     data: {
                         id: string;
-                        updated_at: string;
-                        created_at: string;
                         user_id: string;
                         github_enrichment_data: unknown;
                         linkedin_enrichment_data: unknown;
                         clay_enrichment_data: unknown;
+                        created_at: string;
+                        updated_at: string;
                     };
                 }>;
                 meta: object;
@@ -8253,19 +8275,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -8273,10 +8295,10 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     page?: number | undefined;
                     limit?: number | undefined;
-                    sortBy?: "name" | "isActive" | "openrouterId" | "createdAt" | undefined;
+                    sortBy?: "createdAt" | "isActive" | "name" | "openrouterId" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                     search?: string | undefined;
-                    isActive?: "" | "true" | "false" | undefined;
+                    isActive?: "" | "false" | "true" | undefined;
                 };
                 output: {
                     models: {
@@ -8423,6 +8445,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                         privacyPolicyURL?: string | undefined;
                                         requiresUserIDs?: boolean | undefined;
                                     };
+                                    headquarters?: string | undefined;
                                     hasChatCompletions: boolean;
                                     hasCompletions: boolean;
                                     isAbortable: boolean;
@@ -8430,15 +8453,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                     editors: string[];
                                     owners: string[];
                                     adapterName: string;
+                                    isMultipartSupported?: boolean | undefined;
                                     statusPageUrl: string | null;
                                     byokEnabled: boolean;
-                                    ignoredProviderModels: string[];
-                                    headquarters?: string | undefined;
-                                    isMultipartSupported?: boolean | undefined;
                                     icon?: {
                                         url: string;
                                         className?: string | undefined;
                                     } | undefined;
+                                    ignoredProviderModels: string[];
                                 };
                                 provider_display_name: string;
                                 provider_slug: string;
@@ -8464,12 +8486,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                 pricing: {
                                     prompt: string;
                                     completion: string;
-                                    discount: number;
                                     image?: string | undefined;
                                     request?: string | undefined;
                                     web_search?: string | undefined;
                                     internal_reasoning?: string | undefined;
                                     image_output?: string | undefined;
+                                    discount: number;
                                     input_cache_read?: string | undefined;
                                 };
                                 variable_pricings: unknown[];
@@ -8529,12 +8551,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                 lastUpdated: string;
                             } | undefined;
                             modeRankings?: {
-                                lastUpdated: string;
                                 architect?: number | undefined;
                                 code?: number | undefined;
                                 ask?: number | undefined;
                                 debug?: number | undefined;
                                 orchestrator?: number | undefined;
+                                lastUpdated: string;
                             } | undefined;
                         } | null | undefined;
                         createdAt: string;
@@ -8559,26 +8581,49 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     isActive?: boolean | undefined;
                 };
                 output: {
+                    aaSlug: string | null;
+                    benchmarks: {
+                        artificialAnalysis?: {
+                            codingIndex?: number | undefined;
+                            liveCodeBench?: number | undefined;
+                            sciCode?: number | undefined;
+                            terminalBenchHard?: number | undefined;
+                            lcr?: number | undefined;
+                            ifBench?: number | undefined;
+                            lastUpdated?: string | undefined;
+                        } | undefined;
+                    } | null | undefined;
+                    chartData: {
+                        weeklyTokenUsage?: {
+                            dataPoints: {
+                                date: string;
+                                tokens: number;
+                            }[];
+                            lastUpdated: string;
+                        } | undefined;
+                        modeRankings?: {
+                            architect?: number | undefined;
+                            code?: number | undefined;
+                            ask?: number | undefined;
+                            debug?: number | undefined;
+                            orchestrator?: number | undefined;
+                            lastUpdated: string;
+                        } | undefined;
+                    } | null | undefined;
+                    codingIndex: string | null;
+                    contextLength: number | null;
+                    createdAt: string;
+                    creatorSlug: string | null;
                     description: string | null;
                     id: string;
-                    name: string;
-                    slug: string | null;
-                    codingIndex: string | null;
+                    inputModalities: string[] | null;
                     isActive: boolean | null;
                     isFeatured: boolean;
-                    isStealth: boolean;
                     isRecommended: boolean;
-                    openrouterId: string;
-                    aaSlug: string | null;
-                    modelCreator: string | null;
-                    creatorSlug: string | null;
-                    releaseDate: string | null;
-                    priceInput: string | null;
-                    priceOutput: string | null;
-                    speedTokensPerSec: string | null;
-                    contextLength: number | null;
+                    isStealth: boolean;
                     maxOutputTokens: number | null;
-                    inputModalities: string[] | null;
+                    modelCreator: string | null;
+                    name: string;
                     openrouterData: {
                         slug: string;
                         hf_slug: string | null;
@@ -8703,6 +8748,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                     privacyPolicyURL?: string | undefined;
                                     requiresUserIDs?: boolean | undefined;
                                 };
+                                headquarters?: string | undefined;
                                 hasChatCompletions: boolean;
                                 hasCompletions: boolean;
                                 isAbortable: boolean;
@@ -8710,15 +8756,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                 editors: string[];
                                 owners: string[];
                                 adapterName: string;
+                                isMultipartSupported?: boolean | undefined;
                                 statusPageUrl: string | null;
                                 byokEnabled: boolean;
-                                ignoredProviderModels: string[];
-                                headquarters?: string | undefined;
-                                isMultipartSupported?: boolean | undefined;
                                 icon?: {
                                     url: string;
                                     className?: string | undefined;
                                 } | undefined;
+                                ignoredProviderModels: string[];
                             };
                             provider_display_name: string;
                             provider_slug: string;
@@ -8744,12 +8789,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             pricing: {
                                 prompt: string;
                                 completion: string;
-                                discount: number;
                                 image?: string | undefined;
                                 request?: string | undefined;
                                 web_search?: string | undefined;
                                 internal_reasoning?: string | undefined;
                                 image_output?: string | undefined;
+                                discount: number;
                                 input_cache_read?: string | undefined;
                             };
                             variable_pricings: unknown[];
@@ -8789,35 +8834,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             provider_region: string | null;
                         } | null;
                     };
-                    benchmarks: {
-                        artificialAnalysis?: {
-                            codingIndex?: number | undefined;
-                            liveCodeBench?: number | undefined;
-                            sciCode?: number | undefined;
-                            terminalBenchHard?: number | undefined;
-                            lcr?: number | undefined;
-                            ifBench?: number | undefined;
-                            lastUpdated?: string | undefined;
-                        } | undefined;
-                    } | null | undefined;
-                    chartData: {
-                        weeklyTokenUsage?: {
-                            dataPoints: {
-                                date: string;
-                                tokens: number;
-                            }[];
-                            lastUpdated: string;
-                        } | undefined;
-                        modeRankings?: {
-                            lastUpdated: string;
-                            architect?: number | undefined;
-                            code?: number | undefined;
-                            ask?: number | undefined;
-                            debug?: number | undefined;
-                            orchestrator?: number | undefined;
-                        } | undefined;
-                    } | null | undefined;
-                    createdAt: string;
+                    openrouterId: string;
+                    priceInput: string | null;
+                    priceOutput: string | null;
+                    releaseDate: string | null;
+                    slug: string | null;
+                    speedTokensPerSec: string | null;
                     updatedAt: string;
                 };
                 meta: object;
@@ -8975,6 +8997,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                     privacyPolicyURL?: string | undefined;
                                     requiresUserIDs?: boolean | undefined;
                                 };
+                                headquarters?: string | undefined;
                                 hasChatCompletions: boolean;
                                 hasCompletions: boolean;
                                 isAbortable: boolean;
@@ -8982,15 +9005,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                                 editors: string[];
                                 owners: string[];
                                 adapterName: string;
+                                isMultipartSupported?: boolean | undefined;
                                 statusPageUrl: string | null;
                                 byokEnabled: boolean;
-                                ignoredProviderModels: string[];
-                                headquarters?: string | undefined;
-                                isMultipartSupported?: boolean | undefined;
                                 icon?: {
                                     url: string;
                                     className?: string | undefined;
                                 } | undefined;
+                                ignoredProviderModels: string[];
                             };
                             provider_display_name: string;
                             provider_slug: string;
@@ -9016,12 +9038,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             pricing: {
                                 prompt: string;
                                 completion: string;
-                                discount: number;
                                 image?: string | undefined;
                                 request?: string | undefined;
                                 web_search?: string | undefined;
                                 internal_reasoning?: string | undefined;
                                 image_output?: string | undefined;
+                                discount: number;
                                 input_cache_read?: string | undefined;
                             };
                             variable_pricings: unknown[];
@@ -9081,12 +9103,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                             lastUpdated: string;
                         } | undefined;
                         modeRankings?: {
-                            lastUpdated: string;
                             architect?: number | undefined;
                             code?: number | undefined;
                             ask?: number | undefined;
                             debug?: number | undefined;
                             orchestrator?: number | undefined;
+                            lastUpdated: string;
                         } | undefined;
                     } | null | undefined;
                     createdAt: string;
@@ -9115,19 +9137,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9138,7 +9160,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     sortBy?: "created_at" | "deployment_slug" | "repository_source" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                     search?: string | undefined;
-                    ownerType?: "user" | "all" | "org" | undefined;
+                    ownerType?: "all" | "org" | "user" | undefined;
                 };
                 output: {
                     deployments: AdminDeploymentTableProps[];
@@ -9190,19 +9212,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9330,19 +9352,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9387,19 +9409,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9409,7 +9431,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9441,7 +9463,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9462,7 +9484,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9479,7 +9501,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9503,11 +9525,11 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     startDate: string;
                     endDate: string;
-                    errorMessage: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
+                    errorMessage: string;
                 };
                 output: {
                     sessionId: string | null;
@@ -9528,7 +9550,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9548,7 +9570,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     topOrgs: {
                         orgId: string | null;
                         name: string | null;
-                        plan: "teams" | "enterprise" | null;
+                        plan: "enterprise" | "teams" | null;
                         reviewCount: number;
                         completedCount: number;
                     }[];
@@ -9561,7 +9583,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9580,7 +9602,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     endDate: string;
                     userId?: string | undefined;
                     organizationId?: string | undefined;
-                    ownershipType?: "organization" | "all" | "personal" | undefined;
+                    ownershipType?: "all" | "organization" | "personal" | undefined;
                     agentVersion?: "all" | "v1" | "v2" | undefined;
                 };
                 output: {
@@ -9619,7 +9641,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 output: {
                     id: string;
                     name: string;
-                    plan: "teams" | "enterprise";
+                    plan: "enterprise" | "teams";
                 }[];
                 meta: object;
             }>;
@@ -9645,19 +9667,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9675,14 +9697,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     session_id: string;
                 };
                 output: {
-                    last_mode: null;
-                    last_model: null;
-                    user: {
-                        id: string;
-                        email: string;
-                        name: string;
-                        image: string;
-                    } | null;
                     session_id: string;
                     kilo_user_id: string;
                     version: number;
@@ -9696,14 +9710,15 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     git_branch: string | null;
                     created_at: string;
                     updated_at: string;
-                } | {
-                    git_branch: null;
+                    last_mode: null;
+                    last_model: null;
                     user: {
                         id: string;
                         email: string;
                         name: string;
                         image: string;
                     } | null;
+                } | {
                     session_id: string;
                     kilo_user_id: string;
                     title: string;
@@ -9722,6 +9737,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     version: number;
                     created_at: string;
                     updated_at: string;
+                    git_branch: null;
+                    user: {
+                        id: string;
+                        email: string;
+                        name: string;
+                        image: string;
+                    } | null;
                 };
                 meta: object;
             }>;
@@ -9762,19 +9784,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9789,10 +9811,10 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     offset?: number | undefined;
                     limit?: number | undefined;
-                    sortBy?: "created_at" | "title" | "last_message_at" | undefined;
+                    sortBy?: "created_at" | "last_message_at" | "title" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                     search?: string | undefined;
-                    ownerType?: "user" | "all" | "org" | undefined;
+                    ownerType?: "all" | "org" | "user" | undefined;
                 };
                 output: {
                     projects: AdminAppBuilderProject[];
@@ -9819,19 +9841,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -9840,9 +9862,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     id: string;
                 };
                 output: {
-                    derived_fly_app_name: string;
-                    workerStatus: PlatformDebugStatusResponse | null;
-                    workerStatusError: string | null;
                     id: string;
                     user_id: string;
                     sandbox_id: string;
@@ -9850,6 +9869,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     destroyed_at: string | null;
                     suspended_at: string | null;
                     user_email: string | null;
+                    derived_fly_app_name: string;
+                    workerStatus: PlatformDebugStatusResponse | null;
+                    workerStatusError: string | null;
                 };
                 meta: object;
             }>;
@@ -9860,7 +9882,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     sortBy?: "created_at" | "destroyed_at" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                     search?: string | undefined;
-                    status?: "active" | "all" | "suspended" | "destroyed" | undefined;
+                    status?: "active" | "all" | "destroyed" | "suspended" | undefined;
                 };
                 output: {
                     instances: AdminKiloclawInstance[];
@@ -10036,13 +10058,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     limit?: number | undefined;
                 };
                 output: {
-                    message: string;
-                    id: string;
-                    created_at: string;
-                    action: "kiloclaw.volume.reassociate" | "kiloclaw.subscription.update_trial_end" | "kiloclaw.subscription.reset_trial" | "kiloclaw.machine.start" | "kiloclaw.machine.stop" | "kiloclaw.instance.destroy" | "kiloclaw.gateway.start" | "kiloclaw.gateway.stop" | "kiloclaw.gateway.restart" | "kiloclaw.config.restore" | "kiloclaw.doctor.run";
-                    actor_id: string | null;
+                    action: "kiloclaw.config.restore" | "kiloclaw.doctor.run" | "kiloclaw.gateway.restart" | "kiloclaw.gateway.start" | "kiloclaw.gateway.stop" | "kiloclaw.instance.destroy" | "kiloclaw.machine.start" | "kiloclaw.machine.stop" | "kiloclaw.snapshot.restore" | "kiloclaw.subscription.reset_trial" | "kiloclaw.subscription.update_trial_end" | "kiloclaw.volume.reassociate";
                     actor_email: string | null;
+                    actor_id: string | null;
                     actor_name: string | null;
+                    created_at: string;
+                    id: string;
+                    message: string;
                     metadata: Record<string, unknown> | null;
                     target_user_id: string;
                 }[];
@@ -10076,24 +10098,33 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 output: ReassociateVolumeResponse;
                 meta: object;
             }>;
+            restoreVolumeSnapshot: _trpc_server.TRPCMutationProcedure<{
+                input: {
+                    userId: string;
+                    snapshotId: string;
+                    reason: string;
+                };
+                output: RestoreVolumeSnapshotResponse;
+                meta: object;
+            }>;
         }>>;
         kiloclawVersions: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10155,10 +10186,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     items: {
-                        user_email: string | null;
-                        openclaw_version: string | null;
-                        variant: string | null;
-                        pinned_by_email: string | null;
                         id: string;
                         user_id: string;
                         image_tag: string;
@@ -10166,6 +10193,10 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         reason: string | null;
                         created_at: string;
                         updated_at: string;
+                        user_email: string | null;
+                        openclaw_version: string | null;
+                        variant: string | null;
+                        pinned_by_email: string | null;
                     }[];
                     pagination: {
                         offset: number;
@@ -10181,9 +10212,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     userId: string;
                 };
                 output: {
-                    openclaw_version: string | null;
-                    variant: string | null;
-                    pinned_by_email: string | null;
                     id: string;
                     user_id: string;
                     image_tag: string;
@@ -10191,6 +10219,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     reason: string | null;
                     created_at: string;
                     updated_at: string;
+                    openclaw_version: string | null;
+                    variant: string | null;
+                    pinned_by_email: string | null;
                 } | null;
                 meta: object;
             }>;
@@ -10201,13 +10232,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     reason?: string | undefined;
                 };
                 output: {
-                    id: string;
-                    updated_at: string;
                     created_at: string;
-                    user_id: string;
-                    reason: string | null;
+                    id: string;
                     image_tag: string;
                     pinned_by: string;
+                    reason: string | null;
+                    updated_at: string;
+                    user_id: string;
                 };
                 meta: object;
             }>;
@@ -10251,19 +10282,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10284,19 +10315,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10401,19 +10432,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10428,7 +10459,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     email: string;
                     orgId: string | null;
                     success: boolean;
-                    error?: string;
+                    error?: string | undefined;
                 }[];
                 meta: object;
             }>;
@@ -10451,6 +10482,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     isOnboardingComplete: boolean;
                     hasCompletedCodeReview: boolean;
                     lastCodeReviewDate: string | null;
+                    hasKiloClawInstance: boolean;
                 }[];
                 meta: object;
             }>;
@@ -10461,7 +10493,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 output: {
                     id: string;
                     name: string;
-                    plan: "teams" | "enterprise";
+                    plan: "enterprise" | "teams";
                     requireSeats: boolean;
                     suppressTrialMessaging: boolean;
                 }[];
@@ -10490,19 +10522,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10533,7 +10565,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     email: string;
                     userId: string;
                     success: boolean;
-                    error?: string;
+                    error?: string | undefined;
                 }[];
                 meta: object;
             }>;
@@ -10542,43 +10574,43 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
             getTemplates: _trpc_server.TRPCQueryProcedure<{
                 input: void;
                 output: {
-                    name: "orgSubscription" | "orgRenewed" | "orgCancelled" | "orgSSOUserJoined" | "orgInvitation" | "magicLink" | "balanceAlert" | "autoTopUpFailed" | "ossInviteNewUser" | "ossInviteExistingUser" | "ossExistingOrgProvisioned" | "deployFailed" | "clawTrialEndingSoon" | "clawTrialExpiresTomorrow" | "clawSuspendedTrial" | "clawSuspendedSubscription" | "clawSuspendedPayment" | "clawDestructionWarning" | "clawInstanceDestroyed" | "clawEarlybirdEndingSoon" | "clawEarlybirdExpiresTomorrow" | "clawInstanceReady";
-                    subject: "Welcome to Kilo for Teams!" | "Kilo: Your Teams Subscription Renewal" | "Kilo: Your Teams Subscription is Cancelled" | "Kilo: New SSO User Joined Your Organization" | "Kilo: Teams Invitation" | "Sign in to Kilo Code" | "Kilo: Low Balance Alert" | "Kilo: Auto Top-Up Failed" | "Kilo: OSS Sponsorship Offer" | "Kilo: Your Deployment Failed" | "Your KiloClaw Trial Ends in 2 Days" | "Your KiloClaw Trial Expires Tomorrow" | "Your KiloClaw Trial Has Ended" | "Your KiloClaw Subscription Has Ended" | "Action Required: KiloClaw Payment Overdue" | "Your KiloClaw Instance Will Be Deleted in 2 Days" | "Your KiloClaw Instance Has Been Deleted" | "Your KiloClaw Earlybird Access Ends Soon" | "Your KiloClaw Earlybird Access Expires Tomorrow" | "Your KiloClaw Instance Is Ready";
+                    name: "autoTopUpFailed" | "balanceAlert" | "clawDestructionWarning" | "clawEarlybirdEndingSoon" | "clawEarlybirdExpiresTomorrow" | "clawInstanceDestroyed" | "clawInstanceReady" | "clawSuspendedPayment" | "clawSuspendedSubscription" | "clawSuspendedTrial" | "clawTrialEndingSoon" | "clawTrialExpiresTomorrow" | "deployFailed" | "magicLink" | "orgCancelled" | "orgInvitation" | "orgRenewed" | "orgSSOUserJoined" | "orgSubscription" | "ossExistingOrgProvisioned" | "ossInviteExistingUser" | "ossInviteNewUser";
+                    subject: "Action Required: KiloClaw Payment Overdue" | "Kilo: Auto Top-Up Failed" | "Kilo: Low Balance Alert" | "Kilo: New SSO User Joined Your Organization" | "Kilo: OSS Sponsorship Offer" | "Kilo: Teams Invitation" | "Kilo: Your Deployment Failed" | "Kilo: Your Teams Subscription Renewal" | "Kilo: Your Teams Subscription is Cancelled" | "Sign in to Kilo Code" | "Welcome to Kilo for Teams!" | "Your KiloClaw Earlybird Access Ends Soon" | "Your KiloClaw Earlybird Access Expires Tomorrow" | "Your KiloClaw Instance Has Been Deleted" | "Your KiloClaw Instance Is Ready" | "Your KiloClaw Instance Will Be Deleted in 2 Days" | "Your KiloClaw Subscription Has Ended" | "Your KiloClaw Trial Ends in 2 Days" | "Your KiloClaw Trial Expires Tomorrow" | "Your KiloClaw Trial Has Ended";
                 }[];
                 meta: object;
             }>;
             getPreview: _trpc_server.TRPCQueryProcedure<{
                 input: {
-                    template: "orgSubscription" | "orgRenewed" | "orgCancelled" | "orgSSOUserJoined" | "orgInvitation" | "magicLink" | "balanceAlert" | "autoTopUpFailed" | "ossInviteNewUser" | "ossInviteExistingUser" | "ossExistingOrgProvisioned" | "deployFailed" | "clawTrialEndingSoon" | "clawTrialExpiresTomorrow" | "clawSuspendedTrial" | "clawSuspendedSubscription" | "clawSuspendedPayment" | "clawDestructionWarning" | "clawInstanceDestroyed" | "clawEarlybirdEndingSoon" | "clawEarlybirdExpiresTomorrow" | "clawInstanceReady";
+                    template: "autoTopUpFailed" | "balanceAlert" | "clawDestructionWarning" | "clawEarlybirdEndingSoon" | "clawEarlybirdExpiresTomorrow" | "clawInstanceDestroyed" | "clawInstanceReady" | "clawSuspendedPayment" | "clawSuspendedSubscription" | "clawSuspendedTrial" | "clawTrialEndingSoon" | "clawTrialExpiresTomorrow" | "deployFailed" | "magicLink" | "orgCancelled" | "orgInvitation" | "orgRenewed" | "orgSSOUserJoined" | "orgSubscription" | "ossExistingOrgProvisioned" | "ossInviteExistingUser" | "ossInviteNewUser";
                 };
                 output: {
-                    subject: "Welcome to Kilo for Teams!" | "Kilo: Your Teams Subscription Renewal" | "Kilo: Your Teams Subscription is Cancelled" | "Kilo: New SSO User Joined Your Organization" | "Kilo: Teams Invitation" | "Sign in to Kilo Code" | "Kilo: Low Balance Alert" | "Kilo: Auto Top-Up Failed" | "Kilo: OSS Sponsorship Offer" | "Kilo: Your Deployment Failed" | "Your KiloClaw Trial Ends in 2 Days" | "Your KiloClaw Trial Expires Tomorrow" | "Your KiloClaw Trial Has Ended" | "Your KiloClaw Subscription Has Ended" | "Action Required: KiloClaw Payment Overdue" | "Your KiloClaw Instance Will Be Deleted in 2 Days" | "Your KiloClaw Instance Has Been Deleted" | "Your KiloClaw Earlybird Access Ends Soon" | "Your KiloClaw Earlybird Access Expires Tomorrow" | "Your KiloClaw Instance Is Ready";
+                    subject: "Action Required: KiloClaw Payment Overdue" | "Kilo: Auto Top-Up Failed" | "Kilo: Low Balance Alert" | "Kilo: New SSO User Joined Your Organization" | "Kilo: OSS Sponsorship Offer" | "Kilo: Teams Invitation" | "Kilo: Your Deployment Failed" | "Kilo: Your Teams Subscription Renewal" | "Kilo: Your Teams Subscription is Cancelled" | "Sign in to Kilo Code" | "Welcome to Kilo for Teams!" | "Your KiloClaw Earlybird Access Ends Soon" | "Your KiloClaw Earlybird Access Expires Tomorrow" | "Your KiloClaw Instance Has Been Deleted" | "Your KiloClaw Instance Is Ready" | "Your KiloClaw Instance Will Be Deleted in 2 Days" | "Your KiloClaw Subscription Has Ended" | "Your KiloClaw Trial Ends in 2 Days" | "Your KiloClaw Trial Expires Tomorrow" | "Your KiloClaw Trial Has Ended";
                     html: string;
                 };
                 meta: object;
             }>;
             sendTest: _trpc_server.TRPCMutationProcedure<{
                 input: {
-                    template: "orgSubscription" | "orgRenewed" | "orgCancelled" | "orgSSOUserJoined" | "orgInvitation" | "magicLink" | "balanceAlert" | "autoTopUpFailed" | "ossInviteNewUser" | "ossInviteExistingUser" | "ossExistingOrgProvisioned" | "deployFailed" | "clawTrialEndingSoon" | "clawTrialExpiresTomorrow" | "clawSuspendedTrial" | "clawSuspendedSubscription" | "clawSuspendedPayment" | "clawDestructionWarning" | "clawInstanceDestroyed" | "clawEarlybirdEndingSoon" | "clawEarlybirdExpiresTomorrow" | "clawInstanceReady";
+                    template: "autoTopUpFailed" | "balanceAlert" | "clawDestructionWarning" | "clawEarlybirdEndingSoon" | "clawEarlybirdExpiresTomorrow" | "clawInstanceDestroyed" | "clawInstanceReady" | "clawSuspendedPayment" | "clawSuspendedSubscription" | "clawSuspendedTrial" | "clawTrialEndingSoon" | "clawTrialExpiresTomorrow" | "deployFailed" | "magicLink" | "orgCancelled" | "orgInvitation" | "orgRenewed" | "orgSSOUserJoined" | "orgSubscription" | "ossExistingOrgProvisioned" | "ossInviteExistingUser" | "ossInviteNewUser";
                     recipient: string;
                 };
                 output: {
@@ -10591,19 +10623,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10641,7 +10673,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             list: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     page?: number | undefined;
-                    limit?: 100 | 50 | 10 | 25 | undefined;
+                    limit?: 10 | 25 | 50 | 100 | undefined;
                 };
                 output: {
                     requests: {
@@ -10656,7 +10688,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     }[];
                     pagination: {
                         page: number;
-                        limit: 100 | 50 | 10 | 25;
+                        limit: 10 | 25 | 50 | 100;
                         total: number;
                         totalPages: number;
                     };
@@ -10694,19 +10726,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -10779,20 +10811,20 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             listBeads: _trpc_server.TRPCQueryProcedure<{
                 input: {
                     townId: string;
-                    status?: "failed" | "open" | "in_progress" | "closed" | undefined;
-                    type?: "message" | "issue" | "agent" | "escalation" | "merge_request" | "convoy" | "molecule" | undefined;
+                    status?: "closed" | "failed" | "in_progress" | "open" | undefined;
+                    type?: "agent" | "convoy" | "escalation" | "issue" | "merge_request" | "message" | "molecule" | undefined;
                     limit?: number | undefined;
                 };
                 output: {
                     bead_id: string;
-                    type: "message" | "issue" | "agent" | "escalation" | "merge_request" | "convoy" | "molecule";
-                    status: "failed" | "open" | "in_progress" | "closed";
+                    type: "agent" | "convoy" | "escalation" | "issue" | "merge_request" | "message" | "molecule";
+                    status: "closed" | "failed" | "in_progress" | "open";
                     title: string;
                     body: string | null;
                     rig_id: string | null;
                     parent_bead_id: string | null;
                     assignee_agent_bead_id: string | null;
-                    priority: "critical" | "high" | "medium" | "low";
+                    priority: "critical" | "high" | "low" | "medium";
                     labels: string[];
                     metadata: Record<string, unknown>;
                     created_by: string | null;
@@ -10809,14 +10841,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 };
                 output: {
                     bead_id: string;
-                    type: "message" | "issue" | "agent" | "escalation" | "merge_request" | "convoy" | "molecule";
-                    status: "failed" | "open" | "in_progress" | "closed";
+                    type: "agent" | "convoy" | "escalation" | "issue" | "merge_request" | "message" | "molecule";
+                    status: "closed" | "failed" | "in_progress" | "open";
                     title: string;
                     body: string | null;
                     rig_id: string | null;
                     parent_bead_id: string | null;
                     assignee_agent_bead_id: string | null;
-                    priority: "critical" | "high" | "medium" | "low";
+                    priority: "critical" | "high" | "low" | "medium";
                     labels: string[];
                     metadata: Record<string, unknown>;
                     created_by: string | null;
@@ -10861,8 +10893,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     current_hook_bead_id: string | null;
                     dispatch_attempts: number;
                     last_activity_at: string | null;
-                    created_at: string;
                     checkpoint?: unknown;
+                    created_at: string;
                 }[];
                 meta: object;
             }>;
@@ -10900,8 +10932,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 output: {
                     id: string;
                     event_type: string;
-                    created_at: string;
                     data?: Record<string, unknown> | undefined;
+                    created_at: string;
                 }[];
                 meta: object;
             }>;
@@ -10914,8 +10946,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     id: string;
                     rig_id: string | null;
                     event_type: string;
-                    created_at: string;
                     data?: Record<string, unknown> | undefined;
+                    created_at: string;
                 }[];
                 meta: object;
             }>;
@@ -10929,8 +10961,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     action: string;
                     target_type: string | null;
                     target_id: string | null;
-                    performed_at: string;
                     detail?: Record<string, unknown> | undefined;
+                    performed_at: string;
                 }[];
                 meta: object;
             }>;
@@ -10946,7 +10978,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         gitlab_instance_url?: string | undefined;
                         platform_integration_id?: string | undefined;
                     };
-                    merge_strategy: "direct" | "pr";
                     owner_user_id?: string | undefined;
                     kilocode_token?: string | undefined;
                     default_model?: string | null | undefined;
@@ -10957,6 +10988,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     } | null | undefined;
                     small_model?: string | null | undefined;
                     max_polecats_per_rig?: number | undefined;
+                    merge_strategy: "direct" | "pr";
                     refinery?: {
                         gates: string[];
                         auto_merge: boolean;
@@ -11120,7 +11152,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         gitlab_instance_url?: string | undefined;
                         platform_integration_id?: string | undefined;
                     };
-                    merge_strategy: "direct" | "pr";
                     owner_user_id?: string | undefined;
                     kilocode_token?: string | undefined;
                     default_model?: string | null | undefined;
@@ -11131,6 +11162,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     } | null | undefined;
                     small_model?: string | null | undefined;
                     max_polecats_per_rig?: number | undefined;
+                    merge_strategy: "direct" | "pr";
                     refinery?: {
                         gates: string[];
                         auto_merge: boolean;
@@ -11151,28 +11183,28 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         search: _trpc_server.TRPCQueryProcedure<{
             input: {
-                query: string;
-                projectId: string;
                 organizationId?: string | null | undefined;
+                query: string;
                 path?: string | undefined;
+                projectId: string;
                 preferBranch?: string | undefined;
                 fallbackBranch?: string | undefined;
                 excludeFiles?: string[] | undefined;
@@ -11190,8 +11222,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         delete: _trpc_server.TRPCMutationProcedure<{
             input: {
-                projectId: string;
                 organizationId?: string | null | undefined;
+                projectId: string;
                 gitBranch?: string | undefined;
                 filePaths?: string[] | undefined;
             };
@@ -11203,9 +11235,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         getManifest: _trpc_server.TRPCQueryProcedure<{
             input: {
+                organizationId?: string | null | undefined;
                 projectId: string;
                 gitBranch: string;
-                organizationId?: string | null | undefined;
             };
             output: {
                 organizationId: string;
@@ -11259,8 +11291,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         getProjectFiles: _trpc_server.TRPCQueryProcedure<{
             input: {
-                projectId: string;
                 organizationId?: string | null | undefined;
+                projectId: string;
                 gitBranch?: string | undefined;
                 fileSearch?: string | undefined;
                 page?: number | undefined;
@@ -11289,8 +11321,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         deleteBeforeDate: _trpc_server.TRPCMutationProcedure<{
             input: {
-                beforeDate: Date;
                 organizationId?: string | null | undefined;
+                beforeDate: Date;
             };
             output: {
                 success: boolean;
@@ -11301,19 +11333,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             ctx: TRPCContext;
             meta: object;
             errorShape: {
+                message: string;
+                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
                 data: {
+                    code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                    httpStatus: number;
+                    path?: string | undefined;
+                    stack?: string | undefined;
                     zodError: {
                         formErrors: string[];
                         fieldErrors: {};
                     } | null;
                     upstreamCode: string | undefined;
-                    code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                    httpStatus: number;
-                    path?: string;
-                    stack?: string;
                 };
-                message: string;
-                code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             };
             transformer: false;
         }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -11321,7 +11353,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     page?: number | undefined;
                     pageSize?: number | undefined;
-                    sortBy?: "chunk_count" | "organization_name" | "project_count" | "branch_count" | "percentage_of_rows" | "size_kb" | "last_modified" | undefined;
+                    sortBy?: "branch_count" | "chunk_count" | "last_modified" | "organization_name" | "percentage_of_rows" | "project_count" | "size_kb" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                 };
                 output: {
@@ -11346,7 +11378,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 input: {
                     page?: number | undefined;
                     pageSize?: number | undefined;
-                    sortBy?: "chunk_count" | "user_email" | "project_count" | "branch_count" | "percentage_of_rows" | "size_kb" | "last_modified" | undefined;
+                    sortBy?: "branch_count" | "chunk_count" | "last_modified" | "percentage_of_rows" | "project_count" | "size_kb" | "user_email" | undefined;
                     sortOrder?: "asc" | "desc" | undefined;
                 };
                 output: {
@@ -11400,19 +11432,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -11439,18 +11471,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         branch: string;
                         deployment_url: string;
                         platform_integration_id: string | null;
-                        source_type: "github" | "git" | "app-builder";
+                        source_type: "app-builder" | "git" | "github";
                         git_auth_token: string | null;
                         created_at: string;
                         last_deployed_at: string | null;
                         last_build_id: string;
-                        threat_status: "pending_scan" | "safe" | "flagged" | null;
+                        threat_status: "flagged" | "pending_scan" | "safe" | null;
                         created_from: "app-builder" | "deploy" | null;
                     };
                     latestBuild: {
                         id: string;
                         deployment_id: string;
-                        status: "failed" | "queued" | "building" | "deploying" | "deployed" | "cancelled";
+                        status: "building" | "cancelled" | "deployed" | "deploying" | "failed" | "queued";
                         started_at: string | null;
                         completed_at: string | null;
                         created_at: string;
@@ -11477,18 +11509,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     branch: string;
                     deployment_url: string;
                     platform_integration_id: string | null;
-                    source_type: "github" | "git" | "app-builder";
+                    source_type: "app-builder" | "git" | "github";
                     git_auth_token: string | null;
                     created_at: string;
                     last_deployed_at: string | null;
                     last_build_id: string;
-                    threat_status: "pending_scan" | "safe" | "flagged" | null;
+                    threat_status: "flagged" | "pending_scan" | "safe" | null;
                     created_from: "app-builder" | "deploy" | null;
                 };
                 latestBuild: {
                     id: string;
                     deployment_id: string;
-                    status: "failed" | "queued" | "building" | "deploying" | "deployed" | "cancelled";
+                    status: "building" | "cancelled" | "deployed" | "deploying" | "failed" | "queued";
                     started_at: string | null;
                     completed_at: string | null;
                     created_at: string;
@@ -11516,7 +11548,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 ts: string;
                 type: "status_change";
                 payload: {
-                    status: "failed" | "queued" | "building" | "deploying" | "deployed" | "cancelled";
+                    status: "building" | "cancelled" | "deployed" | "deploying" | "failed" | "queued";
                 };
             })[];
             meta: object;
@@ -11621,19 +11653,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -11642,7 +11674,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 cursor?: string | undefined;
                 limit?: number | undefined;
                 createdOnPlatform?: string | string[] | undefined;
-                orderBy?: "updated_at" | "created_at" | undefined;
+                orderBy?: "created_at" | "updated_at" | undefined;
                 organizationId?: string | null | undefined;
             };
             output: {
@@ -11695,9 +11727,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         create: _trpc_server.TRPCMutationProcedure<{
             input: {
-                created_on_platform: string;
                 title?: string | undefined;
                 git_url?: string | undefined;
+                created_on_platform: string;
                 version?: number | undefined;
                 last_mode?: string | null | undefined;
                 last_model?: string | null | undefined;
@@ -11723,9 +11755,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         createV2: _trpc_server.TRPCMutationProcedure<{
             input: {
-                created_on_platform: string;
                 title?: string | undefined;
                 git_url?: string | undefined;
+                created_on_platform: string;
                 version?: number | undefined;
                 last_mode?: string | null | undefined;
                 last_model?: string | null | undefined;
@@ -11937,19 +11969,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -11957,7 +11989,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 cursor?: string | undefined;
                 limit?: number | undefined;
-                orderBy?: "updated_at" | "created_at" | undefined;
+                orderBy?: "created_at" | "updated_at" | undefined;
                 includeChildren?: boolean | undefined;
                 gitUrl?: string | undefined;
                 version?: number | undefined;
@@ -12045,38 +12077,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 version: number;
                 runtimeState: {
                     sessionId: string;
-                    userId: string;
-                    execution: {
-                        id: string;
-                        status: "failed" | "completed" | "interrupted" | "pending" | "running";
-                        startedAt: number;
-                        lastHeartbeat: number | null;
-                        processId: string | null;
-                        error: string | null;
-                        health: "unknown" | "stale" | "healthy";
-                    } | null;
-                    timestamp: number;
-                    version: number;
                     kiloSessionId?: string | undefined;
+                    userId: string;
                     orgId?: string | undefined;
                     sandboxId?: string | undefined;
                     githubRepo?: string | undefined;
                     gitUrl?: string | undefined;
                     platform?: "github" | "gitlab" | undefined;
                     prompt?: string | undefined;
-                    mode?: "custom" | "plan" | "code" | "architect" | "ask" | "debug" | "orchestrator" | "build" | undefined;
+                    mode?: "architect" | "ask" | "build" | "code" | "custom" | "debug" | "orchestrator" | "plan" | undefined;
                     model?: string | undefined;
+                    variant?: string | undefined;
                     autoCommit?: boolean | undefined;
                     upstreamBranch?: string | undefined;
                     envVarCount?: number | undefined;
                     setupCommandCount?: number | undefined;
                     mcpServerCount?: number | undefined;
+                    execution: {
+                        id: string;
+                        status: "completed" | "failed" | "interrupted" | "pending" | "running";
+                        startedAt: number;
+                        lastHeartbeat: number | null;
+                        processId: string | null;
+                        error: string | null;
+                        health: "healthy" | "stale" | "unknown";
+                    } | null;
                     preparedAt?: number | undefined;
                     initiatedAt?: number | undefined;
                     callbackTarget?: {
                         url: string;
                         headers?: Record<string, string> | undefined;
                     } | undefined;
+                    timestamp: number;
+                    version: number;
                 } | null;
             };
             meta: object;
@@ -12088,6 +12121,16 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             output: {
                 success: boolean;
                 session_id: string;
+            };
+            meta: object;
+        }>;
+        rename: _trpc_server.TRPCMutationProcedure<{
+            input: {
+                session_id: string;
+                title: string;
+            };
+            output: {
+                title: string | null;
             };
             meta: object;
         }>;
@@ -12117,19 +12160,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -12158,7 +12201,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 integration_status: string | null;
                 suspended_at: string | null;
                 suspended_by: string | null;
-                github_app_type: "standard" | "lite" | null;
+                github_app_type: "lite" | "standard" | null;
                 installed_at: string;
                 created_at: string;
                 updated_at: string;
@@ -12213,8 +12256,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         listRepositories: _trpc_server.TRPCQueryProcedure<{
             input: {
-                integrationId: string;
                 organizationId?: string | undefined;
+                integrationId: string;
                 forceRefresh?: boolean | undefined;
             };
             output: {
@@ -12225,9 +12268,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         listBranches: _trpc_server.TRPCQueryProcedure<{
             input: {
+                organizationId?: string | undefined;
                 integrationId: string;
                 repositoryFullName: string;
-                organizationId?: string | undefined;
             };
             output: {
                 branches: {
@@ -12257,10 +12300,10 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         devAddInstallation: _trpc_server.TRPCMutationProcedure<{
             input: {
+                organizationId?: string | undefined;
                 installationId: string;
                 accountLogin: string;
-                organizationId?: string | undefined;
-                appType?: "standard" | "lite" | undefined;
+                appType?: "lite" | "standard" | undefined;
             };
             output: {
                 success: boolean;
@@ -12272,19 +12315,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -12317,7 +12360,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     accountId: string;
                     instanceUrl: string;
                 };
-                warnings?: string[];
+                warnings?: string[] | undefined;
             };
             meta: object;
         }>;
@@ -12358,8 +12401,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         refreshRepositories: _trpc_server.TRPCMutationProcedure<{
             input: {
-                integrationId: string;
                 organizationId?: string | undefined;
+                integrationId: string;
             };
             output: {
                 success: boolean;
@@ -12370,8 +12413,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         listRepositories: _trpc_server.TRPCQueryProcedure<{
             input: {
-                integrationId: string;
                 organizationId?: string | undefined;
+                integrationId: string;
                 forceRefresh?: boolean | undefined;
             };
             output: {
@@ -12382,9 +12425,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         listBranches: _trpc_server.TRPCQueryProcedure<{
             input: {
+                organizationId?: string | undefined;
                 integrationId: string;
                 projectPath: string;
-                organizationId?: string | undefined;
             };
             output: {
                 branches: {
@@ -12408,19 +12451,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -12467,7 +12510,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             } | undefined;
             output: {
                 success: boolean;
-                error?: string;
+                error?: string | undefined;
             };
             meta: object;
         }>;
@@ -12477,19 +12520,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             } | undefined;
             output: {
                 success: boolean;
-                error?: string;
-                channel?: string;
+                error?: string | undefined;
+                channel?: string | undefined;
             };
             meta: object;
         }>;
         updateModel: _trpc_server.TRPCMutationProcedure<{
             input: {
-                modelSlug: string;
                 organizationId?: string | undefined;
+                modelSlug: string;
             };
             output: {
                 success: boolean;
-                error?: string;
+                error?: string | undefined;
             };
             meta: object;
         }>;
@@ -12507,19 +12550,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -12566,18 +12609,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             } | undefined;
             output: {
                 success: boolean;
-                error?: string;
+                error?: string | undefined;
             };
             meta: object;
         }>;
         updateModel: _trpc_server.TRPCMutationProcedure<{
             input: {
-                modelSlug: string;
                 organizationId?: string | undefined;
+                modelSlug: string;
             };
             output: {
                 success: boolean;
-                error?: string;
+                error?: string | undefined;
             };
             meta: object;
         }>;
@@ -12595,19 +12638,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -12615,39 +12658,39 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 githubRepo: string;
                 prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                 model: string;
                 variant?: string | undefined;
                 envVars?: Record<string, string> | undefined;
                 setupCommands?: string[] | undefined;
                 mcpServers?: Record<string, {
-                    command: string;
                     disabled?: boolean | undefined;
                     timeout?: number | undefined;
                     alwaysAllow?: string[] | undefined;
                     watchPaths?: string[] | undefined;
                     disabledTools?: string[] | undefined;
                     type?: "stdio" | undefined;
+                    command: string;
                     args?: string[] | undefined;
                     cwd?: string | undefined;
                     env?: Record<string, string> | undefined;
                 } | {
+                    disabled?: boolean | undefined;
+                    timeout?: number | undefined;
+                    alwaysAllow?: string[] | undefined;
+                    watchPaths?: string[] | undefined;
+                    disabledTools?: string[] | undefined;
                     type: "sse";
                     url: string;
-                    disabled?: boolean | undefined;
-                    timeout?: number | undefined;
-                    alwaysAllow?: string[] | undefined;
-                    watchPaths?: string[] | undefined;
-                    disabledTools?: string[] | undefined;
                     headers?: Record<string, string> | undefined;
                 } | {
-                    type: "streamable-http";
-                    url: string;
                     disabled?: boolean | undefined;
                     timeout?: number | undefined;
                     alwaysAllow?: string[] | undefined;
                     watchPaths?: string[] | undefined;
                     disabledTools?: string[] | undefined;
+                    type: "streamable-http";
+                    url: string;
                     headers?: Record<string, string> | undefined;
                 }> | undefined;
                 upstreamBranch?: string | undefined;
@@ -12658,59 +12701,59 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         initiateFromKilocodeSessionStream: _trpc_server.TRPCSubscriptionProcedure<{
             input: {
+                cloudAgentSessionId: string;
+            } | {
                 kiloSessionId: string;
                 githubRepo: string;
                 prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                 model: string;
                 envVars?: Record<string, string> | undefined;
                 setupCommands?: string[] | undefined;
                 autoCommit?: boolean | undefined;
-            } | {
-                cloudAgentSessionId: string;
             };
             output: AsyncIterable<StreamEvent, void, any>;
             meta: object;
         }>;
         prepareSession: _trpc_server.TRPCMutationProcedure<{
             input: {
-                prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
-                model: string;
                 githubRepo?: string | undefined;
                 gitlabProject?: string | undefined;
+                prompt: string;
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
+                model: string;
                 variant?: string | undefined;
                 profileName?: string | undefined;
                 envVars?: Record<string, string> | undefined;
                 setupCommands?: string[] | undefined;
                 mcpServers?: Record<string, {
-                    command: string;
                     disabled?: boolean | undefined;
                     timeout?: number | undefined;
                     alwaysAllow?: string[] | undefined;
                     watchPaths?: string[] | undefined;
                     disabledTools?: string[] | undefined;
                     type?: "stdio" | undefined;
+                    command: string;
                     args?: string[] | undefined;
                     cwd?: string | undefined;
                     env?: Record<string, string> | undefined;
                 } | {
+                    disabled?: boolean | undefined;
+                    timeout?: number | undefined;
+                    alwaysAllow?: string[] | undefined;
+                    watchPaths?: string[] | undefined;
+                    disabledTools?: string[] | undefined;
                     type: "sse";
                     url: string;
-                    disabled?: boolean | undefined;
-                    timeout?: number | undefined;
-                    alwaysAllow?: string[] | undefined;
-                    watchPaths?: string[] | undefined;
-                    disabledTools?: string[] | undefined;
                     headers?: Record<string, string> | undefined;
                 } | {
-                    type: "streamable-http";
-                    url: string;
                     disabled?: boolean | undefined;
                     timeout?: number | undefined;
                     alwaysAllow?: string[] | undefined;
                     watchPaths?: string[] | undefined;
                     disabledTools?: string[] | undefined;
+                    type: "streamable-http";
+                    url: string;
                     headers?: Record<string, string> | undefined;
                 }> | undefined;
                 upstreamBranch?: string | undefined;
@@ -12724,49 +12767,49 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         prepareLegacySession: _trpc_server.TRPCMutationProcedure<{
             input: {
-                prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
-                model: string;
-                cloudAgentSessionId: string;
-                kiloSessionId: string;
                 githubRepo?: string | undefined;
                 gitlabProject?: string | undefined;
+                prompt: string;
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
+                model: string;
                 variant?: string | undefined;
                 profileName?: string | undefined;
                 envVars?: Record<string, string> | undefined;
                 setupCommands?: string[] | undefined;
                 mcpServers?: Record<string, {
-                    command: string;
                     disabled?: boolean | undefined;
                     timeout?: number | undefined;
                     alwaysAllow?: string[] | undefined;
                     watchPaths?: string[] | undefined;
                     disabledTools?: string[] | undefined;
                     type?: "stdio" | undefined;
+                    command: string;
                     args?: string[] | undefined;
                     cwd?: string | undefined;
                     env?: Record<string, string> | undefined;
                 } | {
+                    disabled?: boolean | undefined;
+                    timeout?: number | undefined;
+                    alwaysAllow?: string[] | undefined;
+                    watchPaths?: string[] | undefined;
+                    disabledTools?: string[] | undefined;
                     type: "sse";
                     url: string;
-                    disabled?: boolean | undefined;
-                    timeout?: number | undefined;
-                    alwaysAllow?: string[] | undefined;
-                    watchPaths?: string[] | undefined;
-                    disabledTools?: string[] | undefined;
                     headers?: Record<string, string> | undefined;
                 } | {
-                    type: "streamable-http";
-                    url: string;
                     disabled?: boolean | undefined;
                     timeout?: number | undefined;
                     alwaysAllow?: string[] | undefined;
                     watchPaths?: string[] | undefined;
                     disabledTools?: string[] | undefined;
+                    type: "streamable-http";
+                    url: string;
                     headers?: Record<string, string> | undefined;
                 }> | undefined;
                 upstreamBranch?: string | undefined;
                 autoCommit?: boolean | undefined;
+                cloudAgentSessionId: string;
+                kiloSessionId: string;
             };
             output: {
                 kiloSessionId: string;
@@ -12778,7 +12821,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 sessionId: string;
                 prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                 model: string;
                 variant?: string | undefined;
                 autoCommit?: boolean | undefined;
@@ -12798,8 +12841,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                syncedAt?: string | null;
-                errorMessage?: string;
+                syncedAt?: string | null | undefined;
+                errorMessage?: string | undefined;
             };
             meta: object;
         }>;
@@ -12815,9 +12858,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                syncedAt?: string | null;
-                errorMessage?: string;
-                instanceUrl?: string;
+                syncedAt?: string | null | undefined;
+                errorMessage?: string | undefined;
+                instanceUrl?: string | undefined;
             };
             meta: object;
         }>;
@@ -12843,16 +12886,14 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             output: {
                 sessionId: string;
-                userId: string;
-                timestamp: number;
-                version: number;
                 kiloSessionId?: string | undefined;
+                userId: string;
                 orgId?: string | undefined;
                 sandboxId?: string | undefined;
                 githubRepo?: string | undefined;
                 gitUrl?: string | undefined;
                 prompt?: string | undefined;
-                mode?: "code" | "architect" | "ask" | "debug" | "orchestrator" | undefined;
+                mode?: "architect" | "ask" | "code" | "debug" | "orchestrator" | undefined;
                 model?: string | undefined;
                 autoCommit?: boolean | undefined;
                 condenseOnComplete?: boolean | undefined;
@@ -12862,16 +12903,18 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 mcpServerCount?: number | undefined;
                 execution?: {
                     id: string;
-                    status: "failed" | "completed" | "interrupted" | "pending" | "running";
+                    status: "completed" | "failed" | "interrupted" | "pending" | "running";
                     startedAt?: number | undefined;
                     lastHeartbeat?: number | null | undefined;
                     processId?: string | null | undefined;
                     error?: string | null | undefined;
-                    health?: "unknown" | "stale" | "healthy" | undefined;
+                    health?: "healthy" | "stale" | "unknown" | undefined;
                 } | null | undefined;
                 queuedCount?: number | undefined;
                 preparedAt?: number | undefined;
                 initiatedAt?: number | undefined;
+                timestamp: number;
+                version: number;
             };
             meta: object;
         }>;
@@ -12895,16 +12938,16 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         initiateFromKilocodeSessionV2: _trpc_server.TRPCMutationProcedure<{
             input: {
+                cloudAgentSessionId: string;
+            } | {
                 kiloSessionId: string;
                 githubRepo: string;
                 prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                 model: string;
                 envVars?: Record<string, string> | undefined;
                 setupCommands?: string[] | undefined;
                 autoCommit?: boolean | undefined;
-            } | {
-                cloudAgentSessionId: string;
             };
             output: {
                 cloudAgentSessionId: string;
@@ -12918,7 +12961,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 cloudAgentSessionId: string;
                 prompt: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                 model: string;
                 variant?: string | undefined;
                 autoCommit?: boolean | undefined;
@@ -12936,29 +12979,29 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         prepareSession: _trpc_server.TRPCMutationProcedure<{
             input: {
-                prompt: string;
-                mode: "custom" | "plan" | "code" | "architect" | "ask" | "debug" | "orchestrator" | "build";
-                model: string;
                 githubRepo?: string | undefined;
                 gitlabProject?: string | undefined;
+                prompt: string;
+                mode: "architect" | "ask" | "build" | "code" | "custom" | "debug" | "orchestrator" | "plan";
+                model: string;
                 variant?: string | undefined;
                 profileName?: string | undefined;
                 envVars?: Record<string, string> | undefined;
@@ -13002,7 +13045,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 cloudAgentSessionId: string;
                 prompt: string;
-                mode: "plan" | "code" | "ask" | "debug" | "orchestrator";
+                mode: "ask" | "code" | "debug" | "orchestrator" | "plan";
                 model: string;
                 variant?: string | undefined;
                 autoCommit?: boolean | undefined;
@@ -13047,44 +13090,56 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             meta: object;
         }>;
+        answerPermission: _trpc_server.TRPCMutationProcedure<{
+            input: {
+                sessionId: string;
+                permissionId: string;
+                response: "always" | "once" | "reject";
+            };
+            output: {
+                success: boolean;
+            };
+            meta: object;
+        }>;
         getSession: _trpc_server.TRPCQueryProcedure<{
             input: {
                 cloudAgentSessionId: string;
             };
             output: {
                 sessionId: string;
-                userId: string;
-                execution: {
-                    id: string;
-                    status: "failed" | "completed" | "interrupted" | "pending" | "running";
-                    startedAt: number;
-                    lastHeartbeat: number | null;
-                    processId: string | null;
-                    error: string | null;
-                    health: "unknown" | "stale" | "healthy";
-                } | null;
-                timestamp: number;
-                version: number;
                 kiloSessionId?: string | undefined;
+                userId: string;
                 orgId?: string | undefined;
                 sandboxId?: string | undefined;
                 githubRepo?: string | undefined;
                 gitUrl?: string | undefined;
                 platform?: "github" | "gitlab" | undefined;
                 prompt?: string | undefined;
-                mode?: "custom" | "plan" | "code" | "architect" | "ask" | "debug" | "orchestrator" | "build" | undefined;
+                mode?: "architect" | "ask" | "build" | "code" | "custom" | "debug" | "orchestrator" | "plan" | undefined;
                 model?: string | undefined;
+                variant?: string | undefined;
                 autoCommit?: boolean | undefined;
                 upstreamBranch?: string | undefined;
                 envVarCount?: number | undefined;
                 setupCommandCount?: number | undefined;
                 mcpServerCount?: number | undefined;
+                execution: {
+                    id: string;
+                    status: "completed" | "failed" | "interrupted" | "pending" | "running";
+                    startedAt: number;
+                    lastHeartbeat: number | null;
+                    processId: string | null;
+                    error: string | null;
+                    health: "healthy" | "stale" | "unknown";
+                } | null;
                 preparedAt?: number | undefined;
                 initiatedAt?: number | undefined;
                 callbackTarget?: {
                     url: string;
                     headers?: Record<string, string> | undefined;
                 } | undefined;
+                timestamp: number;
+                version: number;
             };
             meta: object;
         }>;
@@ -13128,30 +13183,30 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         listForOrganization: _trpc_server.TRPCQueryProcedure<{
             input: {
                 organizationId: string;
-                status?: "failed" | "completed" | "queued" | "cancelled" | "interrupted" | "pending" | "running" | undefined;
-                platform?: "github" | "gitlab" | undefined;
-                offset?: number | undefined;
                 limit?: number | undefined;
+                offset?: number | undefined;
+                status?: "cancelled" | "completed" | "failed" | "interrupted" | "pending" | "queued" | "running" | undefined;
                 repoFullName?: string | undefined;
+                platform?: "github" | "gitlab" | undefined;
             };
             output: FailureResult<string> | SuccessResult<ListCodeReviewsResponse>;
             meta: object;
@@ -13160,7 +13215,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 limit?: number | undefined;
                 offset?: number | undefined;
-                status?: "failed" | "completed" | "queued" | "cancelled" | "interrupted" | "pending" | "running" | undefined;
+                status?: "cancelled" | "completed" | "failed" | "interrupted" | "pending" | "queued" | "running" | undefined;
                 repoFullName?: string | undefined;
                 platform?: "github" | "gitlab" | undefined;
             };
@@ -13173,36 +13228,36 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             output: FailureResult<string> | SuccessResult<{
                 review: {
-                    id: string;
-                    updated_at: string;
-                    created_at: string;
-                    model: string | null;
-                    status: string;
-                    started_at: string | null;
-                    owned_by_user_id: string | null;
-                    owned_by_organization_id: string | null;
-                    session_id: string | null;
-                    platform: string;
-                    platform_integration_id: string | null;
-                    completed_at: string | null;
-                    repo_full_name: string;
-                    pr_number: number;
-                    pr_url: string;
-                    pr_title: string;
-                    pr_author: string;
-                    pr_author_github_id: string | null;
+                    agent_version: string | null;
                     base_ref: string;
+                    check_run_id: number | null;
+                    cli_session_id: string | null;
+                    completed_at: string | null;
+                    created_at: string;
+                    error_message: string | null;
                     head_ref: string;
                     head_sha: string;
+                    id: string;
+                    model: string | null;
+                    owned_by_organization_id: string | null;
+                    owned_by_user_id: string | null;
+                    platform: string;
+                    platform_integration_id: string | null;
                     platform_project_id: number | null;
-                    cli_session_id: string | null;
-                    error_message: string | null;
+                    pr_author: string;
+                    pr_author_github_id: string | null;
+                    pr_number: number;
+                    pr_title: string;
+                    pr_url: string;
+                    repo_full_name: string;
+                    session_id: string | null;
+                    started_at: string | null;
+                    status: string;
                     terminal_reason: string | null;
-                    agent_version: string | null;
-                    check_run_id: number | null;
+                    total_cost_musd: number | null;
                     total_tokens_in: number | null;
                     total_tokens_out: number | null;
-                    total_cost_musd: number | null;
+                    updated_at: string;
                 };
             }>;
             meta: object;
@@ -13260,19 +13315,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -13304,8 +13359,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                syncedAt?: string | null;
-                errorMessage?: string;
+                syncedAt?: string | null | undefined;
+                errorMessage?: string | undefined;
             };
             meta: object;
         }>;
@@ -13339,9 +13394,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                syncedAt?: string | null;
-                errorMessage?: string;
-                instanceUrl?: string;
+                syncedAt?: string | null | undefined;
+                errorMessage?: string | undefined;
+                instanceUrl?: string | undefined;
             };
             meta: object;
         }>;
@@ -13356,7 +13411,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                errorMessage?: string;
+                errorMessage?: string | undefined;
             };
             meta: object;
         }>;
@@ -13366,13 +13421,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             } | undefined;
             output: {
                 isEnabled: boolean;
-                reviewStyle: "strict" | "balanced" | "lenient" | "roast";
+                reviewStyle: "balanced" | "lenient" | "roast" | "strict";
                 focusAreas: string[];
                 customInstructions: string | null;
                 maxReviewTimeMinutes: number;
                 modelSlug: string;
                 thinkingEffort: string | null;
-                gateThreshold: "all" | "off" | "warning" | "critical";
+                gateThreshold: "all" | "critical" | "off" | "warning";
                 repositorySelectionMode: "all" | "selected";
                 selectedRepositoryIds: number[];
                 manuallyAddedRepositories: {
@@ -13388,12 +13443,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         saveReviewConfig: _trpc_server.TRPCMutationProcedure<{
             input: {
-                reviewStyle: "strict" | "balanced" | "lenient" | "roast";
+                platform?: "github" | "gitlab" | undefined;
+                reviewStyle: "balanced" | "lenient" | "roast" | "strict";
                 focusAreas: string[];
+                customInstructions?: string | undefined;
                 maxReviewTimeMinutes: number;
                 modelSlug: string;
-                platform?: "github" | "gitlab" | undefined;
-                customInstructions?: string | undefined;
                 thinkingEffort?: string | null | undefined;
                 repositorySelectionMode?: "all" | "selected" | undefined;
                 selectedRepositoryIds?: number[] | undefined;
@@ -13403,7 +13458,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     full_name: string;
                     private: boolean;
                 }[] | undefined;
-                gateThreshold?: "all" | "off" | "warning" | "critical" | undefined;
+                gateThreshold?: "all" | "critical" | "off" | "warning" | undefined;
                 autoConfigureWebhooks?: boolean | undefined;
             };
             output: {
@@ -13415,7 +13470,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     errors: {
                         projectId: number;
                         error: string;
-                        operation: "create" | "update" | "delete";
+                        operation: "create" | "delete" | "update";
                     }[];
                 } | {
                     created: number;
@@ -13432,8 +13487,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         toggleReviewAgent: _trpc_server.TRPCMutationProcedure<{
             input: {
-                isEnabled: boolean;
                 platform?: "github" | "gitlab" | undefined;
+                isEnabled: boolean;
             };
             output: {
                 success: boolean;
@@ -13446,19 +13501,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -13484,9 +13539,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         create: _trpc_server.TRPCMutationProcedure<{
             input: {
+                organizationId?: string | undefined;
                 provider_id: string;
                 api_key: string;
-                organizationId?: string | undefined;
             };
             output: {
                 id: string;
@@ -13501,9 +13556,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         update: _trpc_server.TRPCMutationProcedure<{
             input: {
+                organizationId?: string | undefined;
                 id: string;
                 api_key: string;
-                organizationId?: string | undefined;
             };
             output: {
                 id: string;
@@ -13518,9 +13573,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         setEnabled: _trpc_server.TRPCMutationProcedure<{
             input: {
+                organizationId?: string | undefined;
                 id: string;
                 is_enabled: boolean;
-                organizationId?: string | undefined;
             };
             output: {
                 id: string;
@@ -13535,8 +13590,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         testApiKey: _trpc_server.TRPCMutationProcedure<{
             input: {
-                id: string;
                 organizationId?: string | undefined;
+                id: string;
             };
             output: {
                 success: boolean;
@@ -13546,8 +13601,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         delete: _trpc_server.TRPCMutationProcedure<{
             input: {
-                id: string;
                 organizationId?: string | undefined;
+                id: string;
             };
             output: {
                 success: boolean;
@@ -13559,19 +13614,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -13585,7 +13640,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     files: string[];
                 } | undefined;
                 template?: "resume" | "startup-landing-page" | undefined;
-                mode?: "code" | "ask" | undefined;
+                mode?: "ask" | "code" | undefined;
             };
             output: CreateProjectResult;
             meta: object;
@@ -13619,21 +13674,21 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         listProjects: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: {
-                id: string;
-                updated_at: string;
                 created_at: string;
-                owned_by_user_id: string | null;
-                owned_by_organization_id: string | null;
                 created_by_user_id: string | null;
-                session_id: string | null;
                 deployment_id: string | null;
-                title: string;
-                model_id: string;
-                template: string | null;
-                last_message_at: string | null;
-                git_repo_full_name: string | null;
                 git_platform_integration_id: string | null;
+                git_repo_full_name: string | null;
+                id: string;
+                last_message_at: string | null;
                 migrated_at: string | null;
+                model_id: string;
+                owned_by_organization_id: string | null;
+                owned_by_user_id: string | null;
+                session_id: string | null;
+                template: string | null;
+                title: string;
+                updated_at: string;
             }[];
             meta: object;
         }>;
@@ -13687,7 +13742,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 messageUuid: string;
                 imageId: string;
-                contentType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+                contentType: "image/gif" | "image/jpeg" | "image/png" | "image/webp";
                 contentLength: number;
             };
             output: GenerateImageUploadUrlResult;
@@ -13749,19 +13804,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -13790,7 +13845,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 analysisModelSlug: string;
                 analysisMode: "auto" | "deep" | "shallow";
                 autoDismissEnabled: boolean;
-                autoDismissConfidenceThreshold: "high" | "medium" | "low";
+                autoDismissConfidenceThreshold: "high" | "low" | "medium";
                 autoAnalysisEnabled: boolean;
                 autoAnalysisMinSeverity: "all" | "critical" | "high" | "medium";
                 autoAnalysisIncludeExisting: boolean;
@@ -13811,7 +13866,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 analysisModelSlug?: string | undefined;
                 analysisMode?: "auto" | "deep" | "shallow" | undefined;
                 autoDismissEnabled?: boolean | undefined;
-                autoDismissConfidenceThreshold?: "high" | "medium" | "low" | undefined;
+                autoDismissConfidenceThreshold?: "high" | "low" | "medium" | undefined;
                 autoAnalysisEnabled?: boolean | undefined;
                 autoAnalysisMinSeverity?: "all" | "critical" | "high" | "medium" | undefined;
                 autoAnalysisIncludeExisting?: boolean | undefined;
@@ -13834,8 +13889,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     errors: number;
                 };
             } | {
-                success: boolean;
                 syncResult?: undefined;
+                success: boolean;
             };
             meta: object;
         }>;
@@ -13852,54 +13907,54 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         listFindings: _trpc_server.TRPCQueryProcedure<{
             input: {
                 repoFullName?: string | undefined;
-                status?: "open" | "fixed" | "closed" | "ignored" | undefined;
-                severity?: "critical" | "high" | "medium" | "low" | undefined;
-                outcomeFilter?: "failed" | "all" | "fixed" | "dismissed" | "analyzing" | "not_analyzed" | "exploitable" | "not_exploitable" | "safe_to_dismiss" | "needs_review" | "triage_complete" | undefined;
+                status?: "closed" | "fixed" | "ignored" | "open" | undefined;
+                severity?: "critical" | "high" | "low" | "medium" | undefined;
+                outcomeFilter?: "all" | "analyzing" | "dismissed" | "exploitable" | "failed" | "fixed" | "needs_review" | "not_analyzed" | "not_exploitable" | "safe_to_dismiss" | "triage_complete" | undefined;
                 overdue?: boolean | undefined;
-                sortBy?: "severity_desc" | "severity_asc" | "sla_due_at_asc" | undefined;
+                sortBy?: "severity_asc" | "severity_desc" | "sla_due_at_asc" | undefined;
                 limit?: number | undefined;
                 offset?: number | undefined;
             };
             output: {
                 findings: {
-                    description: string | null;
-                    id: string;
-                    updated_at: string;
-                    created_at: string;
-                    status: string;
-                    source: string;
-                    owned_by_user_id: string | null;
-                    owned_by_organization_id: string | null;
-                    session_id: string | null;
-                    platform_integration_id: string | null;
-                    repo_full_name: string;
-                    cli_session_id: string | null;
-                    title: string;
-                    source_id: string;
-                    severity: string;
-                    ghsa_id: string | null;
-                    cve_id: string | null;
-                    package_name: string;
-                    package_ecosystem: string;
-                    vulnerable_version_range: string | null;
-                    patched_version: string | null;
-                    manifest_path: string | null;
-                    ignored_reason: string | null;
-                    ignored_by: string | null;
-                    fixed_at: string | null;
-                    sla_due_at: string | null;
-                    dependabot_html_url: string | null;
-                    cwe_ids: string[] | null;
-                    cvss_score: string | null;
-                    dependency_scope: string | null;
-                    analysis_status: string | null;
-                    analysis_started_at: string | null;
+                    analysis: SecurityFindingAnalysis | null;
                     analysis_completed_at: string | null;
                     analysis_error: string | null;
-                    analysis: SecurityFindingAnalysis | null;
-                    raw_data: DependabotAlertRaw | null;
+                    analysis_started_at: string | null;
+                    analysis_status: string | null;
+                    cli_session_id: string | null;
+                    created_at: string;
+                    cve_id: string | null;
+                    cvss_score: string | null;
+                    cwe_ids: string[] | null;
+                    dependabot_html_url: string | null;
+                    dependency_scope: string | null;
+                    description: string | null;
                     first_detected_at: string;
+                    fixed_at: string | null;
+                    ghsa_id: string | null;
+                    id: string;
+                    ignored_by: string | null;
+                    ignored_reason: string | null;
                     last_synced_at: string;
+                    manifest_path: string | null;
+                    owned_by_organization_id: string | null;
+                    owned_by_user_id: string | null;
+                    package_ecosystem: string;
+                    package_name: string;
+                    patched_version: string | null;
+                    platform_integration_id: string | null;
+                    raw_data: DependabotAlertRaw | null;
+                    repo_full_name: string;
+                    session_id: string | null;
+                    severity: string;
+                    sla_due_at: string | null;
+                    source: string;
+                    source_id: string;
+                    status: string;
+                    title: string;
+                    updated_at: string;
+                    vulnerable_version_range: string | null;
                 }[];
                 totalCount: number;
                 runningCount: number;
@@ -13912,44 +13967,44 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 id: string;
             };
             output: {
-                description: string | null;
-                id: string;
-                updated_at: string;
-                created_at: string;
-                status: string;
-                source: string;
-                owned_by_user_id: string | null;
-                owned_by_organization_id: string | null;
-                session_id: string | null;
-                platform_integration_id: string | null;
-                repo_full_name: string;
-                cli_session_id: string | null;
-                title: string;
-                source_id: string;
-                severity: string;
-                ghsa_id: string | null;
-                cve_id: string | null;
-                package_name: string;
-                package_ecosystem: string;
-                vulnerable_version_range: string | null;
-                patched_version: string | null;
-                manifest_path: string | null;
-                ignored_reason: string | null;
-                ignored_by: string | null;
-                fixed_at: string | null;
-                sla_due_at: string | null;
-                dependabot_html_url: string | null;
-                cwe_ids: string[] | null;
-                cvss_score: string | null;
-                dependency_scope: string | null;
-                analysis_status: string | null;
-                analysis_started_at: string | null;
+                analysis: SecurityFindingAnalysis | null;
                 analysis_completed_at: string | null;
                 analysis_error: string | null;
-                analysis: SecurityFindingAnalysis | null;
-                raw_data: DependabotAlertRaw | null;
+                analysis_started_at: string | null;
+                analysis_status: string | null;
+                cli_session_id: string | null;
+                created_at: string;
+                cve_id: string | null;
+                cvss_score: string | null;
+                cwe_ids: string[] | null;
+                dependabot_html_url: string | null;
+                dependency_scope: string | null;
+                description: string | null;
                 first_detected_at: string;
+                fixed_at: string | null;
+                ghsa_id: string | null;
+                id: string;
+                ignored_by: string | null;
+                ignored_reason: string | null;
                 last_synced_at: string;
+                manifest_path: string | null;
+                owned_by_organization_id: string | null;
+                owned_by_user_id: string | null;
+                package_ecosystem: string;
+                package_name: string;
+                patched_version: string | null;
+                platform_integration_id: string | null;
+                raw_data: DependabotAlertRaw | null;
+                repo_full_name: string;
+                session_id: string | null;
+                severity: string;
+                sla_due_at: string | null;
+                source: string;
+                source_id: string;
+                status: string;
+                title: string;
+                updated_at: string;
+                vulnerable_version_range: string | null;
             };
             meta: object;
         }>;
@@ -14078,19 +14133,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -14143,7 +14198,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         }>;
         export: _trpc_server.TRPCMutationProcedure<{
             input: {
-                format?: "json" | "csv" | undefined;
+                format?: "csv" | "json" | undefined;
                 startTime?: string | undefined;
                 endTime?: string | undefined;
                 action?: SecurityAuditLogAction[] | undefined;
@@ -14164,29 +14219,29 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         listTicketsForOrganization: _trpc_server.TRPCQueryProcedure<{
             input: {
                 organizationId: string;
-                status?: "failed" | "pending" | "analyzing" | "actioned" | "skipped" | undefined;
-                classification?: "feature" | "bug" | "question" | "duplicate" | "unclear" | undefined;
-                offset?: number | undefined;
                 limit?: number | undefined;
+                offset?: number | undefined;
+                status?: "actioned" | "analyzing" | "failed" | "pending" | "skipped" | undefined;
+                classification?: "bug" | "duplicate" | "feature" | "question" | "unclear" | undefined;
                 repoFullName?: string | undefined;
             };
             output: FailureResult<string> | SuccessResult<ListTriageTicketsResponse>;
@@ -14196,8 +14251,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 limit?: number | undefined;
                 offset?: number | undefined;
-                status?: "failed" | "pending" | "analyzing" | "actioned" | "skipped" | undefined;
-                classification?: "feature" | "bug" | "question" | "duplicate" | "unclear" | undefined;
+                status?: "actioned" | "analyzing" | "failed" | "pending" | "skipped" | undefined;
+                classification?: "bug" | "duplicate" | "feature" | "question" | "unclear" | undefined;
                 repoFullName?: string | undefined;
             };
             output: FailureResult<string> | SuccessResult<ListTriageTicketsResponse>;
@@ -14209,37 +14264,37 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             output: FailureResult<string> | SuccessResult<{
                 ticket: {
-                    id: string;
-                    updated_at: string;
+                    action_metadata: unknown;
+                    action_taken: "closed_duplicate" | "comment_posted" | "needs_clarification" | "pr_created" | null;
+                    classification: "bug" | "duplicate" | "feature" | "question" | "unclear" | null;
+                    completed_at: string | null;
+                    confidence: string | null;
                     created_at: string;
-                    status: "failed" | "pending" | "analyzing" | "actioned" | "skipped";
-                    started_at: string | null;
-                    owned_by_user_id: string | null;
+                    duplicate_of_ticket_id: string | null;
+                    error_message: string | null;
+                    id: string;
+                    intent_summary: string | null;
+                    is_duplicate: boolean | null;
+                    issue_author: string;
+                    issue_body: string | null;
+                    issue_labels: string[] | null;
+                    issue_number: number;
+                    issue_title: string;
+                    issue_type: "issue" | "pull_request";
+                    issue_url: string;
                     owned_by_organization_id: string | null;
-                    session_id: string | null;
+                    owned_by_user_id: string | null;
                     platform: string;
                     platform_integration_id: string | null;
-                    completed_at: string | null;
-                    repo_full_name: string;
-                    error_message: string | null;
-                    issue_number: number;
-                    issue_url: string;
-                    issue_title: string;
-                    issue_body: string | null;
-                    issue_author: string;
-                    issue_type: "issue" | "pull_request";
-                    issue_labels: string[] | null;
-                    classification: "feature" | "bug" | "question" | "duplicate" | "unclear" | null;
-                    confidence: string | null;
-                    intent_summary: string | null;
-                    related_files: string[] | null;
-                    is_duplicate: boolean | null;
-                    duplicate_of_ticket_id: string | null;
-                    similarity_score: string | null;
                     qdrant_point_id: string | null;
+                    related_files: string[] | null;
+                    repo_full_name: string;
+                    session_id: string | null;
                     should_auto_fix: boolean | null;
-                    action_taken: "pr_created" | "comment_posted" | "closed_duplicate" | "needs_clarification" | null;
-                    action_metadata: unknown;
+                    similarity_score: string | null;
+                    started_at: string | null;
+                    status: "actioned" | "analyzing" | "failed" | "pending" | "skipped";
+                    updated_at: string;
                 };
             }>;
             meta: object;
@@ -14278,12 +14333,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 isEnabled: boolean;
             }> | SuccessResult<{
                 config: Record<string, unknown> | {
-                    review_style: "strict" | "balanced" | "lenient" | "roast";
+                    review_style: "balanced" | "lenient" | "roast" | "strict";
                     focus_areas: string[];
-                    max_review_time_minutes: number;
-                    model_slug: string;
                     auto_approve_minor?: boolean | undefined;
                     custom_instructions?: string | null | undefined;
+                    max_review_time_minutes: number;
+                    model_slug: string;
                     thinking_effort?: string | null | undefined;
                     repository_selection_mode?: "all" | "selected" | undefined;
                     selected_repository_ids?: number[] | undefined;
@@ -14293,7 +14348,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         full_name: string;
                         private: boolean;
                     }[] | undefined;
-                    gate_threshold?: "all" | "off" | "warning" | "critical" | undefined;
+                    gate_threshold?: "all" | "critical" | "off" | "warning" | undefined;
                 };
                 isEnabled: boolean;
             }>;
@@ -14302,16 +14357,16 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         saveConfig: _trpc_server.TRPCMutationProcedure<{
             input: {
                 organizationId: string;
-                repository_selection_mode: "all" | "selected";
                 enabled_for_issues: boolean;
-                custom_instructions?: string | null | undefined;
-                model_slug?: string | undefined;
+                repository_selection_mode: "all" | "selected";
                 selected_repository_ids?: number[] | undefined;
                 skip_labels?: string[] | undefined;
                 required_labels?: string[] | undefined;
                 duplicate_threshold?: number | undefined;
                 auto_fix_threshold?: number | undefined;
                 max_concurrent_per_owner?: number | undefined;
+                custom_instructions?: string | null | undefined;
+                model_slug?: string | undefined;
                 max_classification_time_minutes?: number | undefined;
                 auto_create_pr_threshold?: number | undefined;
                 pr_branch_prefix?: string | undefined;
@@ -14330,19 +14385,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -14372,7 +14427,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                errorMessage?: string;
+                errorMessage?: string | undefined;
             };
             meta: object;
         }>;
@@ -14453,43 +14508,43 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 limit?: number | undefined;
                 offset?: number | undefined;
-                status?: "failed" | "pending" | "analyzing" | "actioned" | "skipped" | undefined;
-                classification?: "feature" | "bug" | "question" | "duplicate" | "unclear" | undefined;
+                status?: "actioned" | "analyzing" | "failed" | "pending" | "skipped" | undefined;
+                classification?: "bug" | "duplicate" | "feature" | "question" | "unclear" | undefined;
                 repoFullName?: string | undefined;
             };
             output: FailureResult<string> | SuccessResult<{
                 tickets: {
-                    id: string;
-                    updated_at: string;
+                    action_metadata: unknown;
+                    action_taken: "closed_duplicate" | "comment_posted" | "needs_clarification" | "pr_created" | null;
+                    classification: "bug" | "duplicate" | "feature" | "question" | "unclear" | null;
+                    completed_at: string | null;
+                    confidence: string | null;
                     created_at: string;
-                    status: "failed" | "pending" | "analyzing" | "actioned" | "skipped";
-                    started_at: string | null;
-                    owned_by_user_id: string | null;
+                    duplicate_of_ticket_id: string | null;
+                    error_message: string | null;
+                    id: string;
+                    intent_summary: string | null;
+                    is_duplicate: boolean | null;
+                    issue_author: string;
+                    issue_body: string | null;
+                    issue_labels: string[] | null;
+                    issue_number: number;
+                    issue_title: string;
+                    issue_type: "issue" | "pull_request";
+                    issue_url: string;
                     owned_by_organization_id: string | null;
-                    session_id: string | null;
+                    owned_by_user_id: string | null;
                     platform: string;
                     platform_integration_id: string | null;
-                    completed_at: string | null;
-                    repo_full_name: string;
-                    error_message: string | null;
-                    issue_number: number;
-                    issue_url: string;
-                    issue_title: string;
-                    issue_body: string | null;
-                    issue_author: string;
-                    issue_type: "issue" | "pull_request";
-                    issue_labels: string[] | null;
-                    classification: "feature" | "bug" | "question" | "duplicate" | "unclear" | null;
-                    confidence: string | null;
-                    intent_summary: string | null;
-                    related_files: string[] | null;
-                    is_duplicate: boolean | null;
-                    duplicate_of_ticket_id: string | null;
-                    similarity_score: string | null;
                     qdrant_point_id: string | null;
+                    related_files: string[] | null;
+                    repo_full_name: string;
+                    session_id: string | null;
                     should_auto_fix: boolean | null;
-                    action_taken: "pr_created" | "comment_posted" | "closed_duplicate" | "needs_clarification" | null;
-                    action_metadata: unknown;
+                    similarity_score: string | null;
+                    started_at: string | null;
+                    status: "actioned" | "analyzing" | "failed" | "pending" | "skipped";
+                    updated_at: string;
                 }[];
                 total: number;
                 hasMore: boolean;
@@ -14501,29 +14556,29 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         listTicketsForOrganization: _trpc_server.TRPCQueryProcedure<{
             input: {
                 organizationId: string;
-                status?: "failed" | "completed" | "cancelled" | "pending" | "running" | undefined;
-                classification?: "feature" | "bug" | "question" | "unclear" | undefined;
-                offset?: number | undefined;
                 limit?: number | undefined;
+                offset?: number | undefined;
+                status?: "cancelled" | "completed" | "failed" | "pending" | "running" | undefined;
+                classification?: "bug" | "feature" | "question" | "unclear" | undefined;
                 repoFullName?: string | undefined;
             };
             output: FailureResult<string> | SuccessResult<ListFixTicketsResponse>;
@@ -14533,8 +14588,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 limit?: number | undefined;
                 offset?: number | undefined;
-                status?: "failed" | "completed" | "cancelled" | "pending" | "running" | undefined;
-                classification?: "feature" | "bug" | "question" | "unclear" | undefined;
+                status?: "cancelled" | "completed" | "failed" | "pending" | "running" | undefined;
+                classification?: "bug" | "feature" | "question" | "unclear" | undefined;
                 repoFullName?: string | undefined;
             };
             output: FailureResult<string> | SuccessResult<ListFixTicketsResponse>;
@@ -14546,41 +14601,41 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             output: FailureResult<string> | SuccessResult<{
                 ticket: {
-                    id: string;
-                    updated_at: string;
+                    classification: "bug" | "feature" | "question" | "unclear" | null;
+                    cli_session_id: string | null;
+                    completed_at: string | null;
+                    confidence: string | null;
                     created_at: string;
-                    status: "failed" | "completed" | "cancelled" | "pending" | "running";
-                    started_at: string | null;
-                    owned_by_user_id: string | null;
-                    owned_by_organization_id: string | null;
-                    session_id: string | null;
+                    diff_hunk: string | null;
+                    error_message: string | null;
                     file_path: string | null;
+                    id: string;
+                    intent_summary: string | null;
+                    issue_author: string;
+                    issue_body: string | null;
+                    issue_labels: string[] | null;
+                    issue_number: number;
+                    issue_title: string;
+                    issue_url: string;
+                    line_number: number | null;
+                    owned_by_organization_id: string | null;
+                    owned_by_user_id: string | null;
                     platform: string;
                     platform_integration_id: string | null;
-                    completed_at: string | null;
-                    repo_full_name: string;
+                    pr_branch: string | null;
+                    pr_head_ref: string | null;
                     pr_number: number | null;
                     pr_url: string | null;
-                    cli_session_id: string | null;
-                    error_message: string | null;
-                    issue_number: number;
-                    issue_url: string;
-                    issue_title: string;
-                    issue_body: string | null;
-                    issue_author: string;
-                    issue_labels: string[] | null;
-                    classification: "feature" | "bug" | "question" | "unclear" | null;
-                    confidence: string | null;
-                    intent_summary: string | null;
                     related_files: string[] | null;
+                    repo_full_name: string;
+                    review_comment_body: string | null;
+                    review_comment_id: number | null;
+                    session_id: string | null;
+                    started_at: string | null;
+                    status: "cancelled" | "completed" | "failed" | "pending" | "running";
                     triage_ticket_id: string | null;
                     trigger_source: "label" | "review_comment";
-                    review_comment_id: number | null;
-                    review_comment_body: string | null;
-                    line_number: number | null;
-                    diff_hunk: string | null;
-                    pr_head_ref: string | null;
-                    pr_branch: string | null;
+                    updated_at: string;
                 };
             }>;
             meta: object;
@@ -14617,22 +14672,22 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     skip_labels: string[];
                     required_labels: string[];
                     model_slug: string;
+                    custom_instructions?: string | null | undefined;
                     pr_title_template: string;
+                    pr_body_template?: string | null | undefined;
                     pr_base_branch: string;
                     max_pr_creation_time_minutes: number;
                     max_concurrent_per_owner: number;
-                    custom_instructions?: string | null | undefined;
-                    pr_body_template?: string | null | undefined;
                 };
                 isEnabled: boolean;
             }> | SuccessResult<{
                 config: Record<string, unknown> | {
-                    review_style: "strict" | "balanced" | "lenient" | "roast";
+                    review_style: "balanced" | "lenient" | "roast" | "strict";
                     focus_areas: string[];
-                    max_review_time_minutes: number;
-                    model_slug: string;
                     auto_approve_minor?: boolean | undefined;
                     custom_instructions?: string | null | undefined;
+                    max_review_time_minutes: number;
+                    model_slug: string;
                     thinking_effort?: string | null | undefined;
                     repository_selection_mode?: "all" | "selected" | undefined;
                     selected_repository_ids?: number[] | undefined;
@@ -14642,7 +14697,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                         full_name: string;
                         private: boolean;
                     }[] | undefined;
-                    gate_threshold?: "all" | "off" | "warning" | "critical" | undefined;
+                    gate_threshold?: "all" | "critical" | "off" | "warning" | undefined;
                 };
                 isEnabled: boolean;
             }>;
@@ -14651,19 +14706,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         saveConfig: _trpc_server.TRPCMutationProcedure<{
             input: {
                 organizationId: string;
-                repository_selection_mode: "all" | "selected";
                 enabled_for_issues: boolean;
-                custom_instructions?: string | null | undefined;
-                model_slug?: string | undefined;
+                enabled_for_review_comments?: boolean | undefined;
+                repository_selection_mode: "all" | "selected";
                 selected_repository_ids?: number[] | undefined;
                 skip_labels?: string[] | undefined;
                 required_labels?: string[] | undefined;
-                max_concurrent_per_owner?: number | undefined;
+                model_slug?: string | undefined;
+                custom_instructions?: string | null | undefined;
                 pr_title_template?: string | undefined;
                 pr_body_template?: string | null | undefined;
                 pr_base_branch?: string | undefined;
                 max_pr_creation_time_minutes?: number | undefined;
-                enabled_for_review_comments?: boolean | undefined;
+                max_concurrent_per_owner?: number | undefined;
             };
             output: FailureResult<string> | SuccessResult<{
                 message: string;
@@ -14686,19 +14741,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -14712,8 +14767,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     fullName: string;
                     private: boolean;
                 }[];
-                syncedAt?: string | null;
-                errorMessage?: string;
+                syncedAt?: string | null | undefined;
+                errorMessage?: string | undefined;
             };
             meta: object;
         }>;
@@ -14727,12 +14782,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 skip_labels: string[];
                 required_labels: string[];
                 model_slug: string;
+                custom_instructions?: string | null | undefined;
                 pr_title_template: string;
+                pr_body_template?: string | null | undefined;
                 pr_base_branch: string;
                 max_pr_creation_time_minutes: number;
                 max_concurrent_per_owner: number;
-                custom_instructions?: string | null | undefined;
-                pr_body_template?: string | null | undefined;
                 isEnabled: boolean;
             };
             meta: object;
@@ -14740,8 +14795,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         saveAutoFixConfig: _trpc_server.TRPCMutationProcedure<{
             input: {
                 enabled_for_issues: boolean;
-                repository_selection_mode: "all" | "selected";
                 enabled_for_review_comments?: boolean | undefined;
+                repository_selection_mode: "all" | "selected";
                 selected_repository_ids?: number[] | undefined;
                 skip_labels?: string[] | undefined;
                 required_labels?: string[] | undefined;
@@ -14771,8 +14826,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 limit?: number | undefined;
                 offset?: number | undefined;
-                status?: "failed" | "completed" | "cancelled" | "pending" | "running" | undefined;
-                classification?: "feature" | "bug" | "question" | "unclear" | undefined;
+                status?: "cancelled" | "completed" | "failed" | "pending" | "running" | undefined;
+                classification?: "bug" | "feature" | "question" | "unclear" | undefined;
                 repoFullName?: string | undefined;
             };
             output: FailureResult<string> | SuccessResult<ListFixTicketsResponse>;
@@ -14801,19 +14856,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -14837,19 +14892,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -14868,7 +14923,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     stripeSubscriptionId: string;
                     tier: KiloPassTier;
                     cadence: KiloPassCadence;
-                    status: "active" | "canceled" | "trialing" | "past_due" | "unpaid" | "incomplete" | "incomplete_expired" | "paused";
+                    status: "active" | "canceled" | "incomplete" | "incomplete_expired" | "past_due" | "paused" | "trialing" | "unpaid";
                     cancelAtPeriodEnd: boolean;
                     currentStreakMonths: number;
                     nextYearlyIssueAt: string | null;
@@ -14894,7 +14949,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                     stripeSubscriptionId: string;
                     tier: KiloPassTier;
                     cadence: KiloPassCadence;
-                    status: "active" | "canceled" | "trialing" | "past_due" | "unpaid" | "incomplete" | "incomplete_expired" | "paused";
+                    status: "active" | "canceled" | "incomplete" | "incomplete_expired" | "past_due" | "paused" | "trialing" | "unpaid";
                     cancelAtPeriodEnd: boolean;
                     currentStreakMonths: number;
                     nextYearlyIssueAt: string | null;
@@ -14975,19 +15030,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -15133,8 +15188,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         deleteVar: _trpc_server.TRPCMutationProcedure<{
             input: {
                 profileId: string;
-                key: string;
                 organizationId?: string | undefined;
+                key: string;
             };
             output: {
                 success: boolean;
@@ -15157,19 +15212,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -15178,13 +15233,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 organizationId?: string | undefined;
             };
             output: {
-                inboundUrl: string;
                 id: string;
                 triggerId: string;
                 githubRepo: string;
                 isActive: boolean;
                 createdAt: string;
                 updatedAt: string;
+                inboundUrl: string;
             }[];
             meta: object;
         }>;
@@ -15194,7 +15249,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 organizationId?: string | undefined;
             };
             output: {
-                inboundUrl: string;
                 triggerId: string;
                 namespace: string;
                 userId: string | null;
@@ -15205,23 +15259,24 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 mode: string;
                 model: string;
                 promptTemplate: string;
-                profileId?: string | null;
-                autoCommit?: boolean;
-                condenseOnComplete?: boolean;
-                webhookAuthHeader?: string;
+                profileId?: string | null | undefined;
+                autoCommit?: boolean | undefined;
+                condenseOnComplete?: boolean | undefined;
+                webhookAuthHeader?: string | undefined;
                 webhookAuthConfigured: boolean;
+                inboundUrl: string;
             };
             meta: object;
         }>;
         create: _trpc_server.TRPCMutationProcedure<{
             input: {
                 triggerId: string;
+                organizationId?: string | undefined;
                 githubRepo: string;
-                mode: "code" | "architect" | "ask" | "debug" | "orchestrator";
+                mode: "architect" | "ask" | "code" | "debug" | "orchestrator";
                 model: string;
                 promptTemplate: string;
                 profileId: string;
-                organizationId?: string | undefined;
                 autoCommit?: boolean | undefined;
                 condenseOnComplete?: boolean | undefined;
                 webhookAuth?: {
@@ -15243,7 +15298,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: {
                 triggerId: string;
                 organizationId?: string | undefined;
-                mode?: "code" | "architect" | "ask" | "debug" | "orchestrator" | undefined;
+                mode?: "architect" | "ask" | "code" | "debug" | "orchestrator" | undefined;
                 model?: string | undefined;
                 promptTemplate?: string | undefined;
                 profileId?: string | undefined;
@@ -15256,7 +15311,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 } | undefined;
             };
             output: {
-                inboundUrl: string;
                 triggerId: string;
                 namespace: string;
                 userId: string | null;
@@ -15267,11 +15321,12 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 mode: string;
                 model: string;
                 promptTemplate: string;
-                profileId?: string | null;
-                autoCommit?: boolean;
-                condenseOnComplete?: boolean;
-                webhookAuthHeader?: string;
+                profileId?: string | null | undefined;
+                autoCommit?: boolean | undefined;
+                condenseOnComplete?: boolean | undefined;
+                webhookAuthHeader?: string | undefined;
                 webhookAuthConfigured: boolean;
+                inboundUrl: string;
             };
             meta: object;
         }>;
@@ -15299,19 +15354,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -15333,27 +15388,27 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         create: _trpc_server.TRPCMutationProcedure<{
             input: {
                 project_id: string;
-                feedback_text: string;
                 organization_id?: string | undefined;
+                feedback_text: string;
                 model?: string | undefined;
                 preview_status?: string | undefined;
                 is_streaming?: boolean | undefined;
@@ -15374,28 +15429,28 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
         create: _trpc_server.TRPCMutationProcedure<{
             input: {
-                feedback_text: string;
                 cloud_agent_session_id?: string | undefined;
                 kilo_session_id?: string | undefined;
                 organization_id?: string | undefined;
+                feedback_text: string;
                 model?: string | undefined;
                 repository?: string | undefined;
                 is_streaming?: boolean | undefined;
@@ -15416,19 +15471,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -15450,11 +15505,9 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         getStatus: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: {
-                name: string | null;
-                workerUrl: string;
                 userId: string | null;
                 sandboxId: string | null;
-                status: "provisioned" | "starting" | "restarting" | "running" | "stopped" | "destroying" | null;
+                status: "destroying" | "provisioned" | "restarting" | "restoring" | "running" | "starting" | "stopped" | null;
                 provisionedAt: number | null;
                 lastStartedAt: number | null;
                 lastStoppedAt: number | null;
@@ -15474,6 +15527,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 gmailNotificationsEnabled: boolean;
                 execSecurity: string | null;
                 execAsk: string | null;
+                name: string | null;
+                workerUrl: string;
             };
             meta: object;
         }>;
@@ -15537,8 +15592,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 kilocodeDefaultModel?: string | null | undefined;
             };
             output: {
-                kilocodeDefaultModel: string | null;
                 kilocodeApiKeyExpiresAt: string | null;
+                kilocodeDefaultModel: string | null;
             };
             meta: object;
         }>;
@@ -15564,8 +15619,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 kilocodeDefaultModel?: string | null | undefined;
             };
             output: {
-                kilocodeDefaultModel: string | null;
                 kilocodeApiKeyExpiresAt: string | null;
+                kilocodeDefaultModel: string | null;
             };
             meta: object;
         }>;
@@ -15766,8 +15821,6 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         getMyPin: _trpc_server.TRPCQueryProcedure<{
             input: void;
             output: {
-                openclaw_version: string | null;
-                variant: string | null;
                 id: string;
                 user_id: string;
                 image_tag: string;
@@ -15775,6 +15828,8 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 reason: string | null;
                 created_at: string;
                 updated_at: string;
+                openclaw_version: string | null;
+                variant: string | null;
             } | null;
             meta: object;
         }>;
@@ -15784,13 +15839,13 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 reason?: string | undefined;
             };
             output: {
-                id: string;
-                updated_at: string;
                 created_at: string;
-                user_id: string;
-                reason: string | null;
+                id: string;
                 image_tag: string;
                 pinned_by: string;
+                reason: string | null;
+                updated_at: string;
+                user_id: string;
             };
             meta: object;
         }>;
@@ -15840,7 +15895,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             input: void;
             output: {
                 hasAccess: boolean;
-                accessReason: "trial" | "subscription" | "earlybird" | null;
+                accessReason: "earlybird" | "subscription" | "trial" | null;
                 trialEligible: false;
                 trial: {
                     startedAt: string;
@@ -15864,7 +15919,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 } | null;
                 instance: {
                     exists: boolean;
-                    status: "running" | "stopped" | "provisioned" | "destroying" | null;
+                    status: "destroying" | "provisioned" | "running" | "stopped" | null;
                     suspendedAt: string | null;
                     destructionDeadline: string | null;
                     destroyed: boolean;
@@ -15923,19 +15978,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
         ctx: TRPCContext;
         meta: object;
         errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
             data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
                 zodError: {
                     formErrors: string[];
                     fieldErrors: {};
                 } | null;
                 upstreamCode: string | undefined;
-                code: _trpc_server.TRPC_ERROR_CODE_KEY;
-                httpStatus: number;
-                path?: string;
-                stack?: string;
             };
-            message: string;
-            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
         };
         transformer: false;
     }, _trpc_server.TRPCDecorateCreateRouterOptions<{
@@ -15944,9 +15999,10 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 cursor?: string | undefined;
                 limit?: number | undefined;
                 createdOnPlatform?: string | string[] | undefined;
-                orderBy?: "updated_at" | "created_at" | undefined;
+                orderBy?: "created_at" | "updated_at" | undefined;
                 organizationId?: string | null | undefined;
                 includeSubSessions?: boolean | undefined;
+                gitUrl?: string | undefined;
             };
             output: {
                 cliSessions: {
@@ -15969,6 +16025,19 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
             };
             meta: object;
         }>;
+        recentRepositories: _trpc_server.TRPCQueryProcedure<{
+            input: {
+                organizationId?: string | null | undefined;
+                recentDays?: number | undefined;
+            };
+            output: {
+                repositories: {
+                    gitUrl: string;
+                    lastUsedAt: string;
+                }[];
+            };
+            meta: object;
+        }>;
         search: _trpc_server.TRPCQueryProcedure<{
             input: {
                 search_string: string;
@@ -15977,6 +16046,7 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 createdOnPlatform?: string | string[] | undefined;
                 organizationId?: string | null | undefined;
                 includeSubSessions?: boolean | undefined;
+                gitUrl?: string | undefined;
             };
             output: {
                 results: {
@@ -15998,6 +16068,48 @@ declare const rootRouter: _trpc_server.TRPCBuiltRouter<{
                 total: number;
                 limit: number;
                 offset: number;
+            };
+            meta: object;
+        }>;
+    }>>;
+    activeSessions: _trpc_server.TRPCBuiltRouter<{
+        ctx: TRPCContext;
+        meta: object;
+        errorShape: {
+            message: string;
+            code: _trpc_server.TRPC_ERROR_CODE_NUMBER;
+            data: {
+                code: "BAD_GATEWAY" | "BAD_REQUEST" | "CLIENT_CLOSED_REQUEST" | "CONFLICT" | "FORBIDDEN" | "GATEWAY_TIMEOUT" | "INTERNAL_SERVER_ERROR" | "METHOD_NOT_SUPPORTED" | "NOT_FOUND" | "NOT_IMPLEMENTED" | "PARSE_ERROR" | "PAYLOAD_TOO_LARGE" | "PAYMENT_REQUIRED" | "PRECONDITION_FAILED" | "PRECONDITION_REQUIRED" | "SERVICE_UNAVAILABLE" | "TIMEOUT" | "TOO_MANY_REQUESTS" | "UNAUTHORIZED" | "UNPROCESSABLE_CONTENT" | "UNSUPPORTED_MEDIA_TYPE";
+                httpStatus: number;
+                path?: string | undefined;
+                stack?: string | undefined;
+                zodError: {
+                    formErrors: string[];
+                    fieldErrors: {};
+                } | null;
+                upstreamCode: string | undefined;
+            };
+        };
+        transformer: false;
+    }, _trpc_server.TRPCDecorateCreateRouterOptions<{
+        getToken: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: {
+                token: string;
+            };
+            meta: object;
+        }>;
+        list: _trpc_server.TRPCQueryProcedure<{
+            input: void;
+            output: {
+                sessions: {
+                    id: string;
+                    status: string;
+                    title: string;
+                    connectionId: string;
+                    gitUrl?: string | undefined;
+                    gitBranch?: string | undefined;
+                }[];
             };
             meta: object;
         }>;

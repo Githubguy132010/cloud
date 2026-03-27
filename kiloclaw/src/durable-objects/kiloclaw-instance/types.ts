@@ -84,6 +84,11 @@ export type InstanceMutableState = {
   gmailPushOidcEmail: string | null;
   execSecurity: string | null;
   execAsk: string | null;
+  // Snapshot restore tracking
+  previousVolumeId: string | null;
+  restoreStartedAt: string | null;
+  preRestoreStatus: InstanceStatus | null;
+  pendingRestoreVolumeId: string | null;
   instanceReadyEmailSent: boolean;
   // Stream Chat default channel (auto-provisioned)
   streamChatApiKey: string | null;
