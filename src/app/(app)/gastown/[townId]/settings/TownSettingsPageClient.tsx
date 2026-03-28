@@ -144,7 +144,7 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
     isAdminViewing || (readOnly && currentUser?.id !== configQuery.data?.created_by_user_id);
 
   const isOwner = currentUser?.id === configQuery.data?.created_by_user_id;
-  const canDelete = isOwner && !isAdminViewing && !readOnly;
+  const canDelete = isOwner && !effectiveReadOnly;
 
   // Track server-side values so we can detect changes that require a reload
   const savedModelRef = useRef<string>('');
