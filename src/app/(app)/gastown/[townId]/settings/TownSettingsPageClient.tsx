@@ -144,7 +144,8 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
     isAdminViewing || (readOnly && currentUser?.id !== configQuery.data?.created_by_user_id);
 
   const isOwner = currentUser?.id === configQuery.data?.created_by_user_id;
-  const canDelete = isOwner && !effectiveReadOnly;
+  const canDelete = !effectiveReadOnly && (isOwner || Boolean(organizationId));
+  const deleteRedirectPath = organizationId ? `/organizations/${organizationId}/gastown` : '/gastown';
 
   // Track server-side values so we can detect changes that require a reload
   const savedModelRef = useRef<string>('');
@@ -211,7 +212,7 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
     trpc.gastown.deleteTown.mutationOptions({
       onSuccess: () => {
         toast.success('Town deleted');
-        router.push('/gastown');
+        router.push(deleteRedirectPath);
       },
       onError: err => toast.error(`Failed to delete town: ${err.message}`),
     })
@@ -835,8 +836,8 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                     title={
                       isAdminViewing
                         ? 'Admins cannot delete towns they do not own'
-                        : !isOwner
-                          ? 'Only the town owner can delete this town'
+                        : !canDelete
+                          ? 'Only town owners can delete personal towns'
                           : undefined
                     }
                     className="shrink-0 gap-1.5 border-red-500/30 text-red-400 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-40"
