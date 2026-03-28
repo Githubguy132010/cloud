@@ -106,6 +106,7 @@ import * as flyClient from '../fly/client';
 import { FlyApiError } from '../fly/client';
 import * as db from '../db';
 import * as gatewayEnv from '../gateway/env';
+import * as regions from './regions';
 import { resolveLatestVersion } from '../lib/image-version';
 import { setupDefaultStreamChatChannel } from '../stream-chat/client';
 import { verifyKiloToken } from '@kilocode/worker-utils';
@@ -4173,6 +4174,33 @@ describe('provision: auto-start after fresh provision', () => {
     expect(flyClient.createMachine).toHaveBeenCalled();
     expect(storage._store.get('status')).toBe('running');
     expect(storage._store.get('flyMachineId')).toBe('machine-1');
+  });
+
+  it('wires capacity eviction callback during initial volume provisioning', async () => {
+    const env = createFakeEnv();
+    const { instance, waitUntilPromises } = createInstance(undefined, env);
+    const evictSpy = vi.spyOn(regions, 'evictCapacityRegionFromKV').mockResolvedValue(undefined);
+
+    (flyClient.createVolumeWithFallback as Mock).mockImplementation(
+      async (
+        _config: unknown,
+        _request: unknown,
+        _regions: string[],
+        options?: { onCapacityError?: (failedRegion: string) => void | Promise<void> }
+      ) => {
+        await options?.onCapacityError?.('arn');
+        return { id: 'vol-1', region: 'yyz' };
+      }
+    );
+    (flyClient.getVolume as Mock).mockResolvedValue({ id: 'vol-1', region: 'yyz' });
+    (flyClient.createMachine as Mock).mockResolvedValue({ id: 'machine-1', region: 'yyz' });
+    (flyClient.waitForState as Mock).mockResolvedValue(undefined);
+
+    await instance.provision('user-1', {});
+    await Promise.all(waitUntilPromises);
+
+    expect(evictSpy).toHaveBeenCalledWith(env.KV_CLAW_CACHE, env, 'arn');
+    evictSpy.mockRestore();
   });
 
   it('skips auto-start on re-provision of existing instance', async () => {

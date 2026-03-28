@@ -39,7 +39,12 @@ import {
   MAX_CUSTOM_SECRETS,
   type SecretFieldKey,
 } from '@kilocode/kiloclaw-secret-catalog';
-import { parseRegions, prepareRegions, resolveRegions } from '../regions';
+import {
+  parseRegions,
+  prepareRegions,
+  resolveRegions,
+  evictCapacityRegionFromKV,
+} from '../regions';
 import { buildMachineConfig, guestFromSize, volumeNameFromSandboxId } from '../machine-config';
 import type { GatewayProcessStatus } from '../gateway-controller-types';
 
@@ -244,7 +249,12 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
           size_gb: DEFAULT_VOLUME_SIZE_GB,
           compute: guest,
         },
-        regions
+        regions,
+        {
+          onCapacityError: failedRegion => {
+            void evictCapacityRegionFromKV(this.env.KV_CLAW_CACHE, this.env, failedRegion);
+          },
+        }
       );
       this.s.flyVolumeId = volume.id;
       this.s.flyRegion = volume.region;
