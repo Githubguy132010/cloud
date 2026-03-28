@@ -13,6 +13,14 @@ import { toast } from 'sonner';
 import { useModelSelectorList } from '@/app/api/openrouter/hooks';
 import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   Plus,
   Trash2,
   Eye,
@@ -31,6 +39,7 @@ import {
   Key,
   X,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   Accordion,
   AccordionItem,
@@ -47,15 +56,16 @@ type EnvVarEntry = { key: string; value: string; isNew?: boolean };
 
 // Section definitions for the scrollspy nav
 const SECTIONS = [
-  { id: 'git-auth', label: 'Git Authentication', icon: GitBranch },
-  { id: 'github-cli', label: 'GitHub CLI', icon: Key },
-  { id: 'commit-identity', label: 'Commit Identity', icon: User },
-  { id: 'env-vars', label: 'Environment Variables', icon: Variable },
-  { id: 'agent-defaults', label: 'Agent Defaults', icon: Bot },
-  { id: 'convoys', label: 'Convoys', icon: Layers },
-  { id: 'merge-strategy', label: 'Merge Strategy', icon: GitPullRequest },
-  { id: 'refinery', label: 'Refinery', icon: Shield },
-  { id: 'container', label: 'Container', icon: Container },
+  { id: 'git-auth', label: 'Git Authentication', icon: GitBranch, danger: false },
+  { id: 'github-cli', label: 'GitHub CLI', icon: Key, danger: false },
+  { id: 'commit-identity', label: 'Commit Identity', icon: User, danger: false },
+  { id: 'env-vars', label: 'Environment Variables', icon: Variable, danger: false },
+  { id: 'agent-defaults', label: 'Agent Defaults', icon: Bot, danger: false },
+  { id: 'convoys', label: 'Convoys', icon: Layers, danger: false },
+  { id: 'merge-strategy', label: 'Merge Strategy', icon: GitPullRequest, danger: false },
+  { id: 'refinery', label: 'Refinery', icon: Shield, danger: false },
+  { id: 'container', label: 'Container', icon: Container, danger: false },
+  { id: 'danger-zone', label: 'Danger Zone', icon: Trash2, danger: true },
 ] as const;
 
 function useScrollSpy(sectionIds: readonly string[]) {
@@ -110,6 +120,7 @@ function useScrollSpy(sectionIds: readonly string[]) {
 export function TownSettingsPageClient({ townId, readOnly = false, organizationId }: Props) {
   const trpc = useGastownTRPC();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { data: currentUser } = useUser();
 
   const {
@@ -131,6 +142,9 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
   const isAdminViewing = adminAccessQuery.data?.isAdminViewing ?? false;
   const effectiveReadOnly =
     isAdminViewing || (readOnly && currentUser?.id !== configQuery.data?.created_by_user_id);
+
+  const isOwner = currentUser?.id === configQuery.data?.created_by_user_id;
+  const canDelete = isOwner && !isAdminViewing && !readOnly;
 
   // Track server-side values so we can detect changes that require a reload
   const savedModelRef = useRef<string>('');
@@ -193,6 +207,16 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
     })
   );
 
+  const deleteTownMutation = useMutation(
+    trpc.gastown.deleteTown.mutationOptions({
+      onSuccess: () => {
+        toast.success('Town deleted');
+        router.push('/gastown');
+      },
+      onError: err => toast.error(`Failed to delete town: ${err.message}`),
+    })
+  );
+
   // Local state for form fields
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>([]);
   const [githubToken, setGithubToken] = useState('');
@@ -213,6 +237,8 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
   const [disableAiCoauthor, setDisableAiCoauthor] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   // Sync config into local state when loaded
   if (configQuery.data && !initialized) {
@@ -783,6 +809,100 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                   </div>
                 </div>
               </SettingsSection>
+
+              {/* ── Danger Zone ─────────────────────────────────────── */}
+              <SettingsSection
+                id="danger-zone"
+                title="Danger Zone"
+                description="Irreversible actions that affect this entire town."
+                icon={Trash2}
+                index={9}
+                danger
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-white/80">Delete this town</p>
+                    <p className="mt-0.5 text-[11px] text-white/35">
+                      Permanently delete this town and all of its data, including all rigs, beads,
+                      convoys, agent history, and container state. This action cannot be undone.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={!canDelete}
+                    variant="secondary"
+                    size="sm"
+                    title={
+                      isAdminViewing
+                        ? 'Admins cannot delete towns they do not own'
+                        : !isOwner
+                          ? 'Only the town owner can delete this town'
+                          : undefined
+                    }
+                    className="shrink-0 gap-1.5 border-red-500/30 text-red-400 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-40"
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete Town
+                  </Button>
+                </div>
+              </SettingsSection>
+
+              {/* Delete confirmation dialog */}
+              <Dialog
+                open={showDeleteDialog}
+                onOpenChange={open => {
+                  setShowDeleteDialog(open);
+                  if (!open) setDeleteConfirmName('');
+                }}
+              >
+                <DialogContent className="border-white/[0.08] bg-[oklch(0.13_0_0)] text-white">
+                  <DialogHeader>
+                    <DialogTitle className="text-white/90">
+                      Delete &ldquo;{townQuery.data?.name}&rdquo;?
+                    </DialogTitle>
+                    <DialogDescription className="text-white/45">
+                      This will permanently delete all rigs, beads, convoys, agent sessions, and
+                      container state. This cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 py-2">
+                    <Label className="text-xs text-white/55">
+                      Type the town name to confirm:{' '}
+                      <span className="font-mono text-white/70">{townQuery.data?.name}</span>
+                    </Label>
+                    <Input
+                      value={deleteConfirmName}
+                      onChange={e => setDeleteConfirmName(e.target.value)}
+                      placeholder={townQuery.data?.name}
+                      className="border-white/[0.08] bg-white/[0.03] text-sm text-white/85 placeholder:text-white/20"
+                      autoFocus
+                    />
+                  </div>
+                  <DialogFooter className="gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setShowDeleteDialog(false);
+                        setDeleteConfirmName('');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={
+                        deleteConfirmName !== townQuery.data?.name || deleteTownMutation.isPending
+                      }
+                      onClick={() => deleteTownMutation.mutate({ townId })}
+                      className="border-red-500/30 text-red-400 hover:border-red-500/50 hover:bg-red-500/10 disabled:opacity-40"
+                    >
+                      {deleteTownMutation.isPending ? 'Deleting...' : 'Delete permanently'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
 
@@ -802,9 +922,13 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                       <button
                         onClick={() => scrollToSection(section.id)}
                         className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs whitespace-nowrap overflow-hidden text-ellipsis transition-colors ${
-                          isActive
-                            ? 'bg-white/[0.06] text-white/80'
-                            : 'text-white/35 hover:bg-white/[0.03] hover:text-white/55'
+                          section.danger
+                            ? isActive
+                              ? 'bg-red-500/10 text-red-400'
+                              : 'text-red-500/60 hover:bg-red-500/[0.06] hover:text-red-400'
+                            : isActive
+                              ? 'bg-white/[0.06] text-white/80'
+                              : 'text-white/35 hover:bg-white/[0.03] hover:text-white/55'
                         }`}
                       >
                         <SectionIcon className="size-3 shrink-0" />
@@ -812,7 +936,7 @@ export function TownSettingsPageClient({ townId, readOnly = false, organizationI
                         {isActive && (
                           <motion.div
                             layoutId="settings-nav-indicator"
-                            className="ml-auto size-1 rounded-full bg-[color:oklch(95%_0.15_108)]"
+                            className={`ml-auto size-1 rounded-full ${section.danger ? 'bg-red-400' : 'bg-[color:oklch(95%_0.15_108)]'}`}
                             transition={{
                               type: 'spring',
                               stiffness: 350,
@@ -858,6 +982,7 @@ function SettingsSection({
   icon: Icon,
   index,
   action,
+  danger = false,
   children,
 }: {
   id: string;
@@ -866,6 +991,7 @@ function SettingsSection({
   icon: typeof Settings;
   index: number;
   action?: React.ReactNode;
+  danger?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -877,17 +1003,27 @@ function SettingsSection({
     >
       <div className="mb-4 flex items-start justify-between">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex size-8 items-center justify-center rounded-lg bg-white/[0.04] ring-1 ring-white/[0.06]">
-            <Icon className="size-4 text-white/40" />
+          <div
+            className={`mt-0.5 flex size-8 items-center justify-center rounded-lg ring-1 ${danger ? 'bg-red-500/[0.06] ring-red-500/20' : 'bg-white/[0.04] ring-white/[0.06]'}`}
+          >
+            <Icon className={`size-4 ${danger ? 'text-red-400/70' : 'text-white/40'}`} />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white/85">{title}</h2>
+            <h2
+              className={`text-sm font-semibold ${danger ? 'text-red-400/90' : 'text-white/85'}`}
+            >
+              {title}
+            </h2>
             <p className="mt-0.5 text-xs text-white/35">{description}</p>
           </div>
         </div>
         {action}
       </div>
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">{children}</div>
+      <div
+        className={`rounded-xl border p-4 ${danger ? 'border-red-500/20 bg-red-500/[0.03]' : 'border-white/[0.06] bg-white/[0.02]'}`}
+      >
+        {children}
+      </div>
     </motion.section>
   );
 }
