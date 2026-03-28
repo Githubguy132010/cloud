@@ -75,6 +75,34 @@ import { CHANGELOG_ENTRIES } from '@/app/(app)/claw/components/changelog-data';
 const UNSAFE_ERROR_CODES = new Set(['config_read_failed', 'config_replace_failed']);
 
 /**
+ * Return the user's active instance, creating a new registry row if none
+ * exists (e.g. trial expired and instance was destroyed).
+ *
+ * When a new row is created, any existing kiloclaw_subscriptions row for this
+ * user is reassigned to the new instance_id so that user_id-based reads
+ * (requireKiloClawAccess, getBillingStatus, cancelSubscription, …) keep
+ * returning the canonical row instead of inserting a duplicate.
+ *
+ * This mirrors the reassignment already performed in ensureProvisionAccess
+ * (lines 485–497) for the Stripe hosting-only checkout path.
+ */
+async function getOrCreateInstanceForBilling(userId: string): Promise<ActiveKiloClawInstance> {
+  const active = await getActiveInstance(userId);
+  if (active) return active;
+
+  const newInstance = await ensureActiveInstance(userId);
+
+  // Reassign the existing subscription row (if any) to the new instance so
+  // duplicate-subscription guards and user_id-based reads all see one row.
+  await db
+    .update(kiloclaw_subscriptions)
+    .set({ instance_id: newInstance.id })
+    .where(eq(kiloclaw_subscriptions.user_id, userId));
+
+  return newInstance;
+}
+
+/**
  * Map KiloClawApiError responses to TRPCErrors for file operations.
  * Always throws — call as `handleFileOperationError(err, 'read file')`.
  */
@@ -1603,11 +1631,7 @@ export const kiloclawRouter = createTRPCRouter({
         }
         instance = row;
       } else {
-        const active = await getActiveInstance(ctx.user.id);
-        // If the user has no active instance (e.g. their trial expired and the
-        // instance was destroyed), create a new registry row so they can
-        // subscribe without being blocked by the "provision first" requirement.
-        instance = active ?? (await ensureActiveInstance(ctx.user.id));
+        instance = await getOrCreateInstanceForBilling(ctx.user.id);
       }
 
       // Intro pricing eligibility (spec Credit Enrollment rule 3).
@@ -1639,9 +1663,8 @@ export const kiloclawRouter = createTRPCRouter({
 
       // Get the user's active instance — needed for both the guard and callback URL.
       // If none exists (e.g. trial expired and instance was destroyed) create a new
-      // registry row so the user is not deadlocked out of subscribing.
-      const instance =
-        (await getActiveInstance(ctx.user.id)) ?? (await ensureActiveInstance(ctx.user.id));
+      // registry row and reassign any existing subscription to it.
+      const instance = await getOrCreateInstanceForBilling(ctx.user.id);
 
       // Reject if this instance already has a non-ended KiloClaw subscription
       const [existing] = await db
