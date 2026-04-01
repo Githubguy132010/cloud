@@ -1138,11 +1138,27 @@ export const kiloclawRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const instance = await getActiveInstance(ctx.user.id);
       const client = new KiloClawInternalClient();
-      const result = await client.startKiloCliRun(
-        ctx.user.id,
-        input.prompt,
-        workerInstanceId(instance)
-      );
+
+      let result;
+      try {
+        result = await client.startKiloCliRun(
+          ctx.user.id,
+          input.prompt,
+          workerInstanceId(instance)
+        );
+      } catch (err) {
+        if (err instanceof KiloClawApiError) {
+          const { code } = getKiloClawApiErrorPayload(err);
+          if (code === 'controller_route_unavailable') {
+            throw new TRPCError({
+              code: 'PRECONDITION_FAILED',
+              message: 'Instance needs redeploy to support recovery',
+              cause: new UpstreamApiError('controller_route_unavailable'),
+            });
+          }
+        }
+        throw err;
+      }
 
       // Persist the run in the database and return its ID
       const [row] = await db
