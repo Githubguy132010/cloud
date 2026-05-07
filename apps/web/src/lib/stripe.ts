@@ -426,7 +426,9 @@ export async function handleSuccessfulChargeWithPayment(
       `Processing top-up for organization ${organizationId} from charge ${charge.id}`
     );
     config.stripe_payment_id = paymentIntent.id;
-    await processTopupForOrganization(kiloUserId, organizationId, creditAmountInCents, config);
+    await processTopupForOrganization(kiloUserId, organizationId, creditAmountInCents, config, {
+      isAutoTopUp: paymentIntent.metadata.type === 'org-auto-topup-setup',
+    });
 
     if (paymentIntent.metadata.type === 'org-auto-topup-setup') {
       await handleOrgAutoTopUpSetup(organizationId, kiloUserId, paymentIntent, config);
@@ -751,7 +753,8 @@ export async function processStripePaymentEventHook(event: Stripe.Event) {
               autoTopUpConfig?.created_by_user_id ?? SYSTEM_AUTO_TOP_UP_USER_ID,
               organizationId,
               invoice.amount_paid,
-              config
+              config,
+              { isAutoTopUp: true }
             );
 
             processedSuccessfully = true;

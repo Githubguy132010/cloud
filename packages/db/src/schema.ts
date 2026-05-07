@@ -5134,9 +5134,8 @@ export const transactional_email_log = pgTable(
       .default(sql`gen_random_uuid()`)
       .primaryKey()
       .notNull(),
-    user_id: text()
-      .notNull()
-      .references(() => kilocode_users.id),
+    user_id: text().references(() => kilocode_users.id),
+    organization_id: uuid().references(() => organizations.id, { onDelete: 'cascade' }),
     email_type: text().notNull(),
     idempotency_key: text().notNull(),
     sent_at: timestamp({ withTimezone: true, mode: 'string' }).defaultNow().notNull(),
@@ -5147,6 +5146,11 @@ export const transactional_email_log = pgTable(
       table.idempotency_key
     ),
     index('IDX_transactional_email_log_user_id').on(table.user_id),
+    index('IDX_transactional_email_log_organization_id').on(table.organization_id),
+    check(
+      'CHK_transactional_email_log_owner',
+      sql`${table.user_id} IS NOT NULL OR ${table.organization_id} IS NOT NULL`
+    ),
   ]
 );
 
