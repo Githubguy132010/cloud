@@ -979,6 +979,27 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         userTimezone,
         userLocation,
       });
+      // Also propagate userLocation to the morning-briefing plugin's
+      // config.json so the next brief picks up the new value without
+      // requiring a container restart. The plugin reads from
+      // config.json first and falls back to KILOCLAW_USER_LOCATION env
+      // var. Null clears the override (plugin then falls back to env);
+      // a string sets it. The gateway helper returns null on older
+      // controllers that lack the route, and that null is treated as
+      // success here — older instances boot with the env-var path
+      // anyway, so the user still gets the new value on next restart.
+      //
+      // Network / auth errors are intentionally NOT caught — they
+      // propagate up so the caller sees an error toast and can retry.
+      // Matches the `writeUserProfile` call above which also lets its
+      // errors raise. Without this, saves can silently succeed in DO
+      // state but never reach the running plugin's config.json, and
+      // the next brief uses stale data with no signal to the user.
+      if (userLocation !== previousUserLocation) {
+        await gateway.updateMorningBriefingUserLocation(this.s, this.env, {
+          userLocation,
+        });
+      }
     }
 
     if (isNew) {
@@ -2677,6 +2698,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     botNature: string | null;
     botVibe: string | null;
     botEmoji: string | null;
+    userLocation: string | null;
+    userTimezone: string | null;
     controllerCapabilitiesVersion: number | null;
   }> {
     await this.loadState();
@@ -2727,6 +2750,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
       botNature: this.s.botNature,
       botVibe: this.s.botVibe,
       botEmoji: this.s.botEmoji,
+      userLocation: this.s.userLocation ?? null,
+      userTimezone: this.s.userTimezone ?? null,
       controllerCapabilitiesVersion: this.s.controllerCapabilitiesVersion,
     };
   }
