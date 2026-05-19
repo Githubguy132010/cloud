@@ -52,7 +52,8 @@ import {
 import { getPgDb } from '../../db/pg.js';
 import { repoFullNameFromGitUrl } from '@kilocode/worker-utils/git-url';
 import {
-  destroySandboxAfterInternalServerError,
+  destroySandboxAfterPreparationInfrastructureFailure,
+  getPreparationInfrastructureFailure,
   isSandboxInternalServerError,
 } from '../../sandbox-recovery.js';
 
@@ -194,6 +195,7 @@ function setCollectionUpdate<T>(
 
 type PrepareSessionWorkspaceFailureCategory =
   | 'sandbox_api_or_storage_failure'
+  | 'workspace_filesystem_preparation_failure'
   | 'wrapper_wait_for_port_timeout'
   | 'wrapper_kilo_server_start_timeout'
   | 'configured_session_lookup_failure'
@@ -206,9 +208,14 @@ function prepareSessionErrorMessage(error: unknown): string {
 
 function classifyPrepareSessionWorkspaceFailure(
   error: unknown,
-  sandboxInternalServerError: boolean
+  sandboxInternalServerError: boolean,
+  workspaceFilesystemPreparationFailure = false
 ): PrepareSessionWorkspaceFailureCategory {
   const message = prepareSessionErrorMessage(error).toLowerCase();
+
+  if (workspaceFilesystemPreparationFailure) {
+    return 'workspace_filesystem_preparation_failure';
+  }
 
   if (
     message.includes('configured session') &&
@@ -692,22 +699,27 @@ const prepareSessionHandler = internalApiProtectedProcedure
       try {
         preparedWorkspace = await prepareWorkspace();
       } catch (error) {
+        const preparationFailure = getPreparationInfrastructureFailure(error);
         const sandboxInternalServerError = isSandboxInternalServerError(error);
+        const workspaceFilesystemPreparationFailure =
+          preparationFailure?.type === 'workspace_filesystem_preparation_error';
         const failureCategory = classifyPrepareSessionWorkspaceFailure(
           error,
-          sandboxInternalServerError
+          sandboxInternalServerError,
+          workspaceFilesystemPreparationFailure
         );
         logger
           .withFields({
             error: prepareSessionErrorMessage(error),
             failureCategory,
             retryableSandboxInternalServerError: sandboxInternalServerError,
+            retryablePreparationInfrastructureFailure: preparationFailure !== undefined,
             retryableWrapperReadinessFailure: isRetryableWrapperReadinessFailure(failureCategory),
             sandboxKind: ctx.botId ? 'bot' : 'user',
             logTag: 'prepare_session_workspace_preparation_failed',
           })
           .error('prepareSession workspace preparation failed');
-        await destroySandboxAfterInternalServerError(
+        await destroySandboxAfterPreparationInfrastructureFailure(
           {
             sandbox,
             sandboxId,
@@ -716,10 +728,10 @@ const prepareSessionHandler = internalApiProtectedProcedure
           },
           error
         );
-        if (sandboxInternalServerError) {
+        if (preparationFailure) {
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Sandbox returned 500 during workspace preparation',
+            message: preparationFailure.message,
             cause: { error: 'sandbox_internal_server_error', retryable: true },
           });
         }
