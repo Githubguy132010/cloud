@@ -40,7 +40,7 @@ import {
   INTEREST_TOPIC_PRESETS,
   MORNING_BRIEFING_INTERESTS_MIN_CONTROLLER_VERSION,
 } from '@/lib/kiloclaw/morning-briefing-interests';
-import { calverAtLeast, cleanVersion } from '@/lib/kiloclaw/version';
+import { controllerCalverSupports } from '@/lib/kiloclaw/version';
 import { ClawContextProvider, useClawContext } from './ClawContext';
 import { ClawConfigServiceBanner } from './ClawConfigServiceBanner';
 import { ClawHeader } from './ClawHeader';
@@ -302,12 +302,9 @@ function ClawOnboardingFlowInner({
   // frame of the calendar UI before the state machine redirects to email)
   // is harmless: the connect endpoint enforces admin too.
   const hasCalendarStep = isUserPending ? true : currentUser?.is_admin === true;
-  // Morning briefing is admin-only today (canSeeMorningBriefing in
-  // SettingsTab.tsx). Mirror the admin gate so non-admins skip the
-  // Interests step entirely. Same "default to true while loading" rationale
-  // as hasCalendarStep — protects admins on full-page reloads.
-  const isAdminForInterests = isUserPending ? true : currentUser?.is_admin === true;
-  // Also gate on controller version. The plugin route that backs
+  // Morning briefing is generally available — the Interests step shows for
+  // all users (it still gates on controller version below).
+  // Gate on controller version. The plugin route that backs
   // updateBriefingInterests is only present on images >= the minimum
   // version below. Without this check, an admin onboarding an older
   // image would hit a 404 on save. Default to "supports" while loading
@@ -318,13 +315,17 @@ function ClawOnboardingFlowInner({
   const controllerVersionQuery = useClawControllerVersion(status?.status === 'running');
   // Narrow off the instance-not-running sentinel so `.version` is safe.
   const controllerVersion = controllerVersionOk(controllerVersionQuery.data);
-  const controllerSupportsInterests =
-    controllerVersionQuery.isPending ||
-    calverAtLeast(
-      cleanVersion(controllerVersion?.version),
-      MORNING_BRIEFING_INTERESTS_MIN_CONTROLLER_VERSION
-    );
-  const hasInterestsStep = isAdminForInterests && controllerSupportsInterests;
+  // Fail OPEN: keep the interests step unless the controller version is
+  // positively parsed as too old, OR the worker reports an explicit
+  // `version: null` (its positive old-controller signal for a missing
+  // `/_kilo/version` route). Still-loading / errored / unparseable
+  // versions stay optimistic; the worker's `controller_route_unavailable`
+  // 404 on save is the backstop for those.
+  const controllerSupportsInterests = controllerCalverSupports(
+    controllerVersion?.version,
+    MORNING_BRIEFING_INTERESTS_MIN_CONTROLLER_VERSION
+  );
+  const hasInterestsStep = controllerSupportsInterests;
   // Lazy-init onboardingStep from `?step=` in the URL so first render already
   // reflects a calendar resume. Without this the state machine would resolve
   // to 'complete' (post-provisioning + ready) on first render and the auto-

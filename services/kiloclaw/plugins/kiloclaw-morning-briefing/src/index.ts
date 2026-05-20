@@ -16,6 +16,7 @@ import {
   type BriefingDocumentSection,
   offsetDateKey,
   resolveBriefingPath,
+  wrapBriefingMarkdownForAgent,
 } from './briefing-utils';
 import {
   type BriefingDeliveryResult,
@@ -37,23 +38,29 @@ import {
   buildGithubEmptySectionLines,
   buildGithubEmptySummary,
   classifyGithubToken,
+  formatGithubTldr,
   type GithubEmptyResultContext,
+  GITHUB_EMPTY_LINE,
+  isCleanGithubEmptyResult,
   missingBriefingScopes,
   parseOAuthScopesHeader,
   readGithubTokenFromEnv,
 } from './github-utils';
 import {
   formatLinearIssueLine,
+  formatLinearTldr,
   hasHighSignalPriority,
+  LINEAR_EMPTY_LINE,
   normalizeLinearIssues,
   summarizeLinearCallFailure,
 } from './linear-utils';
 import {
+  buildLocalNewsEmptyLine,
   buildLocalNewsSectionTitle,
   buildLocalNewsTiers,
-  buildNoLocationSectionLines,
   dedupeByUrl,
   formatLocalNewsLine,
+  formatLocalNewsTldr,
   LOCAL_NEWS_INTEREST_LABEL,
   LOCAL_NEWS_MAX_ITEMS,
   LOCAL_NEWS_MIN_ITEMS,
@@ -63,13 +70,12 @@ import {
   resolveLocationContextWithOverride,
 } from './local-news-utils';
 import { resolveNextReconcileAction } from './reconcile-queue-utils';
-import { normalizeWebResults } from './web-utils';
+import { formatWebTldr, normalizeWebResults, WEB_EMPTY_LINE } from './web-utils';
 import {
-  buildCalendarMissingScopeLines,
-  buildCalendarNoConnectionLines,
   buildCalendarSectionLines,
   buildCalendarSectionTitle,
   buildCalendarTimeWindow,
+  formatCalendarTldr,
 } from './calendar-utils';
 import {
   fetchCalendarAccessToken,
@@ -82,6 +88,9 @@ import {
   buildChatSummaryStatus,
   buildTodaySoFarChatWindow,
   buildYesterdayChatWindow,
+  CHAT_EMPTY_TODAY,
+  CHAT_EMPTY_YESTERDAY,
+  formatChatTldr,
   summarizeChatActivity,
 } from './chat-summary-utils';
 
@@ -168,6 +177,13 @@ type SourceCollectionResult = {
    * unset for sources with a static title.
    */
   sectionTitle?: string;
+  /**
+   * Optional short fragment for the briefing's `**TL;DR:**` header line
+   * (e.g. `3 GitHub issues to review`). Set by `populated` collectors;
+   * unset/empty when the source has nothing worth counting. The
+   * assembler joins all non-empty fragments with ` · `.
+   */
+  tldr?: string;
 };
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -848,10 +864,20 @@ async function collectGithub(api: GithubApiRunner): Promise<SourceCollectionResu
         configured: true,
         ok: true,
         summary: buildGithubEmptySummary(ctx),
-        sectionLines: buildGithubEmptySectionLines(ctx),
+        // Clean empty (correctly-scoped token, just no issues) gets the
+        // friendly one-liner; scope / token-misconfiguration cases keep
+        // the verbose PR-7 diagnostic so the user can act on it.
+        sectionLines: isCleanGithubEmptyResult(ctx)
+          ? [GITHUB_EMPTY_LINE]
+          : buildGithubEmptySectionLines(ctx),
       };
     }
-    const lines = items.slice(0, 8).map(item => {
+    // Render at most 8 of the up-to-12 fetched issues. The TL;DR counts
+    // the rendered set, not the fetched set, so the header can't claim
+    // "12 issues" while the section only lists 8. `summary` keeps the
+    // fetched count — it only surfaces in the debug Source Status footer.
+    const renderedItems = items.slice(0, 8);
+    const lines = renderedItems.map(item => {
       const updatedSuffix = item.updatedAt ? ` (updated ${item.updatedAt})` : '';
       return `- [${item.title}](${item.url})${updatedSuffix}`;
     });
@@ -861,6 +887,7 @@ async function collectGithub(api: GithubApiRunner): Promise<SourceCollectionResu
       ok: true,
       summary: `Fetched ${items.length} open GitHub issues`,
       sectionLines: lines,
+      tldr: formatGithubTldr(renderedItems.length),
     };
   } catch (error) {
     return {
@@ -917,7 +944,8 @@ async function collectWebSearch(
 ): Promise<SourceCollectionResult> {
   // Caller already filtered out "Local News" — that has its own source.
   // If nothing remains, the user hasn't opted into general web news.
-  // Surface a nudge instead of forcing a hardcoded fallback query.
+  // No section body — `configured: false` routes it into the single
+  // `## ⚙️ Connect more` nudge the assembler builds.
   const cleanedTopics = interestTopics.map(topic => topic.trim()).filter(topic => topic.length > 0);
   if (cleanedTopics.length === 0) {
     return {
@@ -925,9 +953,7 @@ async function collectWebSearch(
       configured: false,
       ok: true,
       summary: 'No general-interest topics selected',
-      sectionLines: [
-        'Select interests like Tech, AI, Finance, or Markets in Settings → Morning Briefing to add general web news to your briefing.',
-      ],
+      sectionLines: [],
     };
   }
 
@@ -1003,7 +1029,7 @@ async function collectWebSearch(
       configured: true,
       ok: true,
       summary: 'Web search returned no results',
-      sectionLines: ['- No web-search results returned.'],
+      sectionLines: [WEB_EMPTY_LINE],
     };
   }
 
@@ -1015,6 +1041,7 @@ async function collectWebSearch(
     ok: true,
     summary: `Fetched ${rendered.length} web results across ${cleanedTopics.length} topic(s)${providerSuffix}`,
     sectionLines: rendered.map(item => `- [${item.topic}] [${item.title}](${item.url})`),
+    tldr: formatWebTldr(rendered.length),
   };
 }
 
@@ -1118,12 +1145,14 @@ async function collectLocalNews(
   const locationContext = resolveLocationContextWithOverride(storedUserLocation);
 
   if (locationContext.kind === 'none') {
+    // No section body — `configured: false` routes Local News into the
+    // single `## ⚙️ Connect more` nudge the assembler builds.
     return {
       source: 'local-news',
       configured: false,
       ok: true,
       summary: LOCAL_NEWS_NO_LOCATION_SUMMARY,
-      sectionLines: buildNoLocationSectionLines(locationContext.timezone),
+      sectionLines: [],
       sectionTitle: buildLocalNewsSectionTitle(locationContext),
     };
   }
@@ -1148,7 +1177,7 @@ async function collectLocalNews(
         configured: true,
         ok: true,
         summary: `0 local news results after ${tiersConsumed} tier(s)`,
-        sectionLines: [`No local news found near ${locationContext.raw}.`],
+        sectionLines: [buildLocalNewsEmptyLine(locationContext)],
         sectionTitle: buildLocalNewsSectionTitle(locationContext),
       };
     }
@@ -1160,6 +1189,7 @@ async function collectLocalNews(
       summary: `Fetched ${items.length} local news result(s) in ${tiersConsumed} tier(s)${providerSuffix}`,
       sectionLines: items.map(formatLocalNewsLine),
       sectionTitle: buildLocalNewsSectionTitle(locationContext),
+      tldr: formatLocalNewsTldr(items.length),
     };
   } catch (error) {
     return {
@@ -1244,11 +1274,7 @@ async function collectLinear(api: {
       configured: true,
       ok: true,
       summary: '0 issues assigned to you in Linear',
-      sectionLines: [
-        'No issues assigned to you in Linear.',
-        '',
-        'If you expected results, check `mcporter call linear list_issues assignee:me limit:8 orderBy:updatedAt` from your container shell. The brief is scoped to issues you own; issues assigned to others will not appear.',
-      ],
+      sectionLines: [LINEAR_EMPTY_LINE],
     };
   }
 
@@ -1259,6 +1285,7 @@ async function collectLinear(api: {
     ok: true,
     summary: `Fetched ${issues.length} Linear issues assigned to you`,
     sectionLines: issues.map(issue => formatLinearIssueLine(issue, briefHasHighSignal)),
+    tldr: formatLinearTldr(issues),
   };
 }
 
@@ -1291,13 +1318,16 @@ async function collectCalendar(now: Date, userTimezone: string): Promise<SourceC
     };
   }
 
+  // Both "no Google connection" and "connected without calendar scope"
+  // emit no section body — `configured: false` routes Calendar into the
+  // single `## ⚙️ Connect more` nudge the assembler builds.
   if (!readiness.connected) {
     return {
       source: 'calendar',
       configured: false,
       ok: true,
       summary: readiness.reason,
-      sectionLines: buildCalendarNoConnectionLines(),
+      sectionLines: [],
     };
   }
 
@@ -1307,7 +1337,7 @@ async function collectCalendar(now: Date, userTimezone: string): Promise<SourceC
       configured: false,
       ok: true,
       summary: readiness.reason,
-      sectionLines: buildCalendarMissingScopeLines(),
+      sectionLines: [],
     };
   }
 
@@ -1334,6 +1364,7 @@ async function collectCalendar(now: Date, userTimezone: string): Promise<SourceC
       summary: `Fetched ${events.length} events for ${token.accountEmail}`,
       sectionLines: buildCalendarSectionLines(events, now, userTimezone),
       sectionTitle: buildCalendarSectionTitle(token.accountEmail),
+      tldr: formatCalendarTldr(events, now, userTimezone),
     };
   } catch (error) {
     return {
@@ -1385,14 +1416,15 @@ async function collectKiloChatSummary(
       sectionLines: [],
       sections: [
         {
-          title: `Yesterday in Chat (${yesterdayWindow.dateKey})`,
-          lines: buildChatSummarySectionLines(yesterdayStats, 'No Kilo Chat messages yesterday.'),
+          title: `💬 Yesterday in Chat (${yesterdayWindow.dateKey})`,
+          lines: buildChatSummarySectionLines(yesterdayStats, CHAT_EMPTY_YESTERDAY),
         },
         {
-          title: 'So Far Today in Chat',
-          lines: buildChatSummarySectionLines(todayStats, 'No Kilo Chat messages so far today.'),
+          title: '💬 So Far Today in Chat',
+          lines: buildChatSummarySectionLines(todayStats, CHAT_EMPTY_TODAY),
         },
       ],
+      tldr: formatChatTldr(yesterdayStats),
     };
   } catch (error) {
     return {
@@ -1490,13 +1522,17 @@ async function generateBriefing(
     ? await collectLocalNews(api, storedUserLocation)
     : null;
 
+  // Canonical brief order: Calendar → Linear → GitHub → Local News →
+  // Web → Kilo Chat. Fixed so the user gets the same rhythm every
+  // morning. Array order drives both the rendered section order and
+  // the `**TL;DR:**` fragment order.
   const sources: SourceCollectionResult[] = [
     calendar,
-    kiloChat,
-    github,
     linear,
+    github,
     ...(localNews ? [localNews] : []),
     web,
+    kiloChat,
   ];
   const successes = sources.filter(source => source.ok);
 
@@ -1506,22 +1542,37 @@ async function generateBriefing(
     );
   }
 
+  // Only configured-but-errored sources are failures. A source the user
+  // simply hasn't connected (`configured: false`) belongs in the
+  // `## ⚙️ Connect more` nudge the assembler builds, not the failure list.
   const failures = sources
-    .filter(source => !source.ok)
+    .filter(source => source.configured && !source.ok)
     .map(source => `${source.source}: ${source.summary}`);
-  // Default titles per source type. Individual sources can override via
-  // `SourceCollectionResult.sectionTitle` (used by Local News to surface
-  // the resolved location in the parens).
+  // Default titles per source type, each carrying the source's canonical
+  // emoji. Individual sources can override via
+  // `SourceCollectionResult.sectionTitle` (Calendar uses the connected
+  // account email, Local News the resolved location) — those builders
+  // prepend the same emoji themselves.
   const DEFAULT_SECTION_TITLE: Record<SourceCollectionResult['source'], string> = {
-    calendar: 'Calendar',
-    github: 'GitHub',
+    calendar: '🗓 Calendar',
+    github: '🐙 GitHub',
     // `kilo-chat` always supplies its own `sections`, so this entry only
     // exists to satisfy the exhaustive Record type and is never rendered.
-    'kilo-chat': 'Kilo Chat',
-    linear: 'Linear',
-    'local-news': 'Local News',
-    web: 'Web Search',
+    'kilo-chat': '💬 Kilo Chat',
+    linear: '📈 Linear',
+    'local-news': '📰 Local News',
+    web: '🌐 Web',
   };
+  // TL;DR fragments in canonical source order; empty fragments dropped.
+  const tldr = sources
+    .map(source => source.tldr?.trim())
+    .filter((fragment): fragment is string => Boolean(fragment))
+    .join(' · ');
+  // `BRIEFING_DEBUG` (1/true/yes) appends the operator-facing
+  // `## Source Status` footer; off by default for the user-facing brief.
+  const debug = ['1', 'true', 'yes'].includes(
+    (process.env.BRIEFING_DEBUG ?? '').trim().toLowerCase()
+  );
   const markdown = buildBriefingMarkdown({
     dateKey,
     generatedAt,
@@ -1541,6 +1592,8 @@ async function generateBriefing(
         ]
     ),
     failures,
+    tldr,
+    debug,
   });
 
   const filePath = resolveBriefingPath(paths.briefingsDir, dateKey);
@@ -1964,7 +2017,7 @@ export default definePluginEntry({
       }
     })();
 
-    const runBriefingCommand = async (argsText: string) => {
+    const runBriefingCommand = async (argsText: string, options?: { forAgent?: boolean }) => {
       const args = argsText.trim();
       const [subcommand = 'status'] = args.split(/\s+/).filter(Boolean);
 
@@ -2007,7 +2060,9 @@ export default definePluginEntry({
         if (!briefing.exists || !briefing.markdown) {
           return `No saved briefing for ${briefing.dateKey}.`;
         }
-        return briefing.markdown;
+        return options?.forAgent
+          ? wrapBriefingMarkdownForAgent(briefing.markdown)
+          : briefing.markdown;
       }
 
       const status = await getStatusSnapshot(api);
@@ -2066,7 +2121,7 @@ export default definePluginEntry({
           };
         }
 
-        const resultText = await runBriefingCommand(commandArgs);
+        const resultText = await runBriefingCommand(commandArgs, { forAgent: true });
         return {
           content: [
             {
@@ -2109,6 +2164,19 @@ export default definePluginEntry({
                 `Saved to ${result.filePath}.`,
                 ...result.failures.map(failure => `Note: ${failure}`),
                 ...formatDeliverySummary(result.delivery).map(line => line.replace(/^- /, '')),
+                '',
+                // Hand the agent the full briefing plus a fidelity rule so
+                // an on-demand "run my briefing" chat reply reproduces
+                // every section instead of paraphrasing the file (which
+                // silently dropped sections like "Connect more" and
+                // individual calendar lines). PR-6 replaces this with
+                // structured multi-bubble injection.
+                //
+                // wrapBriefingMarkdownForAgent fences the body in an
+                // untrusted-content tag so a malicious issue or event
+                // title cannot hijack the agent. Shared with
+                // morning_briefing_read so both paths carry the same guard.
+                wrapBriefingMarkdownForAgent(result.markdown),
               ].join('\n'),
             },
           ],
@@ -2158,7 +2226,10 @@ export default definePluginEntry({
           content: [
             {
               type: 'text',
-              text: briefing.markdown,
+              // Same untrusted-content fence as morning_briefing_generate:
+              // a saved briefing carries the same external titles, and the
+              // agent reads this in response to "/briefing today".
+              text: wrapBriefingMarkdownForAgent(briefing.markdown),
             },
           ],
           details: undefined,
@@ -2442,6 +2513,7 @@ export default definePluginEntry({
         'Use /briefing enable|status|run|today|yesterday|disable for command-driven control.',
         'If inbound text contains /briefing but command routing did not execute, call morning_briefing_handle_command exactly once with the full raw inbound message.',
         'Never emulate /briefing by manually calling generic cron/file tools.',
+        'When you present a morning briefing in chat, reproduce every section and every line of the briefing Markdown — including the "Connect more" section and all calendar entries. Light reformatting for readability is fine, but never drop, merge, or summarize away a section or line.',
       ].join('\n'),
     }));
   },

@@ -26,7 +26,7 @@ import { useUser } from '@/hooks/useUser';
 import { ModelCombobox, type ModelOption } from '@/components/shared/ModelCombobox';
 import type { KiloClawDashboardStatus, MorningBriefingStatusLite } from '@/lib/kiloclaw/types';
 import { morningBriefingStatusOk } from '@/lib/kiloclaw/types';
-import { calverAtLeast, cleanVersion } from '@/lib/kiloclaw/version';
+import { calverAtLeast, cleanVersion, controllerCalverSupports } from '@/lib/kiloclaw/version';
 import type { useKiloClawMutations } from '@/hooks/useKiloClaw';
 import {
   useClawComposioOnboardingStatus,
@@ -2006,19 +2006,19 @@ export function SettingsTab({
     cleanVersion(controllerVersion?.version),
     OPENCLAW_IMPORT_UI_MIN_CONTROLLER_VERSION
   );
-  // Optimistic during the version query so we don't briefly flash
-  // "Upgrade required" while loading. Matches the onboarding-flow guard
-  // in `ClawOnboardingFlow.tsx` (`controllerVersionQuery.isPending ||
-  // calverAtLeast(...)`). Important for hook stability too — the editor
-  // returns early when this is false, so a false→true transition mid-
-  // session would otherwise trip the rules-of-hooks check on the next
-  // render.
-  const supportsBriefingInterests =
-    isLoadingControllerVersion ||
-    calverAtLeast(
-      cleanVersion(controllerVersion?.version),
-      MORNING_BRIEFING_INTERESTS_MIN_CONTROLLER_VERSION
-    );
+  // Fail OPEN: hide the interests editor only when the controller
+  // version is positively parsed as too old, OR the worker reports an
+  // explicit `version: null` (its positive old-controller signal for a
+  // missing `/_kilo/version` route). A still-loading / errored /
+  // unparseable version keeps the editor visible — the worker's
+  // `controller_route_unavailable` 404 on save is the backstop for those,
+  // and a false "Upgrade required" on a current instance is a worse UX.
+  // Hook count stays stable (the editor early-returns on false) since
+  // genuinely-unknown states no longer flip the gate.
+  const supportsBriefingInterests = controllerCalverSupports(
+    controllerVersion?.version,
+    MORNING_BRIEFING_INTERESTS_MIN_CONTROLLER_VERSION
+  );
 
   const configuredSecrets = config?.configuredSecrets ?? {};
   const composioManagedConfigured = composioOnboardingStatus?.sandboxConfigSource === 'managed';
@@ -2062,7 +2062,6 @@ export function SettingsTab({
       : '/api/integrations/google/disconnect';
   }, [organizationId]);
   const canSeeGoogleCalendar = !!user?.is_admin;
-  const canSeeMorningBriefing = !!user?.is_admin;
 
   function handleCycleInboundEmailAddress() {
     mutations.cycleInboundEmailAddress.mutate(undefined, {
@@ -2560,23 +2559,21 @@ export function SettingsTab({
             mutations={mutations}
             onRedeploy={onRedeploy}
           />
-          {canSeeMorningBriefing && (
-            <MorningBriefingCard
-              mutations={mutations}
-              briefingStatus={morningBriefingStatus}
-              isRunning={isRunning}
-              actionsReady={morningBriefingActionsReady}
-              onRequestUpgrade={onRequestUpgrade}
-              supportsInterests={supportsBriefingInterests}
-              userLocation={status.userLocation ?? null}
-              userTimezone={status.userTimezone ?? null}
-              fallbackReadiness={{
-                githubConfigured: configuredSecrets.github ?? false,
-                linearConfigured: configuredSecrets.linear ?? false,
-                webConfigured: braveSearchConfigured || exaSearchConfigured,
-              }}
-            />
-          )}
+          <MorningBriefingCard
+            mutations={mutations}
+            briefingStatus={morningBriefingStatus}
+            isRunning={isRunning}
+            actionsReady={morningBriefingActionsReady}
+            onRequestUpgrade={onRequestUpgrade}
+            supportsInterests={supportsBriefingInterests}
+            userLocation={status.userLocation ?? null}
+            userTimezone={status.userTimezone ?? null}
+            fallbackReadiness={{
+              githubConfigured: configuredSecrets.github ?? false,
+              linearConfigured: configuredSecrets.linear ?? false,
+              webConfigured: braveSearchConfigured || exaSearchConfigured,
+            }}
+          />
         </div>
       </div>
 

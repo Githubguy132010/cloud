@@ -91,9 +91,10 @@ export type ClawOnboardingFlowStateInput = {
   hasToolsStep?: boolean;
   /**
    * Whether the morning-briefing Interests step is available in the wizard.
-   * Briefing is admin-only today (see `canSeeMorningBriefing` in
-   * `SettingsTab.tsx`), so non-admins skip the step entirely. When false,
-   * `'interests'` is mapped to `'provisioning'` in the render decision.
+   * Morning briefing is generally available; this is gated on controller
+   * version only (`controllerSupportsInterests` in `ClawOnboardingFlow.tsx`).
+   * When false, `'interests'` is mapped to `'provisioning'` in the render
+   * decision.
    */
   hasInterestsStep?: boolean;
   debugLogSource?: string;
