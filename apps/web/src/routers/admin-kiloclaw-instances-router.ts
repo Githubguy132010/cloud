@@ -79,6 +79,7 @@ import {
   sql,
   gte,
   lte,
+  lt,
   type SQL,
 } from 'drizzle-orm';
 
@@ -142,6 +143,13 @@ const FindOrphanVolumesSchema = z.object({
   destroyedAfter: z.string().datetime(),
   /** ISO date string — only check instances destroyed on or before this date. */
   destroyedBefore: z.string().datetime(),
+  /** Continue scanning older rows after a previous bounded batch. */
+  cursor: z
+    .object({
+      destroyedAt: z.string().datetime(),
+      id: z.string().uuid(),
+    })
+    .optional(),
 });
 
 const GetInstanceSchema = z.object({
@@ -3856,6 +3864,12 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
     //    leftJoin on subscriptions: a missing subscription row is fine (no
     //    access to preserve); `UQ_kiloclaw_subscriptions_instance` guarantees
     //    at most one subscription per instance, so the join stays 1:1.
+    // Every projected column must emit a UNIQUE name: this select becomes a
+    // derived table, and Drizzle does not alias subquery columns, so two
+    // `*.id` projections (`kiloclaw_instances.id` and `kiloclaw_subscriptions.id`)
+    // would both surface as `id` and make the outer SELECT ambiguous. Only
+    // `subscription_status` is consumed downstream, so the other subscription
+    // columns are not projected.
     const destroyedInstancesByLatest = db
       .selectDistinctOn([kiloclaw_instances.user_id, kiloclaw_instances.sandbox_id], {
         id: kiloclaw_instances.id,
@@ -3864,10 +3878,7 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
         organization_id: kiloclaw_instances.organization_id,
         destroyed_at: kiloclaw_instances.destroyed_at,
         user_email: kilocode_users.google_user_email,
-        subscription_id: kiloclaw_subscriptions.id,
         subscription_status: kiloclaw_subscriptions.status,
-        subscription_suspended_at: kiloclaw_subscriptions.suspended_at,
-        subscription_trial_ends_at: kiloclaw_subscriptions.trial_ends_at,
       })
       .from(kiloclaw_instances)
       .leftJoin(kilocode_users, eq(kiloclaw_instances.user_id, kilocode_users.id))
@@ -3886,21 +3897,42 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
     // Apply the requested window to the deduplicated latest row, then order
     // by recency and cap. Filtering here (not inside the subquery) is what
     // guarantees the window is matched against each sandbox's genuine latest
-    // destruction.
+    // destruction. The optional cursor continues older rows from the last
+    // scanned `(destroyed_at, id)` tuple, preserving a deterministic 500-row
+    // batch limit without forcing admins to manually bisect date windows.
+    const cursorPredicate = input.cursor
+      ? or(
+          lt(destroyedInstancesByLatest.destroyed_at, input.cursor.destroyedAt),
+          and(
+            eq(destroyedInstancesByLatest.destroyed_at, input.cursor.destroyedAt),
+            lt(destroyedInstancesByLatest.id, input.cursor.id)
+          )
+        )
+      : undefined;
+
     const instances = await db
       .select()
       .from(destroyedInstancesByLatest)
       .where(
         and(
           gte(destroyedInstancesByLatest.destroyed_at, input.destroyedAfter),
-          lte(destroyedInstancesByLatest.destroyed_at, input.destroyedBefore)
+          lte(destroyedInstancesByLatest.destroyed_at, input.destroyedBefore),
+          cursorPredicate
         )
       )
-      .orderBy(desc(destroyedInstancesByLatest.destroyed_at))
+      .orderBy(desc(destroyedInstancesByLatest.destroyed_at), desc(destroyedInstancesByLatest.id))
       .limit(MAX_SCAN + 1);
 
     const capped = instances.length > MAX_SCAN;
     const toScan = capped ? instances.slice(0, MAX_SCAN) : instances;
+    const lastScanned = toScan.at(-1);
+    const nextCursor =
+      capped && lastScanned?.destroyed_at
+        ? {
+            destroyedAt: new Date(lastScanned.destroyed_at).toISOString(),
+            id: lastScanned.id,
+          }
+        : null;
 
     type VolumeRow = {
       instance_id: string;
@@ -3935,6 +3967,7 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
         errors: [] as ScanErrorRow[],
         scanned: 0,
         capped: false,
+        nextCursor: null,
       };
     }
 
@@ -3990,6 +4023,19 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
           });
           continue;
         }
+        // The DO state could not be read, so a volume cannot be confirmed as
+        // an orphan. Surface it as an unscanned instance rather than silently
+        // dropping it from a results table that only shows confirmed orphans.
+        if (scan.doStatusError) {
+          errors.push({
+            instance_id: instance.id,
+            user_id: instance.user_id,
+            user_email: instance.user_email,
+            sandbox_id: instance.sandbox_id,
+            error: `Could not read Durable Object state: ${scan.doStatusError}`,
+          });
+          continue;
+        }
 
         // destroyed_at is non-null here (the WHERE clause guarantees it).
         const destroyedAt = instance.destroyed_at as string;
@@ -4007,7 +4053,6 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
         // sandbox sharing the app and must never be surfaced as reapable.
         for (const v of scan.volumes) {
           if (!v.nameMatchesInstance) continue;
-          if (v.state === 'destroyed') continue; // already gone — noise
 
           const classification = classifyOrphanVolume({
             volumeState: v.state,
@@ -4019,11 +4064,12 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
             destructionScheduled,
             graceElapsed,
           });
-          // Omit transient, self-healing rows: Fly is already reaping the
-          // volume, or the instance is still inside the grace period. Neither
-          // is actionable here and both resolve without admin intervention,
-          // so listing them is just noise.
-          if (classification === 'fly_reaping' || classification === 'within_grace') {
+          // Surface confirmed orphans ONLY. Every other classification —
+          // attached to a machine, live DO, active subscription, pending
+          // destruction, still in grace, Fly already reaping — is correctly
+          // not an orphan and is dropped rather than shown as a non-actionable
+          // row.
+          if (classification !== 'safe_destroy') {
             continue;
           }
 
@@ -4050,7 +4096,7 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
       }
     }
 
-    return { volumes, errors, scanned: toScan.length, capped };
+    return { volumes, errors, scanned: toScan.length, capped, nextCursor };
   }),
 
   destroyOrphanVolume: adminProcedure
