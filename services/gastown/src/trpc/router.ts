@@ -769,6 +769,21 @@ export const gastownRouter = router({
       return { deleted: count };
     }),
 
+  reopenBead: gastownProcedure
+    .input(
+      z.object({
+        rigId: z.string().uuid(),
+        beadId: z.string().uuid(),
+        townId: z.string().uuid().optional(),
+      })
+    )
+    .output(RpcBeadOutput)
+    .mutation(async ({ ctx, input }) => {
+      const rig = await verifyRigOwnership(ctx.env, ctx, input.rigId, input.townId);
+      const townStub = getTownDOStub(ctx.env, rig.town_id);
+      return townStub.reopenBead(input.beadId, ctx.userId);
+    }),
+
   // ── Agents ──────────────────────────────────────────────────────────
 
   listAgents: gastownProcedure
@@ -1809,6 +1824,14 @@ export const gastownRouter = router({
         message: 'Manually failed by admin',
         source: 'admin',
       });
+    }),
+
+  adminReopenBead: adminProcedure
+    .input(z.object({ townId: z.string().uuid(), beadId: z.string().uuid() }))
+    .output(RpcBeadOutput)
+    .mutation(async ({ ctx, input }) => {
+      const townStub = getTownDOStub(ctx.env, input.townId);
+      return townStub.reopenBead(input.beadId, 'admin');
     }),
 
   adminGetAlarmStatus: adminProcedure

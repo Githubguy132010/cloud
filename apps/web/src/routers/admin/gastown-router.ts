@@ -744,6 +744,17 @@ export const adminGastownRouter = createTRPCRouter({
       );
     }),
 
+  reopenBead: adminProcedure
+    .input(z.object({ townId: z.string().uuid(), beadId: z.string().uuid() }))
+    .mutation(async ({ input, ctx }) => {
+      await gastownTrpcMutate(
+        ctx.user,
+        'gastown.adminReopenBead',
+        { townId: input.townId, beadId: input.beadId },
+        BeadRecord
+      );
+    }),
+
   forceRestartContainer: adminProcedure
     .input(z.object({ townId: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
