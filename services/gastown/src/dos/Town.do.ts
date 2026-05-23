@@ -1400,6 +1400,31 @@ export class TownDO extends DurableObject<Env> {
     return beadOps.deleteBeadsByStatus(this.sql, status, type);
   }
 
+  async reopenBead(beadId: string, actorId: string): Promise<Bead> {
+    const bead = beadOps.reopenBead(this.sql, beadId, actorId);
+
+    this.emitEvent({
+      event: 'bead.status_changed',
+      townId: this.townId,
+      rigId: bead.rig_id ?? undefined,
+      beadId,
+      beadType: bead.type,
+      label: 'open',
+    });
+    this.broadcastBeadEvent({
+      type: 'bead.status_changed',
+      beadId,
+      title: bead.title,
+      status: 'open',
+      rigId: bead.rig_id ?? undefined,
+    });
+
+    // Dispatch any beads that were blocked on this one now that it's re-opened.
+    this.dispatchUnblockedBeads(beadId);
+
+    return bead;
+  }
+
   async listBeadEvents(options: {
     beadId?: string;
     since?: string;
