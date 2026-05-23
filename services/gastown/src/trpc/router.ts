@@ -909,6 +909,21 @@ export const gastownRouter = router({
       return townStub.startHeldBead(input.beadId, rig.id);
     }),
 
+  reopenBead: gastownProcedure
+    .input(
+      z.object({
+        rigId: z.string().uuid(),
+        beadId: z.string().uuid(),
+        townId: z.string().uuid().optional(),
+      })
+    )
+    .output(RpcBeadOutput)
+    .mutation(async ({ ctx, input }) => {
+      const rig = await verifyRigOwnership(ctx.env, ctx, input.rigId, input.townId);
+      const townStub = getTownDOStub(ctx.env, rig.town_id);
+      return townStub.reopenBead(input.beadId, rig.id);
+    }),
+
   enrichBead: gastownProcedure
     .input(
       z.object({

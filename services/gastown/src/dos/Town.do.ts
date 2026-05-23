@@ -2707,6 +2707,26 @@ export class TownDO extends DurableObject<Env> {
     return updated;
   }
 
+  /**
+   * Reopen a failed bead back to `open`, clearing failure metadata,
+   * resetting dispatch counters, and unassigning any agent.
+   * Arms the reconciler alarm so the reopened bead gets picked up.
+   *
+   * @param rigId - The rig the caller has verified ownership of. The bead must
+   *   belong to this rig to prevent cross-rig mutations within the same town.
+   */
+  async reopenBead(beadId: string, rigId: string): Promise<Bead> {
+    const bead = beadOps.getBead(this.sql, beadId);
+    if (!bead) throw new Error(`Bead ${beadId} not found`);
+    if (bead.rig_id !== rigId) {
+      throw new Error(`Bead ${beadId} does not belong to rig ${rigId}`);
+    }
+
+    const updated = beadOps.reopenBead(this.sql, beadId);
+    await this.escalateToActiveCadence();
+    return updated;
+  }
+
   /** Build the rig list for mayor agent startup (browse worktree setup on fresh containers). */
   private async rigListForMayor(): Promise<
     Array<{

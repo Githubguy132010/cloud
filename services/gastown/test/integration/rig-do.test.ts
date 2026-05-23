@@ -284,6 +284,55 @@ describe('TownDO', () => {
       expect(closedBeads).toHaveLength(1);
       expect(closedBeads[0].title).toBe('Closed bead');
     });
+
+    it('should reopen a failed bead', async () => {
+      const agent = await town.registerAgent({
+        role: 'polecat',
+        name: 'P1',
+        identity: `reopen-${townName}`,
+      });
+      const bead = await town.createBead({
+        type: 'issue',
+        title: 'Reopen test',
+        rig_id: 'test-rig',
+      });
+      await town.updateBeadStatus(bead.bead_id, 'failed', agent.id, {
+        code: 'test_failure',
+        message: 'Something went wrong',
+        source: 'test',
+      });
+
+      const failedBead = await town.getBeadAsync(bead.bead_id);
+      expect(failedBead?.status).toBe('failed');
+
+      const reopened = await town.reopenBead(bead.bead_id, 'test-rig');
+      expect(reopened.status).toBe('open');
+      expect(reopened.assignee_agent_bead_id).toBeNull();
+      expect(reopened.dispatch_attempts).toBe(0);
+      expect(reopened.last_dispatch_attempt_at).toBeNull();
+      expect(reopened.metadata?.failure_reason).toBeUndefined();
+
+      const events = await town.listBeadEvents({ beadId: bead.bead_id });
+      const reopenedEvent = events.find(e => e.event_type === 'reopened');
+      expect(reopenedEvent).toBeDefined();
+      expect(reopenedEvent?.old_value).toBe('failed');
+      expect(reopenedEvent?.new_value).toBe('open');
+    });
+
+    it('should reject reopening a non-failed bead', async () => {
+      const bead = await town.createBead({
+        type: 'issue',
+        title: 'Not failed',
+        rig_id: 'test-rig',
+      });
+
+      try {
+        await town.reopenBead(bead.bead_id, 'test-rig');
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect((err as Error).message).toContain('cannot be reopened');
+      }
+    });
   });
 
   // ── Mail ───────────────────────────────────────────────────────────────
