@@ -323,6 +323,62 @@ export function updateBeadStatus(
   return updated;
 }
 
+function clearFailureMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+  const cleaned = { ...metadata };
+  delete cleaned.failureReason;
+  delete cleaned.failureMessage;
+  delete cleaned.failure_reason;
+  delete cleaned.failure_message;
+  return cleaned;
+}
+
+export function reopenBead(sql: SqlStorage, beadId: string): Bead {
+  const bead = getBead(sql, beadId);
+  if (!bead) throw new Error(`Bead ${beadId} not found`);
+
+  if (bead.status !== 'failed') {
+    if (bead.status === 'closed') {
+      console.warn(
+        `[beads] reopenBead: blocked closed → open for bead=${beadId} — closed beads cannot be reopened`
+      );
+    }
+    return bead;
+  }
+
+  const timestamp = now();
+  const metadata = clearFailureMetadata(bead.metadata);
+
+  query(
+    sql,
+    /* sql */ `
+      UPDATE ${beads}
+      SET ${beads.columns.status} = 'open',
+          ${beads.columns.metadata} = ?,
+          ${beads.columns.dispatch_attempts} = 0,
+          ${beads.columns.last_dispatch_attempt_at} = NULL,
+          ${beads.columns.assignee_agent_bead_id} = NULL,
+          ${beads.columns.closed_at} = NULL,
+          ${beads.columns.updated_at} = ?
+      WHERE ${beads.bead_id} = ?
+    `,
+    [JSON.stringify(metadata), timestamp, beadId]
+  );
+
+  logBeadEvent(sql, {
+    beadId,
+    agentId: null,
+    eventType: 'reopened',
+    oldValue: 'failed',
+    newValue: 'open',
+  });
+
+  updateConvoyProgress(sql, beadId, timestamp);
+
+  const updated = getBead(sql, beadId);
+  if (!updated) throw new Error(`Bead ${beadId} not found after reopen`);
+  return updated;
+}
+
 /**
  * If beadId is tracked by a convoy (via bead_dependencies 'tracks'),
  * recount closed beads and update convoy_metadata. Auto-lands the

@@ -1369,6 +1369,31 @@ export class TownDO extends DurableObject<Env> {
     return this.updateBeadStatus(beadId, 'closed', agentId);
   }
 
+  async reopenBead(beadId: string): Promise<Bead> {
+    const existing = beadOps.getBead(this.sql, beadId);
+    const bead = beadOps.reopenBead(this.sql, beadId);
+
+    if (existing?.status === 'failed' && bead.status === 'open') {
+      this.emitEvent({
+        event: 'bead.status_changed',
+        townId: this.townId,
+        rigId: bead.rig_id ?? undefined,
+        beadId,
+        beadType: bead.type,
+        label: 'open',
+      });
+      this.broadcastBeadEvent({
+        type: 'bead.status_changed',
+        beadId,
+        title: bead.title,
+        status: 'open',
+        rigId: bead.rig_id ?? undefined,
+      });
+    }
+
+    return bead;
+  }
+
   async deleteBead(beadId: string, rigId?: string): Promise<boolean> {
     return beadOps.deleteBead(this.sql, beadId, rigId);
   }

@@ -20,6 +20,7 @@ export const BeadEventType = z.enum([
   'agent_status',
   'triage_resolved',
   'fields_updated',
+  'reopened',
   'review_queue_depth_alert',
   'escalation_rate_spike',
   'agent_restart_loop',
