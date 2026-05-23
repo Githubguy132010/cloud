@@ -834,6 +834,56 @@ export function closeBead(sql: SqlStorage, beadId: string, agentId: string): Bea
 }
 
 /**
+ * Reopen a failed bead, transitioning it back to 'open'.
+ * Clears failure metadata, resets dispatch tracking, and removes assignee.
+ */
+export function reopenBead(sql: SqlStorage, beadId: string, actorId: string): Bead {
+  const bead = getBead(sql, beadId);
+  if (!bead) throw new Error(`Bead ${beadId} not found`);
+
+  if (bead.status !== 'failed') {
+    throw new Error(
+      `Bead ${beadId} cannot be reopened: current status is '${bead.status}' (must be 'failed')`
+    );
+  }
+
+  const timestamp = now();
+
+  query(
+    sql,
+    /* sql */ `
+      UPDATE ${beads}
+      SET ${beads.columns.status} = 'open',
+          ${beads.columns.metadata} = json_remove(
+            COALESCE(${beads.metadata}, '{}'),
+            '$.failureReason',
+            '$.failureMessage'
+          ),
+          ${beads.columns.dispatch_attempts} = 0,
+          ${beads.columns.last_dispatch_attempt_at} = NULL,
+          ${beads.columns.assignee_agent_bead_id} = NULL,
+          ${beads.columns.closed_at} = NULL,
+          ${beads.columns.updated_at} = ?
+      WHERE ${beads.bead_id} = ?
+    `,
+    [timestamp, beadId]
+  );
+
+  logBeadEvent(sql, {
+    beadId,
+    agentId: actorId,
+    eventType: 'reopened',
+    oldValue: 'failed',
+    newValue: 'open',
+    metadata: { actor: actorId },
+  });
+
+  const updated = getBead(sql, beadId);
+  if (!updated) throw new Error(`Bead ${beadId} not found after reopen`);
+  return updated;
+}
+
+/**
  * Delete a bead (and its descendants). When `rigId` is supplied, the bead
  * must belong to that rig — otherwise the function returns without deleting.
  * This protects mutation endpoints that have only verified ownership of a
