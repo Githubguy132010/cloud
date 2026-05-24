@@ -833,6 +833,45 @@ export function closeBead(sql: SqlStorage, beadId: string, agentId: string): Bea
   return updateBeadStatus(sql, beadId, 'closed', agentId);
 }
 
+export function reopenBead(sql: SqlStorage, beadId: string): Bead {
+  const bead = getBead(sql, beadId);
+  if (!bead) throw new Error(`Bead ${beadId} not found`);
+
+  if (bead.status !== 'failed') {
+    throw new Error(`Only failed beads can be reopened (current status: ${bead.status})`);
+  }
+
+  const timestamp = now();
+
+  query(
+    sql,
+    /* sql */ `
+      UPDATE ${beads}
+      SET ${beads.columns.status} = ?,
+          ${beads.columns.dispatch_attempts} = ?,
+          ${beads.columns.last_dispatch_attempt_at} = ?,
+          ${beads.columns.assignee_agent_bead_id} = ?,
+          ${beads.columns.updated_at} = ?,
+          ${beads.columns.closed_at} = ?
+      WHERE ${beads.bead_id} = ?
+    `,
+    ['open', 0, null, null, timestamp, null, beadId]
+  );
+
+  logBeadEvent(sql, {
+    beadId,
+    agentId: null,
+    eventType: 'reopened',
+    oldValue: 'failed',
+    newValue: 'open',
+    metadata: {},
+  });
+
+  const updated = getBead(sql, beadId);
+  if (!updated) throw new Error(`Bead ${beadId} not found after update`);
+  return updated;
+}
+
 /**
  * Delete a bead (and its descendants). When `rigId` is supplied, the bead
  * must belong to that rig — otherwise the function returns without deleting.
