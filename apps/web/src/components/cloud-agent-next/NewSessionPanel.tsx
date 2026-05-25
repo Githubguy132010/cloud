@@ -79,6 +79,7 @@ import {
   CLOUD_AGENT_PROMPT_MAX_LENGTH,
 } from '@/lib/cloud-agent/constants';
 import {
+  appendCloudAgentNextLocalTestModel,
   getDevcontainerEnabled,
   getLastUsedModel,
   getLastUsedVariant,
@@ -147,11 +148,13 @@ export function NewSessionPanel({ organizationId, isDevcontainerAvailable }: New
 
   const modelOptions = useMemo<ModelOption[]>(
     () =>
-      allModels.map(model => ({
-        id: model.id,
-        name: model.name,
-        variants: model.opencode?.variants ? Object.keys(model.opencode.variants) : undefined,
-      })),
+      appendCloudAgentNextLocalTestModel(
+        allModels.map(model => ({
+          id: model.id,
+          name: model.name,
+          variants: model.opencode?.variants ? Object.keys(model.opencode.variants) : undefined,
+        }))
+      ),
     [allModels]
   );
 
