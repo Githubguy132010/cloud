@@ -11,6 +11,7 @@ import { parseDoltDate } from '@/lib/wasteland/date';
 import type { WantedItem, WantedPanelActions, WantedPanelLinks, WastelandDrawerRef } from './types';
 import { RigLink } from './CrossRefs';
 import { ClaimAction } from './WantedItemBranchTab';
+import { SendToTownAction } from './SendToTownAction';
 
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -152,6 +153,18 @@ export function WantedItemUpstreamTab({
           <ClaimAction wastelandId={wastelandId} item={item} />
           <p className="mt-1.5 text-[11px] text-white/40">
             Claiming creates your branch and submits the claim upstream for review.
+          </p>
+        </div>
+      )}
+
+      {actions && item.status === 'open' && (
+        <div className="border-t border-white/[0.06] pt-3">
+          <p className="mb-2 text-[10px] font-semibold tracking-[0.08em] text-white/30 uppercase">
+            Send to town
+          </p>
+          <SendToTownAction wastelandId={wastelandId} item={item} />
+          <p className="mt-1.5 text-[11px] text-white/40">
+            Send this wanted item to a connected town&apos;s mayor for action.
           </p>
         </div>
       )}
