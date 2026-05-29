@@ -16,6 +16,7 @@ declare namespace Cloudflare {
 		KILO_API_URL: "http://192.168.65.254:3000";
 		KILO_INTERNAL_API_URL: "http://localhost:3000";
 		WASTELAND_API_URL: "http://192.168.65.254:8787";
+		GASTOWN_API_URL: "http://192.168.65.254:8803";
 		WASTELAND: DurableObjectNamespace<import("./src/wasteland.worker").WastelandDO>;
 		WASTELAND_REGISTRY: DurableObjectNamespace<import("./src/wasteland.worker").WastelandRegistryDO>;
 	}
@@ -30,6 +31,7 @@ declare namespace Cloudflare {
 		KILO_API_URL: "http://192.168.65.254:3000" | "https://api.kilo.ai";
 		KILO_INTERNAL_API_URL: "http://localhost:3000" | "https://api.kilo.ai";
 		WASTELAND_API_URL: "http://192.168.65.254:8787" | "https://wasteland.kiloapps.io";
+		GASTOWN_API_URL: "http://192.168.65.254:8803" | "https://gastown.kiloapps.io";
 		WASTELAND: DurableObjectNamespace<import("./src/wasteland.worker").WastelandDO>;
 		WASTELAND_REGISTRY: DurableObjectNamespace<import("./src/wasteland.worker").WastelandRegistryDO>;
 		CF_VERSION_METADATA?: WorkerVersionMetadata;

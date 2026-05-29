@@ -22,6 +22,7 @@ import * as branchOps from '../branch-ops/branch-ops';
 import * as lifecycleOps from '../lifecycle-ops/lifecycle-ops';
 import * as doltApi from '../util/dolthub-api.util';
 import * as inbox from '../inbox/inbox-classifier';
+import { formatWantedItemMessage } from './send-to-town.util';
 import {
   RpcWastelandOutput,
   RpcWastelandMemberOutput,
@@ -1000,6 +1001,114 @@ export const wastelandRouter = router({
       await resolveWastelandOwnership(ctx.env, ctx, input.wastelandId);
       const stub = getWastelandDOStub(ctx.env, input.wastelandId);
       return stub.listConnectedTownsForUser(ctx.userId);
+    }),
+
+  sendWantedItemToTown: procedure
+    .input(
+      z.object({
+        wastelandId: z.string().uuid(),
+        itemId: z
+          .string()
+          .min(1)
+          .max(64)
+          .regex(/^[A-Za-z0-9_.:-]+$/, 'itemId must be 1-64 chars, letters/digits/_-.:'),
+        townId: z.string().uuid(),
+      })
+    )
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await resolveWastelandOwnership(ctx.env, ctx, input.wastelandId);
+
+      const stub = getWastelandDOStub(ctx.env, input.wastelandId);
+      const connectedTowns = await stub.listConnectedTownsForUser(ctx.userId);
+      const townExists = connectedTowns.some(t => t.town_id === input.townId);
+      if (!townExists) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Town is not connected to this wasteland',
+        });
+      }
+
+      const { token, upstream } = await loadAdminContext(ctx.env, input.wastelandId, ctx.userId);
+      let wantedItem: z.infer<typeof RpcWantedBoardRowOutput> | null = null;
+      try {
+        // `input.itemId` is Zod-validated against /^[A-Za-z0-9_.:-]+$/ and
+        // bounded at 64 chars, so the string CANNOT carry quotes, spaces,
+        // semicolons, comment markers, or any other injection vector.
+        const result = await doltApi.runUnsafeSql(
+          upstream,
+          token,
+          'main',
+          `SELECT id, title, description, project, type, priority, tags, posted_by, claimed_by, status, effort_level, evidence_url, sandbox_required, sandbox_scope, sandbox_min_tier, created_at, updated_at FROM wanted WHERE id = '${input.itemId}' LIMIT 1`
+        );
+        const rows = parseWantedBoardRows(result.rows ?? []);
+        wantedItem = rows[0] ?? null;
+      } catch (err) {
+        if (err instanceof doltApi.DoltHubApiError) {
+          throw new TRPCError({
+            code: err.status === 401 || err.status === 403 ? 'FORBIDDEN' : 'INTERNAL_SERVER_ERROR',
+            message: err.message,
+          });
+        }
+        throw err;
+      }
+
+      if (!wantedItem) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Wanted item not found',
+        });
+      }
+
+      const formattedMessage = formatWantedItemMessage({
+        itemId: input.itemId,
+        wastelandId: input.wastelandId,
+        title: wantedItem.title,
+        type: wantedItem.type,
+        priority: wantedItem.priority,
+        description: wantedItem.description,
+      });
+
+      const internalSecret = await resolveSecret(ctx.env.INTERNAL_API_SECRET);
+      if (!internalSecret) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Internal API secret not configured',
+        });
+      }
+
+      try {
+        const response = await fetch(
+          `${ctx.env.GASTOWN_API_URL}/api/internal/towns/${input.townId}/mayor/message`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Internal-Secret': internalSecret,
+            },
+            body: JSON.stringify({ message: formattedMessage }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Gastown API returned ${response.status}`);
+        }
+      } catch (err) {
+        console.error('[sendWantedItemToTown] Failed to queue message to town:', err);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to queue message to town',
+        });
+      }
+
+      meterEvent(ctx.env, {
+        event: 'billing.api_operation',
+        userId: ctx.userId,
+        wastelandId: input.wastelandId,
+        label: 'send_wanted_item_to_town',
+      });
+
+      return { success: true };
     }),
 
   // ── Wanted Board ──────────────────────────────────────────────────
