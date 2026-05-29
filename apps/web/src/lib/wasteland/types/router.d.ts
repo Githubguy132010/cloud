@@ -548,6 +548,17 @@ export declare const wastelandRouter: import('@trpc/server').TRPCBuiltRouter<
       };
       meta: object;
     }>;
+    sendWantedItemToTown: import('@trpc/server').TRPCMutationProcedure<{
+      input: {
+        wastelandId: string;
+        itemId: string;
+        townId: string;
+      };
+      output: {
+        success: boolean;
+      };
+      meta: object;
+    }>;
     mergeUpstreamPR: import('@trpc/server').TRPCMutationProcedure<{
       input: {
         wastelandId: string;
@@ -1434,6 +1445,17 @@ export declare const wrappedWastelandRouter: import('@trpc/server').TRPCBuiltRou
             wastelandId: string;
             itemId: string;
             direct?: boolean | undefined;
+          };
+          output: {
+            success: boolean;
+          };
+          meta: object;
+        }>;
+        sendWantedItemToTown: import('@trpc/server').TRPCMutationProcedure<{
+          input: {
+            wastelandId: string;
+            itemId: string;
+            townId: string;
           };
           output: {
             success: boolean;
