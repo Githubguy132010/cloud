@@ -38,11 +38,7 @@ export function SendToTownAction({ wastelandId, item }: { wastelandId: string; i
   }
 
   if (sentToTown) {
-    return (
-      <p className="text-xs text-emerald-400">
-        Sent to {sentToTown}
-      </p>
-    );
+    return <p className="text-xs text-emerald-400">Sent to {sentToTown}</p>;
   }
 
   if (!isExpanded) {
@@ -62,9 +58,7 @@ export function SendToTownAction({ wastelandId, item }: { wastelandId: string; i
     const town = towns[0];
     return (
       <div className="flex flex-col gap-2 rounded-md border border-sky-500/20 bg-sky-500/[0.04] p-3">
-        <p className="text-xs leading-relaxed text-white/70">
-          Send this item to {town.town_id}?
-        </p>
+        <p className="text-xs leading-relaxed text-white/70">Send this item to {town.town_id}?</p>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -96,9 +90,7 @@ export function SendToTownAction({ wastelandId, item }: { wastelandId: string; i
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-sky-500/20 bg-sky-500/[0.04] p-3">
-      <p className="text-xs leading-relaxed text-white/70">
-        Select a town to send this item to:
-      </p>
+      <p className="text-xs leading-relaxed text-white/70">Select a town to send this item to:</p>
       <select
         value={selectedTownId ?? ''}
         onChange={e => setSelectedTownId(e.target.value)}
