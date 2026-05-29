@@ -20,7 +20,9 @@ describe('formatWantedItemMessage', () => {
     expect(message).toContain('Wasteland ID: 550e8400-e29b-41d4-a716-446655440000');
     expect(message).toContain('The system crashes on startup');
     expect(message).toContain('gt_wasteland_claim with item_id: w-abc123');
-    expect(message).toContain('wasteland_origin metadata tag set to "550e8400-e29b-41d4-a716-446655440000"');
+    expect(message).toContain(
+      'wasteland_origin metadata tag set to "550e8400-e29b-41d4-a716-446655440000"'
+    );
   });
 
   it('uses N/A for missing type and priority', () => {
