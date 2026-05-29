@@ -893,6 +893,22 @@ app.post('/api/towns/:townId/container-events', async c => {
   return c.json({ success: true });
 });
 
+// ── Internal Service-to-Service ─────────────────────────────────────────
+// Endpoints for internal service communication (e.g., wasteland → gastown).
+// Protected by X-Internal-Secret header, not kiloAuthMiddleware.
+// Must be registered before the kiloAuthMiddleware wildcard below.
+
+app.post('/api/internal/towns/:townId/mayor/message', async c => {
+  const secret = c.req.header('X-Internal-Secret');
+  const expected = await c.env.INTERNAL_API_SECRET.get();
+  if (!secret || !expected || secret !== expected) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  return instrumented(c, 'POST /api/internal/towns/:townId/mayor/message', () =>
+    handleSendMayorMessage(c, c.req.param())
+  );
+});
+
 // ── Kilo User Auth ──────────────────────────────────────────────────────
 // Validate Kilo user JWT (signed with NEXTAUTH_SECRET) for dashboard/user
 // routes. Container→worker routes use the agent JWT middleware instead

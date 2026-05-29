@@ -22,6 +22,7 @@ import * as branchOps from '../branch-ops/branch-ops';
 import * as lifecycleOps from '../lifecycle-ops/lifecycle-ops';
 import * as doltApi from '../util/dolthub-api.util';
 import * as inbox from '../inbox/inbox-classifier';
+import { formatWantedItemMessage } from './send-to-town.util';
 import {
   RpcWastelandOutput,
   RpcWastelandMemberOutput,
@@ -1031,6 +1032,9 @@ export const wastelandRouter = router({
       const { token, upstream } = await loadAdminContext(ctx.env, input.wastelandId, ctx.userId);
       let wantedItem: z.infer<typeof RpcWantedBoardRowOutput> | null = null;
       try {
+        // `input.itemId` is Zod-validated against /^[A-Za-z0-9_.:-]+$/ and
+        // bounded at 64 chars, so the string CANNOT carry quotes, spaces,
+        // semicolons, comment markers, or any other injection vector.
         const result = await doltApi.runUnsafeSql(
           upstream,
           token,
@@ -1056,21 +1060,14 @@ export const wastelandRouter = router({
         });
       }
 
-      const formattedMessage = `Subject: Wasteland wanted item: ${wantedItem.title}
-
-You have received a wanted item from the wasteland board.
-
-Title: ${wantedItem.title}
-Type: ${wantedItem.type ?? 'N/A'}
-Priority: ${wantedItem.priority ?? 'N/A'}
-Item ID: ${input.itemId}
-Wasteland ID: ${input.wastelandId}
-Wasteland Origin: ${input.wastelandId}
-
-Description:
-${wantedItem.description ?? 'No description provided'}
-
-To claim and begin work, use gt_wasteland_claim with item_id: ${input.itemId}, then sling the appropriate beads with the wasteland_origin metadata tag set to "${input.wastelandId}".`;
+      const formattedMessage = formatWantedItemMessage({
+        itemId: input.itemId,
+        wastelandId: input.wastelandId,
+        title: wantedItem.title,
+        type: wantedItem.type,
+        priority: wantedItem.priority,
+        description: wantedItem.description,
+      });
 
       const internalSecret = await resolveSecret(ctx.env.INTERNAL_API_SECRET);
       if (!internalSecret) {
@@ -1082,7 +1079,7 @@ To claim and begin work, use gt_wasteland_claim with item_id: ${input.itemId}, t
 
       try {
         const response = await fetch(
-          `${ctx.env.GASTOWN_API_URL}/api/towns/${input.townId}/mayor/message`,
+          `${ctx.env.GASTOWN_API_URL}/api/internal/towns/${input.townId}/mayor/message`,
           {
             method: 'POST',
             headers: {
