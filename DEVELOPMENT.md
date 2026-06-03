@@ -226,7 +226,6 @@ All tests should pass against the local PostgreSQL database.
 ## Git Workflow
 
 - Direct commits to `main` are blocked by a git hook. Always work on a feature branch.
-- The pre-push hook runs `pnpm format:check`, `lint`, and `typecheck --changes-only` in parallel.
 
 ## Stripe Webhook Testing
 
@@ -393,6 +392,19 @@ BACKEND_AUTH_TOKEN=your-backend-auth-token
 The `@url` annotation accepts multiple comma-separated services (e.g., `# @url svc-a,svc-b`) and appends path suffixes (e.g., `# @url nextjs/api/events`).
 
 Run `pnpm dev:env` again after pulling changes that add new env vars to any `.dev.vars.example`.
+
+### RSA environment keypair generation
+
+Generate a dedicated RSA keypair when one runtime encrypts environment-backed secrets and another runtime decrypts them:
+
+```bash
+pnpm exec tsx dev/generate-rsa-env-keypair.ts -- \
+  --out-dir <secure-output-dir> \
+  --public-env <PUBLIC_KEY_ENV> \
+  --private-env <PRIVATE_KEY_ENV>
+```
+
+The command requires a new output directory outside the repository, then writes restricted PKCS#8 private-key, SPKI public-key, and base64 env-assignment files without overwriting existing output. Store `private.pem` and `private.env` in an approved secrets manager and never commit them. Generate a separate keypair for each encryption domain; do not reuse deployment, agent-profile, or GitHub user-token keypairs.
 
 ### Local Grafana (reads prod Analytics Engine)
 

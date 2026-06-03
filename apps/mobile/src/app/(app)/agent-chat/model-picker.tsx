@@ -1,10 +1,16 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Check, Search } from 'lucide-react-native';
+import { BrainCircuit, Check, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import {
+  FREE_MODEL_DATA_LABEL,
+  FREE_MODEL_FREE_LABEL,
+  getFreeModelDataAccessibilityLabel,
+  isFreeModelOption,
+} from '@/lib/free-model-data-disclosure';
 import { useThemeColors } from '@/lib/hooks/use-theme-colors';
 import { type ModelOption, thinkingEffortLabel } from '@/lib/hooks/use-available-models';
 import { clearModelPickerBridge, getModelPickerBridge } from '@/lib/picker-bridge';
@@ -217,6 +223,8 @@ export default function ModelPickerScreen() {
 
           const modelOption = item.model;
           const selected = modelOption.id === selectedModel;
+          const free = isFreeModelOption(modelOption);
+          const collectsData = isFreeModelOption(modelOption);
           const hasVariants = modelOption.variants.length > 1;
 
           return (
@@ -227,11 +235,30 @@ export default function ModelPickerScreen() {
                   handleSelectModel(modelOption.id);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${modelOption.name}${selected ? ', selected' : ''}`}
+                accessibilityLabel={`${collectsData ? getFreeModelDataAccessibilityLabel(modelOption.name) : modelOption.name}${selected ? ', selected' : ''}`}
               >
                 <View className="flex-1">
                   <Text className="text-base text-foreground">{modelOption.name}</Text>
                   <Text className="text-xs text-muted-foreground">{modelOption.id}</Text>
+                  {free ? (
+                    <View className="mt-1 flex-row items-center gap-1 self-start">
+                      <View
+                        className="rounded-full px-2 py-0.5"
+                        style={{ backgroundColor: colors.good }}
+                      >
+                        <Text className="text-[11px] font-medium text-white" numberOfLines={1}>
+                          {FREE_MODEL_FREE_LABEL}
+                        </Text>
+                      </View>
+                      {collectsData ? (
+                        <BrainCircuit
+                          accessibilityLabel={FREE_MODEL_DATA_LABEL}
+                          size={13}
+                          color={colors.warn}
+                        />
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
                 {selected && <Check size={18} color={colors.primary} />}
               </Pressable>

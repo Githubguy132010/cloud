@@ -48,12 +48,86 @@ export type KiloExclusiveModel = {
   inference_provider_restriction: ReadonlyArray<OpenRouterInferenceProviderId>;
 };
 
+type TokenLimitMutation = 'removed' | 'clamped';
+
+function logMaxTokenMutation(
+  requestToMutate: GatewayRequest,
+  kiloExclusiveModel: KiloExclusiveModel,
+  field: 'max_completion_tokens' | 'max_tokens' | 'max_output_tokens',
+  requestedValue: number,
+  mutation: TokenLimitMutation
+) {
+  console.warn('[removeNonSensicalMaxTokens] mutated request with token limit above model cap', {
+    model: kiloExclusiveModel.public_id,
+    requestKind: requestToMutate.kind,
+    field,
+    requestedValue,
+    modelMaxCompletionTokens: kiloExclusiveModel.max_completion_tokens,
+    mutation,
+  });
+}
+
+function removeNonSensicalMaxTokens(
+  requestToMutate: GatewayRequest,
+  kiloExclusiveModel: KiloExclusiveModel
+) {
+  // OpenClaw sometimes puts numbers in that are too large and some providers will reject the request.
+  if (requestToMutate.kind === 'chat_completions') {
+    const maxCompletionTokens = requestToMutate.body.max_completion_tokens;
+    if (
+      maxCompletionTokens !== undefined &&
+      maxCompletionTokens !== null &&
+      maxCompletionTokens > kiloExclusiveModel.max_completion_tokens
+    ) {
+      logMaxTokenMutation(
+        requestToMutate,
+        kiloExclusiveModel,
+        'max_completion_tokens',
+        maxCompletionTokens,
+        'removed'
+      );
+      delete requestToMutate.body.max_completion_tokens;
+    }
+
+    const maxTokens = requestToMutate.body.max_tokens;
+    if (maxTokens !== undefined && maxTokens > kiloExclusiveModel.max_completion_tokens) {
+      logMaxTokenMutation(requestToMutate, kiloExclusiveModel, 'max_tokens', maxTokens, 'removed');
+      delete requestToMutate.body.max_tokens;
+    }
+  }
+  if (requestToMutate.kind === 'responses') {
+    const maxOutputTokens = requestToMutate.body.max_output_tokens;
+    if (
+      maxOutputTokens !== undefined &&
+      maxOutputTokens !== null &&
+      maxOutputTokens > kiloExclusiveModel.max_completion_tokens
+    ) {
+      logMaxTokenMutation(
+        requestToMutate,
+        kiloExclusiveModel,
+        'max_output_tokens',
+        maxOutputTokens,
+        'removed'
+      );
+      delete requestToMutate.body.max_output_tokens;
+    }
+  }
+  if (requestToMutate.kind === 'messages') {
+    const maxTokens = requestToMutate.body.max_tokens;
+    if (maxTokens !== undefined && maxTokens > kiloExclusiveModel.max_completion_tokens) {
+      logMaxTokenMutation(requestToMutate, kiloExclusiveModel, 'max_tokens', maxTokens, 'clamped');
+      requestToMutate.body.max_tokens = kiloExclusiveModel.max_completion_tokens;
+    }
+  }
+}
+
 /** Rewrites a gateway request to target a Kilo-exclusive model. */
 export function applyKiloExclusiveModelSettings(
   requestToMutate: GatewayRequest,
   kiloExclusiveModel: KiloExclusiveModel
 ) {
   requestToMutate.body.model = kiloExclusiveModel.internal_id;
+  removeNonSensicalMaxTokens(requestToMutate, kiloExclusiveModel);
   const restriction = kiloExclusiveModel.inference_provider_restriction;
   if (restriction.length === 0) {
     return;
