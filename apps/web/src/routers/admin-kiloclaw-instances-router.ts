@@ -929,6 +929,51 @@ export const adminKiloclawInstancesRouter = createTRPCRouter({
       return client.getRegistryEntries(input.userId, input.orgId ?? undefined);
     }),
 
+  // Admin break-glass: release a STUCK provision reservation (status
+  // in_progress / failed_requires_reconciliation) so the user can provision
+  // again. This is an operator action — the admin asserts (via the UI confirm
+  // dialog) that they have verified the attempt is dead and any provider
+  // resources are cleaned up. The worker mutates only the registry bookkeeping
+  // row (no provider/Postgres changes) and refuses reservations backing an
+  // active instance or in a non-releasable state.
+  releaseReservation: adminProcedure
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        instanceId: z.string().uuid(),
+        orgId: z.string().uuid().optional(),
+        // Caller (the break-glass confirmation dialog) must supply this; enforced
+        // at the API boundary, not auto-inserted by the client.
+        acknowledgeCleanupVerified: z.literal(true),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const client = new KiloClawInternalClient();
+      const result = await client.releaseProvisionReservation(
+        input.userId,
+        input.instanceId,
+        input.orgId,
+        input.acknowledgeCleanupVerified
+      );
+      await createKiloClawAdminAuditLog({
+        action: 'kiloclaw.provision_reservation.release',
+        actor_id: ctx.user.id,
+        actor_email: ctx.user.google_user_email,
+        actor_name: ctx.user.google_user_name,
+        target_user_id: input.userId,
+        message:
+          `Break-glass released stuck provision reservation ${input.instanceId} ` +
+          `(was ${result.previousStatus}); operator asserted provider cleanup verified`,
+        metadata: {
+          instanceId: input.instanceId,
+          orgId: input.orgId ?? null,
+          previousStatus: result.previousStatus,
+          acknowledgeCleanupVerified: true,
+        },
+      });
+      return result;
+    }),
+
   list: adminProcedure.input(ListInstancesSchema).query(async ({ input }) => {
     const { offset, limit, sortBy, sortOrder, search, status, imageTag, hasSizeOverride } = input;
     const searchTerm = search?.trim() || '';
