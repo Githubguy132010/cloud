@@ -327,6 +327,7 @@ function createIngestChunker(
   const { r2Key, kiloUserId, sessionId, ingestVersion, ingestedAt } = msg;
   const encoder = new TextEncoder();
   const chunk: SessionDataItem[] = [];
+  const chunkItemIds = new Set<string>();
   let chunkR2References: Record<string, string> = {};
   let chunkBytes = 0;
 
@@ -334,6 +335,7 @@ function createIngestChunker(
     if (chunk.length === 0) return;
     const items = chunk.splice(0);
     const r2References = Object.keys(chunkR2References).length > 0 ? chunkR2References : undefined;
+    chunkItemIds.clear();
     chunkR2References = {};
     chunkBytes = 0;
 
@@ -364,6 +366,10 @@ function createIngestChunker(
     const itemDataJson = JSON.stringify(item.data);
     const itemDataBytes = encoder.encode(itemDataJson).byteLength;
 
+    if (chunkItemIds.has(item_id)) {
+      await flushChunkToSessionDO();
+    }
+
     // Offload data above the DO SQLite row limit to R2; the DO stores a
     // reference and an empty inline blob. Send only identity fields over RPC so
     // a single oversized item cannot exceed Cloudflare's RPC payload limit.
@@ -379,6 +385,7 @@ function createIngestChunker(
     }
 
     chunk.push(itemForRpc);
+    chunkItemIds.add(item_id);
     chunkBytes += itemForRpcDataBytes;
     if (chunk.length >= INGEST_CHUNK_MAX_ITEMS || chunkBytes >= INGEST_CHUNK_MAX_BYTES) {
       await flushChunkToSessionDO();
